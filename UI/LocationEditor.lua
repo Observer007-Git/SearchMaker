@@ -39,8 +39,7 @@ end
 -- 调用 onSave 回调，由 App:SaveLocation 处理。
 function Editor:Save()
     local frame = self.frame
-    local mapID = frame.mode == "edit" and frame.entry and frame.entry.mapID
-        or SMK.State.currentMapID or SMK.Map:GetContextMapID()
+    local mapID = frame.mapID
     local lockedCoordinates = frame.mode == "edit" and frame.entry
     local values = {
         mapID = mapID,
@@ -85,8 +84,7 @@ end
 function Editor:FillCoordinates()
     local frame = self.frame
     if frame.mode == "edit" then return end
-    local mapID = frame.mode == "edit" and frame.entry and frame.entry.mapID
-        or SMK.State.currentMapID or SMK.Map:GetContextMapID()
+    local mapID = frame.mapID
     local x, y = SMK.Map:GetPlayerCoordinates(mapID)
     if not x or not y then
         return self:SetError(SMK.L.ERROR_COORDS_READ_FAILED)
@@ -294,7 +292,9 @@ function Editor:Open(mode, entry)
     local frame = self.frame
     frame.mode, frame.entry = mode, entry
     frame.title:SetText(mode == "edit" and SMK.L.EDIT_TITLE or SMK.L.ADD_TITLE)
-    local mapID = mode == "edit" and entry.mapID or SMK.State.currentMapID or SMK.Map:GetContextMapID()
+    local mapID = entry and tonumber(entry.mapID)
+        or SMK.State.currentMapID or SMK.Map:GetContextMapID()
+    frame.mapID = mapID
     frame.mapName:SetText(mapID and string.format(SMK.L.MAP_FORMAT, SMK.Map:GetMapName(mapID), mapID) or SMK.L.UNKNOWN_MAP)
     self.inputs.name:SetText(entry and entry.name or "")
     self.inputs.x:SetText(entry and tostring(entry.x) or "")

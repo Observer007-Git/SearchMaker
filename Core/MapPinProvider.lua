@@ -58,6 +58,7 @@ local function CreatePinPool(map, pinMixin)
     pool.parent = map:GetCanvas()
     pool.createFunc = function()
         local pin = CreateFrame("Frame", nil, map:GetCanvas())
+        pin.isSearchMakerMapPin = true
         pin:EnableMouse(true)
         pin:SetScript("OnEnter", function(owner)
             local entry = owner.entry
@@ -123,6 +124,17 @@ end
 
 function MapPins:IsAvailable()
     return self.available == true
+end
+
+function MapPins:ContainsMouseFocus(foci)
+    for _, focus in ipairs(foci or {}) do
+        local frame = focus
+        while frame do
+            if frame.isSearchMakerMapPin then return true end
+            frame = frame.GetParent and frame:GetParent() or nil
+        end
+    end
+    return false
 end
 
 function MapPins:Refresh()

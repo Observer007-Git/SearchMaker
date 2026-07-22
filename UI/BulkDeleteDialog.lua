@@ -3,6 +3,17 @@ local _, SMK = ...
 local Dialog = {}
 local Config = SMK.Config
 local Util = SMK.Util
+local POPUP_ID = "SEARCHMAKER_BULK_DELETE"
+
+function Dialog:HideConfirmation()
+    if self.popup and self.popup:IsShown() then StaticPopup_Hide(POPUP_ID) end
+    self.popup = nil
+end
+
+function Dialog:ContainsMouseFocus(foci)
+    return self.popup and self.popup:IsShown()
+        and DoesAncestryIncludeAny(self.popup, foci) or false
+end
 
 --- 更新状态消息。
 -- @param message string|nil
@@ -40,8 +51,9 @@ function Dialog:RequestDelete(mode)
     if #matches == 0 then
         return self:SetStatus(SMK.L.NO_LOCATIONS_TO_DELETE, true)
     end
-    local popup = StaticPopup_Show("SEARCHMAKER_BULK_DELETE", description, #matches)
+    local popup = StaticPopup_Show(POPUP_ID, description, #matches)
     if popup then
+        self.popup = popup
         popup.data = { entries = matches, description = description, owner = self }
         popup:SetFrameStrata(self.frame:GetFrameStrata())
         popup:SetFrameLevel(self.frame:GetFrameLevel() + 10)
@@ -115,12 +127,13 @@ function Dialog:Create(parent)
     self.status:SetPoint("BOTTOMRIGHT", -24, 18)
     self.status:SetJustifyH("CENTER")
     frame:SetScript("OnHide", function()
+        self:HideConfirmation()
         self.mapInput:ClearFocus()
         self:SetStatus()
     end)
     frame:Hide()
 
-    StaticPopupDialogs.SEARCHMAKER_BULK_DELETE = {
+    StaticPopupDialogs[POPUP_ID] = {
         text = SMK.L.CONFIRM_DELETE_FORMAT,
         button1 = SMK.L.CONFIRM_DELETE_ACTION,
         button2 = CANCEL,
@@ -128,6 +141,7 @@ function Dialog:Create(parent)
             local deleted = SMK.Store:DeleteMany(data and data.entries or {})
             if deleted > 0 then
                 SMK:Print(string.format(SMK.L.BULK_DELETE_SUCCESS, data.description, deleted))
+                data.owner.popup = nil
                 data.owner.frame:Hide()
             end
         end,
@@ -147,6 +161,7 @@ function Dialog:Open()
 end
 
 function Dialog:Hide()
+    self:HideConfirmation()
     if self.frame then self.frame:Hide() end
 end
 

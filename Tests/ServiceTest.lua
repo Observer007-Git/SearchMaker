@@ -6,6 +6,12 @@ function strlenutf8(text)
     local _, count = tostring(text):gsub("[^\128-\193]", "")
     return count
 end
+function DoesAncestryIncludeAny(frame, foci)
+    for _, focus in ipairs(foci or {}) do
+        if focus == frame then return true end
+    end
+    return false
+end
 
 C_AddOns = { GetAddOnMetadata = function(_, key) return key == "Version" and "test" or nil end }
 DEFAULT_CHAT_FRAME = { AddMessage = function() end }
@@ -44,10 +50,26 @@ for _, path in ipairs({
     "Core/PinTextures.lua", "Core/LocationModel.lua", "Core/Database.lua", "Core/SettingsService.lua",
     "Core/LocationStore.lua", "Core/MapService.lua",
     "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/ImportService.lua", "Core/MapPinProvider.lua",
-    "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua",
+    "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua", "UI/ModalManager.lua", "UI/BulkDeleteDialog.lua",
 }) do
     loadModule(SMK, path)
 end
+
+local popupHiddenID, dialogHidden
+local popup = { IsShown = function() return true end }
+SMK.BulkDeleteDialog.popup = popup
+SMK.BulkDeleteDialog.frame = {
+    IsShown = function() return false end,
+    Hide = function() dialogHidden = true end,
+}
+SMK.ModalManager:Register(SMK.BulkDeleteDialog)
+assert(SMK.ModalManager:ContainsMouseFocus({ popup }),
+    "bulk delete confirmation was not treated as modal content")
+StaticPopup_Hide = function(id) popupHiddenID = id end
+SMK.BulkDeleteDialog:Hide()
+assert(popupHiddenID == "SEARCHMAKER_BULK_DELETE" and dialogHidden
+    and SMK.BulkDeleteDialog.popup == nil,
+    "bulk delete confirmation was not closed with its dialog")
 
 local scheduledRefresh
 local refreshCount, refreshFlags = 0
@@ -285,6 +307,8 @@ assert(#fakeMap.pins == 1, "enabled map pin was not acquired")
 assert(fakeMap.pins[1].icon.atlas == SMK.PinTextureByID[5].atlas, "selected pin texture was ignored")
 assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown,
     "enabled map pin name was not rendered")
+assert(SMK.MapPins:ContainsMouseFocus({ fakeMap.pins[1] }),
+    "map pin focus was not identified")
 fakeMap.pins[1].scripts.OnEnter(fakeMap.pins[1])
 assert(GameTooltip.title == "旧地点" and GameTooltip.lines[1]:find("12.34", 1, true),
     "map pin tooltip did not include its name and coordinates")

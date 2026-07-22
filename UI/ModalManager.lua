@@ -31,6 +31,7 @@ function ModalManager:ContainsMouseFocus(foci)
     for _, item in ipairs(self.dialogs) do
         local frame = item.dialog.frame
         if frame and frame:IsShown() and DoesAncestryIncludeAny(frame, foci) then return true end
+        if item.dialog.ContainsMouseFocus and item.dialog:ContainsMouseFocus(foci) then return true end
     end
     return false
 end

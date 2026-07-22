@@ -7,6 +7,7 @@ local function IsCursorOverCanvas()
     if not container then return false end
     local foci = GetMouseFoci and GetMouseFoci() or nil
     if foci and DoesAncestryIncludeAny then
+        if SMK.MapPins:ContainsMouseFocus(foci) then return false end
         return DoesAncestryIncludeAny(container, foci)
     end
     return container:IsMouseOver()

@@ -34,6 +34,12 @@ function Editor:SelectCategory(categoryKey)
     self:UpdateCategory()
 end
 
+function Editor:SelectPinTexture(textureID)
+    if not SMK.PinTextureByID[textureID] then return end
+    self.pinTextureID = textureID
+    self:UpdatePinTexturePanel()
+end
+
 --- 验证输入并保存地点。
 -- 检查：mapID、坐标（0-100）、名称（非空，≤ maxNameLength）、重复。
 -- 调用 onSave 回调，由 App:SaveLocation 处理。
@@ -98,7 +104,7 @@ function Editor:Create(parent, callbacks)
     self.callbacks = callbacks or {}
     local frame = CreateFrame("Frame", SMK.name .. "LocationForm", parent, "BackdropTemplate")
     self.frame = frame
-    frame:SetSize(216, 370)
+    frame:SetSize(216, 470)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:SetFrameLevel(500)
@@ -211,55 +217,59 @@ function Editor:Create(parent, callbacks)
     pinCheckLabel:SetPoint("LEFT", self.pinCheck, "RIGHT", 4, 0)
     pinCheckLabel:SetText(SMK.L.SHOW_MAP_PINS)
     pinCheckLabel:SetTextColor(unpack(Config.colors.gold))
-    -- 标记材质下拉框
+    -- 标记材质单选面板
     local pinTexLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     pinTexLabel:SetPoint("LEFT", frame, "TOPLEFT", 18, -265)
     pinTexLabel:SetTextColor(unpack(Config.colors.gold))
     pinTexLabel:SetText(SMK.L.PIN_TEXTURE_LABEL)
-    self.pinDropdown = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
-    self.pinDropdown:SetSize(120, 24)
-    self.pinDropdown:SetPoint("LEFT", pinTexLabel, "RIGHT", 8, 0)
-    self.pinDropdown:SetDefaultText("")
-    self.pinDropdown.Text:SetText("")
-    local pinTexIcon = self.pinDropdown:CreateTexture(nil, "OVERLAY")
-    pinTexIcon:SetSize(20, 20)
-    pinTexIcon:SetPoint("LEFT", self.pinDropdown, "LEFT", 4, 0)
-    self.pinDropdown.pinTexIcon = pinTexIcon
-    local function UpdatePinDropdown()
+    self.pinTexturePanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    self.pinTexturePanel:SetSize(180, 136)
+    self.pinTexturePanel:SetPoint("TOP", frame, "TOP", 0, -280)
+    self.pinTexturePanel:SetBackdrop(Config.resultBackdrop)
+    self.pinTexturePanel:SetBackdropColor(0.04, 0.03, 0.02, 0.7)
+    self.pinTexturePanel:SetBackdropBorderColor(unpack(Config.colors.panelBorder))
+    self.pinTextureButtons = {}
+    for index, texture in ipairs(SMK.PinTextures) do
+        local button = CreateFrame("Button", nil, self.pinTexturePanel)
+        button:SetSize(28, 28)
+        local column = (index - 1) % 5
+        local row = math.floor((index - 1) / 5)
+        button:SetPoint("TOPLEFT", 8 + column * 34, -7 - row * 31)
+        button.textureID = texture.id
+        button.atlas = texture.atlas
+        button.selection = button:CreateTexture(nil, "BACKGROUND")
+        button.selection:SetAllPoints(button)
+        button.selection:SetColorTexture(unpack(Config.colors.gold))
+        button.selection:SetAlpha(0.45)
+        button.icon = button:CreateTexture(nil, "ARTWORK")
+        button.icon:SetPoint("TOPLEFT", 3, -3)
+        button.icon:SetPoint("BOTTOMRIGHT", -3, 3)
+        button.icon:SetAtlas(button.atlas, false)
+        button.highlight = button:CreateTexture(nil, "HIGHLIGHT")
+        button.highlight:SetAllPoints(button)
+        button.highlight:SetColorTexture(1, 1, 1, 0.2)
+        button:SetScript("OnClick", function() self:SelectPinTexture(button.textureID) end)
+        button:SetScript("OnEnter", function()
+            GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+            GameTooltip:SetText(button.atlas)
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", GameTooltip_Hide)
+        self.pinTextureButtons[#self.pinTextureButtons + 1] = button
+    end
+    local function UpdatePinTexturePanel()
         local checked = self.pinCheck:GetChecked()
-        local tex = checked and SMK.PinTextureByID[self.pinTextureID or 1]
         pinTexLabel:SetTextColor(unpack(checked and Config.colors.gold or Config.colors.disabled))
-        self.pinDropdown:SetEnabled(checked)
-        if tex then
-            pinTexIcon:SetAtlas(tex.atlas, true)
-        else
-            pinTexIcon:SetTexture()
+        for _, button in ipairs(self.pinTextureButtons) do
+            button:SetEnabled(checked)
+            button.icon:SetDesaturated(not checked)
+            button.icon:SetAlpha(checked and 1 or 0.45)
+            button.selection:SetShown(button.textureID == tonumber(self.pinTextureID or 1))
         end
     end
-    self.UpdatePinDropdown = UpdatePinDropdown
+    self.UpdatePinTexturePanel = UpdatePinTexturePanel
     self.pinCheck:SetScript("OnClick", function()
-        self:UpdatePinDropdown()
-    end)
-    self.pinDropdown:SetupMenu(function(_, root)
-        local checked = self.pinCheck:GetChecked()
-        if not checked then return end
-        for _, tex in ipairs(SMK.PinTextures) do
-            local radio = root:CreateRadio(tostring(tex.id),
-                function(value) return value == tonumber(self.pinTextureID or 1) end,
-                function(value)
-                    self.pinTextureID = value
-                    local newTex = SMK.PinTextureByID[value]
-                    if newTex then pinTexIcon:SetAtlas(newTex.atlas, true) end
-                end,
-                tex.id)
-            radio:AddInitializer(function(button)
-                button.fontString:SetText("")
-                local icon = button:AttachTexture()
-                icon:SetSize(20, 20)
-                icon:SetAtlas(tex.atlas, true)
-                icon:SetPoint("LEFT", button.leftTexture1, "RIGHT", 2, 0)
-            end)
-        end
+        self:UpdatePinTexturePanel()
     end)
     
     local save = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
@@ -314,7 +324,7 @@ function Editor:Open(mode, entry)
     self.pinCheck:SetChecked(entry and entry.showPin == 1 or false)
     self.pinTextureID = entry and tonumber(entry.pinTextureID) or 1
     if not SMK.PinTextureByID[self.pinTextureID] then self.pinTextureID = 1 end
-    self:UpdatePinDropdown()
+    self:UpdatePinTexturePanel()
     self:SetError()
     frame:Show()
     self.inputs.name:SetFocus()

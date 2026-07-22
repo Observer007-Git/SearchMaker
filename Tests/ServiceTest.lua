@@ -55,6 +55,17 @@ for _, path in ipairs({
     loadModule(SMK, path)
 end
 
+assert(#SMK.PinTextures == 19, "pin texture atlas list is incomplete")
+local expectedPinAtlases = {
+    "VignetteEvent-SuperTracked", "ElementalStorm-Lesser-Fire", "MonsterEnemy", "MonsterFriend",
+    "PlayerPartyBlip", "vignettekillboss-SuperTracked", "poi-traveldirections-arrow2", "poi-door-up",
+    "poi-door-down", "poi-door-left", "poi-door-right", "CrossedFlags",
+    "Professions_Tracking_Fish_Special", "Map-MarkedDefeated",
+}
+for index, atlas in ipairs(expectedPinAtlases) do
+    assert(SMK.PinTextureByID[index + 5].atlas == atlas, "new pin texture atlas IDs are unstable")
+end
+
 local popupHiddenID, dialogHidden
 local popup = { IsShown = function() return true end }
 SMK.BulkDeleteDialog.popup = popup

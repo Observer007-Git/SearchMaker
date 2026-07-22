@@ -80,7 +80,7 @@ function MainPanel:RenderList()
                 button.background:Show()
                 Widgets:SetLocationEntry(button, entry)
                 local width, height = button:GetWidth(), button:GetHeight()
-                if rowX > startX and rowX + width > self.listContent:GetWidth() - 4 then
+                if rowX > startX and rowX + width > self.listContent:GetWidth() - startX then
                     rowX = startX
                     rowY = rowY + rowHeight + Config.location.verticalGap
                     rowHeight = 0
@@ -128,7 +128,7 @@ function MainPanel:RenderFrequent()
         button.background:Show()
         Widgets:SetLocationEntry(button, frequent[index].entry)
         local width, height = button:GetWidth(), button:GetHeight()
-        if x > startX and x + width > available - 4 then
+        if x > startX and x + width > available - startX then
             firstRowHeight = firstRowHeight or rowHeight
             x, y, rowHeight = startX, y + rowHeight + Config.location.verticalGap, 0
         end

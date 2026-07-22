@@ -57,6 +57,14 @@ for _, path in ipairs({
 end
 
 assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
+assert(SMK.Config.panel.width == 823, "main panel width is not configured for five columns")
+local panelContentWidth = SMK.Config.panel.width - 46
+local panelSidePadding = 4 + SMK.Config.location.baseHeight * SMK.Config.categoryHeadingScale
+    * SMK.Config.art.textLeft / SMK.Config.art.buttonArtHeight
+local fiveColumnsWidth = SMK.Config.location.baseWidth * 5 + SMK.Config.location.horizontalGap * 4
+assert(panelSidePadding + fiveColumnsWidth <= panelContentWidth - panelSidePadding
+    and math.abs(panelSidePadding - (panelContentWidth - panelSidePadding - fiveColumnsWidth)) <= 1,
+    "main panel five-column margins are not symmetric")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\VAS_CharacterTransfer"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"

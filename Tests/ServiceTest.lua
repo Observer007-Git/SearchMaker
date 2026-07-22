@@ -309,10 +309,13 @@ assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown
     "enabled map pin name was not rendered")
 assert(SMK.MapPins:ContainsMouseFocus({ fakeMap.pins[1] }),
     "map pin focus was not identified")
-fakeMap.pins[1].scripts.OnEnter(fakeMap.pins[1])
+assert(not fakeMap.pins[1].scripts or (not fakeMap.pins[1].scripts.OnEnter
+    and not fakeMap.pins[1].scripts.OnLeave),
+    "map pin installed inherited motion scripts before AcquirePin")
+fakeMap.pins[1]:OnMouseEnter()
 assert(GameTooltip.title == "旧地点" and GameTooltip.lines[1]:find("12.34", 1, true),
     "map pin tooltip did not include its name and coordinates")
-fakeMap.pins[1].scripts.OnMouseUp(fakeMap.pins[1], "LeftButton")
+fakeMap.pins[1]:OnClick("LeftButton")
 assert(editedPinEntry and editedPinEntry.name == "旧地点", "map pin click did not open its editor callback")
 SearchMakerDB.settings.showMapPinNames = false
 SMK.MapPins:Refresh()

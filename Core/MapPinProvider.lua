@@ -47,6 +47,28 @@ local function CreatePinMixin()
         GameTooltip_Hide()
     end
 
+    function mixin:OnMouseEnter()
+        local entry = self.entry
+        if not entry then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(entry.name)
+        GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_COORDINATES,
+            entry.mapID, entry.x, entry.y), 1, 1, 1)
+        GameTooltip:AddLine(entry.categoryLabel or "", 0.75, 0.75, 0.75)
+        GameTooltip:Show()
+    end
+
+    function mixin:OnMouseLeave()
+        GameTooltip_Hide()
+    end
+
+    function mixin:OnClick(button)
+        if button == "LeftButton" and self.entry and MapPins.callbacks.onEdit then
+            GameTooltip_Hide()
+            MapPins.callbacks.onEdit(self.entry)
+        end
+    end
+
     -- MapCanvasPinMixin 在部分正式服版本会调用受保护的按钮透传 API。
     mixin.SetPassThroughButtons = function() end
     return mixin
@@ -60,23 +82,6 @@ local function CreatePinPool(map, pinMixin)
         local pin = CreateFrame("Frame", nil, map:GetCanvas())
         pin.isSearchMakerMapPin = true
         pin:EnableMouse(true)
-        pin:SetScript("OnEnter", function(owner)
-            local entry = owner.entry
-            if not entry then return end
-            GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-            GameTooltip:SetText(entry.name)
-            GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_COORDINATES,
-                entry.mapID, entry.x, entry.y), 1, 1, 1)
-            GameTooltip:AddLine(entry.categoryLabel or "", 0.75, 0.75, 0.75)
-            GameTooltip:Show()
-        end)
-        pin:SetScript("OnLeave", GameTooltip_Hide)
-        pin:SetScript("OnMouseUp", function(owner, button)
-            if button == "LeftButton" and owner.entry and MapPins.callbacks.onEdit then
-                GameTooltip_Hide()
-                MapPins.callbacks.onEdit(owner.entry)
-            end
-        end)
         return Mixin(pin, pinMixin)
     end
     pool.resetFunc = function(_, pin)

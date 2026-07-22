@@ -58,7 +58,8 @@ end
 
 assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
-    and SMK.Config.colors.searchAllMapsIconFill[4] == 1,
+    and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\VAS_CharacterTransfer"
+    and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame",
     "search scope icon art is not configured")
 local locationSign = SMK.Config.art.locationSign
 assert(locationSign.leftAtlas == "housing-dashboard-woodsign-left"
@@ -391,7 +392,6 @@ SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 0, "disabled map pins were not cleared")
 
 local layoutButton = {
-    iconAspectRatio = 2,
     showIcon = false,
     SetSize = function(self, width, height) self.width, self.height = width, height end,
     GetWidth = function(self) return self.width end,
@@ -429,12 +429,12 @@ assert(layoutButton.height == 38 and layoutButton.width == 179
 local leftWidth, rightWidth = layoutButton.background.left.width, layoutButton.background.right.width
 layoutButton.showIcon = true
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
-assert(layoutButton.width == 255 and layoutButton.iconBox.width == 76
+assert(layoutButton.width == 217 and layoutButton.iconBox.width == 38
     and layoutButton.iconBox.shown,
     "search result location icon geometry is incorrect")
 layoutButton.label.text, layoutButton.label.width = "long", 220
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
-assert(layoutButton.width == 312 and layoutButton.background.left.width == leftWidth
+assert(layoutButton.width == 274 and layoutButton.background.left.width == leftWidth
     and layoutButton.background.right.width == rightWidth,
     "search result location sign did not stretch only its center segment")
 SMK.Widgets:StretchSearchResult(layoutButton, 340)

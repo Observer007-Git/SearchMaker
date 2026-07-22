@@ -36,9 +36,6 @@ function SearchBar:ApplyArt()
     box.locationIcon = box:CreateTexture(nil, "ARTWORK")
     box.locationIcon:SetPoint("TOPLEFT", Art.iconLeft * verticalScale, -Art.iconTop * verticalScale)
     box.locationIcon:SetSize(Art.iconWidth * verticalScale, Art.iconHeight * verticalScale)
-    box.locationIconFill = box:CreateTexture(nil, "ARTWORK", nil, -1)
-    box.locationIconFill:SetAllPoints(box.locationIcon)
-    box.locationIconFill:SetColorTexture(unpack(Config.colors.searchAllMapsIconFill))
     self:UpdateSearchIcon()
     box:SetTextInsets(leftWidth + 1, 20, 0, 0)
     box:SetTextColor(unpack(Config.colors.gold))
@@ -53,15 +50,8 @@ end
 
 --- 切换搜索框图标：当前地图模式 ↔ 全图搜索模式。
 function SearchBar:UpdateSearchIcon()
-    if IsAllMaps() then
-        self.box.locationIconFill:Show()
-        self.box.locationIcon:SetTexture(nil)
-        self.box.locationIcon:SetAtlas("poi-islands-table", false)
-    else
-        self.box.locationIconFill:Hide()
-        self.box.locationIcon:SetAtlas(nil)
-        self.box.locationIcon:SetTexture(Art.searchIcon)
-    end
+    self.box.locationIcon:SetAtlas(nil)
+    self.box.locationIcon:SetTexture(IsAllMaps() and Art.searchAllMapsIcon or Art.searchIcon)
 end
 
 --- 更新搜索框上方的提示文字（"搜索 X" / "全图搜索"）。

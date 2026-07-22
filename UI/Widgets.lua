@@ -37,7 +37,7 @@ function Widgets:UpdateLocationGeometry(button)
     local textPadding = Sign.textPadding
     local textOffsetY = Sign.textOffsetY
     local signWidth = math.max(naturalSignWidth, textWidth + textPadding * 2)
-    local iconWidth = button.showIcon and height * (button.iconAspectRatio or 1) or 0
+    local iconWidth = button.showIcon and height or 0
     button:SetSize(math.ceil(iconWidth + signWidth), height)
     button.iconBox:ClearAllPoints()
     button.iconBox:SetPoint("TOPLEFT")
@@ -89,9 +89,6 @@ function Widgets:SetLocationEntry(button, entry, displayText, showIcon)
         atlas = catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas
     end
     button.icon:SetAtlas(atlas, false)
-    local atlasInfo = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)
-    button.iconAspectRatio = atlasInfo and atlasInfo.width and atlasInfo.height
-        and atlasInfo.height > 0 and atlasInfo.width / atlasInfo.height or 1
     self:UpdateLocationGeometry(button)
     button:Show()
 end
@@ -132,6 +129,9 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button.iconBox = CreateFrame("Frame", nil, button)
     button.icon = button.iconBox:CreateTexture(nil, "ARTWORK")
     button.icon:SetAllPoints(button.iconBox)
+    button.iconFrame = button.iconBox:CreateTexture(nil, "OVERLAY")
+    button.iconFrame:SetAllPoints(button.iconBox)
+    button.iconFrame:SetTexture(Art.searchResultIconFrame)
 
     button.hitArea = CreateFrame("Button", nil, button)
     button.hitArea:RegisterForClicks("LeftButtonUp", "RightButtonUp")

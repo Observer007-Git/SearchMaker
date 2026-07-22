@@ -96,7 +96,7 @@ SMK.L = {
 
     -- Widgets tooltip
     TOOLTIP_USAGE_COUNT = "Usage: %d",
-    TOOLTIP_COORDINATES = "Map %d · %.2f, %.2f",
+    TOOLTIP_XY = "X %.2f · Y %.2f",
     ERROR_COORDS_READ_FAILED = "Cannot read coordinates on this map.",
     SAVE_FAILED = "Save failed.",
     ENTER_VALID_MAP_ID = "Please enter a valid map ID.",

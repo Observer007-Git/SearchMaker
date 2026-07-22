@@ -29,7 +29,8 @@ local function CreatePinMixin()
             local color = SMK.Config.colors.gold
             self.label:SetTextColor(color[1], color[2], color[3])
         end
-        local texture = SMK.PinTextureByID[tonumber(entry.pinTextureID) or 1]
+        local texture = SMK.PinTextureByID[tonumber(entry.pinTextureID)]
+            or SMK.PinTextureByID[SMK.DefaultPinTextureID]
         self.icon:SetAtlas(texture and texture.atlas or SMK.Config.art.fallbackLocationAtlas, true)
         self.label:SetText(entry.name)
         self.label:SetShown(SMK.Settings:Get("showMapPinNames"))
@@ -52,8 +53,9 @@ local function CreatePinMixin()
         if not entry then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(entry.name)
-        GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_COORDINATES,
-            entry.mapID, entry.x, entry.y), 1, 1, 1)
+        GameTooltip:AddLine(string.format(SMK.L.MAP_FORMAT,
+            SMK.Map:GetMapName(entry.mapID), entry.mapID), 1, 1, 1)
+        GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_XY, entry.x, entry.y), 1, 1, 1)
         GameTooltip:AddLine(entry.categoryLabel or "", 0.75, 0.75, 0.75)
         GameTooltip:Show()
     end

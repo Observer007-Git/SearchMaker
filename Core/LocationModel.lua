@@ -20,7 +20,8 @@ function Model:Normalize(values)
         keywords = values.keywords ~= nil and Util.Trim(values.keywords) or nil,
     }
     local pinTextureID = tonumber(values.pinTextureID)
-    entry.pinTextureID = pinTextureID and SMK.PinTextureByID[pinTextureID] and pinTextureID or 1
+    entry.pinTextureID = pinTextureID and SMK.PinTextureByID[pinTextureID]
+        and pinTextureID or SMK.DefaultPinTextureID
     if entry.keywords == "" then entry.keywords = nil end
     if not entry.mapID or entry.mapID <= 0 or entry.mapID % 1 ~= 0
         or not entry.x or entry.x < 0 or entry.x > 100

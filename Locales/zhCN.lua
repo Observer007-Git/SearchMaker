@@ -98,7 +98,7 @@ local translations = {
 
     -- Widgets tooltip
     TOOLTIP_USAGE_COUNT = "使用次数：%d",
-    TOOLTIP_COORDINATES = "地图 %d  ·  %.2f, %.2f",
+    TOOLTIP_XY = "X：%.2f  ·  Y：%.2f",
     ERROR_COORDS_READ_FAILED = "当前地图无法读取角色坐标。",
     SAVE_FAILED = "保存失败。",
     ENTER_VALID_MAP_ID = "请输入有效的整数地图 ID。",

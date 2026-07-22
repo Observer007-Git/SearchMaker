@@ -46,15 +46,14 @@ end
 function Editor:Save()
     local frame = self.frame
     local mapID = frame.mapID
-    local lockedCoordinates = frame.mode == "edit" and frame.entry
     local values = {
         mapID = mapID,
-        x = lockedCoordinates and frame.entry.x or tonumber(Util.Trim(self.inputs.x:GetText())),
-        y = lockedCoordinates and frame.entry.y or tonumber(Util.Trim(self.inputs.y:GetText())),
+        x = tonumber(Util.Trim(self.inputs.x:GetText())),
+        y = tonumber(Util.Trim(self.inputs.y:GetText())),
         name = Util.Trim(self.inputs.name:GetText()),
         categoryKey = self.categoryKey,
         showPin = self.pinCheck:GetChecked() and 1 or 0,
-        pinTextureID = tonumber(self.pinTextureID) or 1,
+        pinTextureID = tonumber(self.pinTextureID) or SMK.DefaultPinTextureID,
     }
     if not mapID then
         return self:SetError(SMK.L.ERROR_NO_MAP_ID)
@@ -89,7 +88,6 @@ end
 --- 读取玩家当前位置并填入 X/Y 字段。
 function Editor:FillCoordinates()
     local frame = self.frame
-    if frame.mode == "edit" then return end
     local mapID = frame.mapID
     local x, y = SMK.Map:GetPlayerCoordinates(mapID)
     if not x or not y then
@@ -264,7 +262,8 @@ function Editor:Create(parent, callbacks)
             button:SetEnabled(checked)
             button.icon:SetDesaturated(not checked)
             button.icon:SetAlpha(checked and 1 or 0.45)
-            button.selection:SetShown(button.textureID == tonumber(self.pinTextureID or 1))
+            button.selection:SetShown(button.textureID
+                == tonumber(self.pinTextureID or SMK.DefaultPinTextureID))
         end
     end
     self.UpdatePinTexturePanel = UpdatePinTexturePanel
@@ -309,21 +308,15 @@ function Editor:Open(mode, entry)
     self.inputs.name:SetText(entry and entry.name or "")
     self.inputs.x:SetText(entry and tostring(entry.x) or "")
     self.inputs.y:SetText(entry and tostring(entry.y) or "")
-    local coordinatesEditable = mode ~= "edit"
-    self.inputs.x:SetEnabled(coordinatesEditable)
-    self.inputs.y:SetEnabled(coordinatesEditable)
-    self.coordinateButton:SetEnabled(coordinatesEditable)
-    local coordinateColor = coordinatesEditable and { 1, 1, 1 } or Config.colors.disabled
-    self.inputs.x:SetTextColor(unpack(coordinateColor))
-    self.inputs.y:SetTextColor(unpack(coordinateColor))
-    SetTabTarget(self.inputs.name, coordinatesEditable and self.inputs.x or self.inputs.name)
     self.deleteButton:SetShown(mode == "edit")
     self.categoryKey = entry and Config.GetCategoryKey(entry.categoryKey)
         or Config.defaultCategoryKey
     self:UpdateCategory()
     self.pinCheck:SetChecked(entry and entry.showPin == 1 or false)
-    self.pinTextureID = entry and tonumber(entry.pinTextureID) or 1
-    if not SMK.PinTextureByID[self.pinTextureID] then self.pinTextureID = 1 end
+    self.pinTextureID = entry and tonumber(entry.pinTextureID) or SMK.DefaultPinTextureID
+    if not SMK.PinTextureByID[self.pinTextureID] then
+        self.pinTextureID = SMK.DefaultPinTextureID
+    end
     self:UpdatePinTexturePanel()
     self:SetError()
     frame:Show()

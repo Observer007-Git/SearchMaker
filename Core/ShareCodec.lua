@@ -66,7 +66,7 @@ function Codec:Encode(entries)
             category.id,
             EncodeField(entry.name),
             entry.showPin or 0,
-            tonumber(entry.pinTextureID) or 1,
+            tonumber(entry.pinTextureID) or SMK.DefaultPinTextureID,
         }, ",")
     end
     return Config.share.prefix .. Config.share.version .. "|" .. table.concat(records, ";")
@@ -87,7 +87,7 @@ function Codec:Decode(text)
             categoryKey = category.key,
             name = DecodeField(fields[5]),
             showPin = tonumber(fields[6]) or 0,
-            pinTextureID = tonumber(fields[7]) or 1,
+            pinTextureID = tonumber(fields[7]) or SMK.DefaultPinTextureID,
         } or nil
         local entry = values and SMK.LocationModel:Normalize(values) or nil
         if entry then

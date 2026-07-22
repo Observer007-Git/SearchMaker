@@ -149,8 +149,10 @@ function Widgets:CreateLocationButton(parent, callbacks)
         if owner.entry.isMapPortal then
             GameTooltip:AddLine(SMK.L.OPEN_MAP, 0.35, 0.85, 1)
         else
-            GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_COORDINATES,
-                owner.entry.mapID, owner.entry.x, owner.entry.y), 1, 1, 1)
+            GameTooltip:AddLine(string.format(SMK.L.MAP_FORMAT,
+                SMK.Map:GetMapName(owner.entry.mapID), owner.entry.mapID), 1, 1, 1)
+            GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_XY,
+                owner.entry.x, owner.entry.y), 1, 1, 1)
             GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_USAGE_COUNT, SMK.Store:GetUsage(owner.entry)), 0.75, 0.75, 0.75)
             GameTooltip:AddLine(SMK.L.TOOLTIP_INSTRUCTIONS, 0.35, 0.85, 1)
         end

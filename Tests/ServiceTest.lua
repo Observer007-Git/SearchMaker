@@ -56,15 +56,26 @@ for _, path in ipairs({
 end
 
 assert(#SMK.PinTextures == 19, "pin texture atlas list is incomplete")
+assert(SMK.DefaultPinTextureID == 8 and SMK.PinTextures[1].atlas == "MonsterEnemy",
+    "MonsterEnemy is not the first and default pin texture")
+assert(not SMK.PinTextureByID[3] and not SMK.PinTextureByID[4],
+    "removed pin textures are still available")
 local expectedPinAtlases = {
-    "VignetteEvent-SuperTracked", "ElementalStorm-Lesser-Fire", "MonsterEnemy", "MonsterFriend",
-    "PlayerPartyBlip", "vignettekillboss-SuperTracked", "poi-traveldirections-arrow2", "poi-door-up",
-    "poi-door-down", "poi-door-left", "poi-door-right", "CrossedFlags",
-    "Professions_Tracking_Fish_Special", "Map-MarkedDefeated",
+    [6] = "VignetteEvent-SuperTracked", [7] = "ElementalStorm-Lesser-Fire", [8] = "MonsterEnemy",
+    [9] = "MonsterFriend", [10] = "PlayerPartyBlip", [11] = "vignettekillboss-SuperTracked",
+    [12] = "poi-traveldirections-arrow2", [13] = "poi-door-up", [14] = "poi-door-down",
+    [15] = "poi-door-left", [16] = "poi-door-right", [17] = "CrossedFlags",
+    [18] = "Professions_Tracking_Fish_Special", [19] = "Map-MarkedDefeated",
+    [20] = "ElementalStorm-Boss-Fire", [21] = "XMarksTheSpot",
 }
-for index, atlas in ipairs(expectedPinAtlases) do
-    assert(SMK.PinTextureByID[index + 5].atlas == atlas, "new pin texture atlas IDs are unstable")
+for id, atlas in pairs(expectedPinAtlases) do
+    assert(SMK.PinTextureByID[id].atlas == atlas, "new pin texture atlas IDs are unstable")
 end
+local defaultTextureEntry = assert(SMK.LocationModel:Normalize({
+    mapID = 100, x = 1, y = 2, name = "default", categoryKey = "other", pinTextureID = 3,
+}))
+assert(defaultTextureEntry.pinTextureID == SMK.DefaultPinTextureID,
+    "location normalization did not use the default pin texture")
 
 local popupHiddenID, dialogHidden
 local popup = { IsShown = function() return true end }
@@ -295,6 +306,7 @@ GameTooltip = {
 }
 function GameTooltip_Hide() end
 
+mapInfo[100] = { name = "测试地图", mapType = Enum.UIMapType.Zone }
 local fakeMap = { pinPools = {}, pins = {}, mapID = 100 }
 function fakeMap:GetCanvas() return self end
 function fakeMap:GetMapID() return self.mapID end
@@ -324,8 +336,12 @@ assert(not fakeMap.pins[1].scripts or (not fakeMap.pins[1].scripts.OnEnter
     and not fakeMap.pins[1].scripts.OnLeave),
     "map pin installed inherited motion scripts before AcquirePin")
 fakeMap.pins[1]:OnMouseEnter()
-assert(GameTooltip.title == "旧地点" and GameTooltip.lines[1]:find("12.34", 1, true),
-    "map pin tooltip did not include its name and coordinates")
+assert(GameTooltip.title == "旧地点"
+    and GameTooltip.lines[1]:find("测试地图", 1, true)
+    and GameTooltip.lines[1]:find("100", 1, true)
+    and GameTooltip.lines[2]:find("12.34", 1, true)
+    and GameTooltip.lines[2]:find("56.78", 1, true),
+    "map pin tooltip did not separate its map name and coordinates")
 fakeMap.pins[1]:OnClick("LeftButton")
 assert(editedPinEntry and editedPinEntry.name == "旧地点", "map pin click did not open its editor callback")
 SearchMakerDB.settings.showMapPinNames = false

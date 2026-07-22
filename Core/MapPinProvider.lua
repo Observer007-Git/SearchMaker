@@ -23,8 +23,16 @@ local function CreatePinMixin()
             self.icon = self:CreateTexture(nil, "OVERLAY")
             self.icon:SetAllPoints(self)
         end
+        if not self.label then
+            self.label = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            self.label:SetPoint("BOTTOM", self, "TOP", 0, 2)
+            local color = SMK.Config.colors.gold
+            self.label:SetTextColor(color[1], color[2], color[3])
+        end
         local texture = SMK.PinTextureByID[tonumber(entry.pinTextureID) or 1]
         self.icon:SetAtlas(texture and texture.atlas or SMK.Config.art.fallbackLocationAtlas, true)
+        self.label:SetText(entry.name)
+        self.label:SetShown(SMK.Settings:Get("showMapPinNames"))
         self.icon:Show()
         self:Show()
     end
@@ -32,6 +40,10 @@ local function CreatePinMixin()
     function mixin:OnReleased()
         self.entry = nil
         if self.icon then self.icon:Hide() end
+        if self.label then
+            self.label:SetText("")
+            self.label:Hide()
+        end
         GameTooltip_Hide()
     end
 
@@ -58,6 +70,12 @@ local function CreatePinPool(map, pinMixin)
             GameTooltip:Show()
         end)
         pin:SetScript("OnLeave", GameTooltip_Hide)
+        pin:SetScript("OnMouseUp", function(owner, button)
+            if button == "LeftButton" and owner.entry and MapPins.callbacks.onEdit then
+                GameTooltip_Hide()
+                MapPins.callbacks.onEdit(owner.entry)
+            end
+        end)
         return Mixin(pin, pinMixin)
     end
     pool.resetFunc = function(_, pin)
@@ -72,7 +90,8 @@ local function CreatePinPool(map, pinMixin)
     map.pinPools[TEMPLATE] = pool
 end
 
-function MapPins:Initialize(map)
+function MapPins:Initialize(map, callbacks)
+    self.callbacks = callbacks or self.callbacks or {}
     if self.provider then return true end
     if not map or not MapCanvasDataProviderMixin or not MapCanvasPinMixin then
         self.available = false

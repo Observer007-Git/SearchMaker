@@ -113,6 +113,7 @@ Config.settingsDefaults = {
     showFullPanel = true,
     shortcutSearchVisible = false,
     showMapPins = false,
+    showMapPinNames = false,
     searchAllMaps = false,
 }
 

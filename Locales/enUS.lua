@@ -21,6 +21,7 @@ SMK.L = {
     BINDING_HEADER = "SearchMaker",
     BINDING_NAME = "Toggle Search",
     SHOW_MAP_PINS = "Show Map Pins",
+    SHOW_MAP_PIN_NAMES = "Show Pin Names",
     PIN_TEXTURE_LABEL = "Pin Texture",
     LOCATION_SCALE = "Icon Scale",
 
@@ -50,6 +51,7 @@ SMK.L = {
     CATEGORY_LABEL = "Category",
     READ_COORDINATES = "Get Coords",
     SAVE = "Save",
+    DELETE = "Delete",
     CANCEL = "Cancel",
     EDIT_TITLE = "Edit Location",
     ADD_TITLE = "Add Location",

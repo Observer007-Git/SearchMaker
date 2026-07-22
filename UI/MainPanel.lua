@@ -171,6 +171,8 @@ function MainPanel:UpdateScaleControls()
     self.scaleValue:SetText(string.format("%d%%", math.floor(scale * 100 + 0.5)))
     self.frame.locationScaleMinus:SetEnabled(scale > Config.location.minScale)
     self.frame.locationScalePlus:SetEnabled(scale < Config.location.maxScale)
+    self.showPinsCheck:SetChecked(SMK.Settings:Get("showMapPins"))
+    self.showPinNamesCheck:SetChecked(SMK.Settings:Get("showMapPinNames"))
 end
 
 --- 调整图标/文字缩放并刷新。
@@ -354,6 +356,25 @@ function MainPanel:Create(searchBar, callbacks)
             SMK:Print(message)
         end
     end)
+    self.showPinNamesCheck = CreateFrame("CheckButton", nil, scaleRow, "UICheckButtonTemplate")
+    self.showPinNamesCheck:SetSize(24, 24)
+    self.showPinNamesCheck:SetPoint("LEFT", pinsLabel, "RIGHT", 16, 0)
+    self.showPinNamesCheck:SetChecked(SMK.Settings:Get("showMapPinNames"))
+    local pinNamesLabel = scaleRow:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    pinNamesLabel:SetPoint("LEFT", self.showPinNamesCheck, "RIGHT", 4, 0)
+    pinNamesLabel:SetText(SMK.L.SHOW_MAP_PIN_NAMES)
+    pinNamesLabel:SetTextColor(unpack(Config.colors.gold))
+    if not SMK.MapPins:IsAvailable() then
+        self.showPinNamesCheck:SetEnabled(false)
+        pinNamesLabel:SetTextColor(unpack(Config.colors.disabled))
+    end
+    self.showPinNamesCheck:SetScript("OnClick", function()
+        local changed, message = SMK.Settings:Set("showMapPinNames", self.showPinNamesCheck:GetChecked())
+        if not changed then
+            self.showPinNamesCheck:SetChecked(SMK.Settings:Get("showMapPinNames"))
+            SMK:Print(message)
+        end
+    end)
 
     self.frequentRow = CreateFrame("Frame", nil, frame)
     self.frequentRow:SetPoint("TOPLEFT", 14, -75)
@@ -382,6 +403,7 @@ function MainPanel:Create(searchBar, callbacks)
         onSave = function(mode, entry, values)
             return self.callbacks.onSaveLocation(mode, entry, values)
         end,
+        onDelete = self.callbacks.onDelete,
     })
     SMK.ShareDialog:Create(frame)
     SMK.BulkDeleteDialog:Create(frame)

@@ -61,6 +61,8 @@ function App:SettingChanged(key)
         self:RequestRefresh("scale")
     elseif key == "showMapPins" then
         self:RequestRefresh("pins")
+    elseif key == "showMapPinNames" then
+        self:RequestRefresh("pins")
     elseif key == "searchAllMaps" then
         self:RequestRefresh("scope")
     end
@@ -135,21 +137,27 @@ end
 -- @param entry table
 function App:DeleteLocation(entry)
     local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
-    if readOnlyMessage then return SMK:Print(readOnlyMessage) end
+    if readOnlyMessage then
+        SMK:Print(readOnlyMessage)
+        return false
+    end
     if type(entry) ~= "table" then
-        return SMK:Print(SMK.L.DELETE_INVALID)
+        SMK:Print(SMK.L.DELETE_INVALID)
+        return false
     end
     GameTooltip_Hide()
     local query = SMK.SearchBar:GetQuery()
     local deleted = SMK.Store:Delete(entry)
     if deleted == 0 then
-        return SMK:Print(SMK.L.DELETE_UNKNOWN_SOURCE)
+        SMK:Print(SMK.L.DELETE_UNKNOWN_SOURCE)
+        return false
     end
     SMK:Print(string.format(SMK.L.DELETE_SUCCESS, entry.name, entry.x, entry.y))
     if query ~= "" then
         SMK.SearchBar:SetQuery(query)
         SMK.SearchBar:Focus()
     end
+    return true
 end
 
 --- 响应数据变更：重新加载上下文，清除缓存，更新界面。
@@ -169,7 +177,9 @@ function App:CreateUI()
         self.warnedReadOnlyDatabase = true
         SMK:Print(readOnlyMessage)
     end
-    local initializedPins, pinsReady = pcall(SMK.MapPins.Initialize, SMK.MapPins, WorldMapFrame)
+    local initializedPins, pinsReady = pcall(SMK.MapPins.Initialize, SMK.MapPins, WorldMapFrame, {
+        onEdit = function(entry) SMK.MainPanel:OpenEditor("edit", entry) end,
+    })
     if not initializedPins or not pinsReady then
         SMK:Print(SMK.L.ERROR_MAP_PINS_UNAVAILABLE)
     end

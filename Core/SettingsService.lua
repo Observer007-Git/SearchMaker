@@ -8,6 +8,7 @@ local booleanKeys = {
     showFullPanel = true,
     shortcutSearchVisible = true,
     showMapPins = true,
+    showMapPinNames = true,
     searchAllMaps = true,
 }
 

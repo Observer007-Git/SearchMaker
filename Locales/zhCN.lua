@@ -20,6 +20,7 @@ local translations = {
     NO_FREQUENT = "暂无使用记录",
     LOCATION_COUNT = "坐标数量：%d/%d",
     SHOW_MAP_PINS = "显示地图标记",
+    SHOW_MAP_PIN_NAMES = "显示标记名称",
     PIN_TEXTURE_LABEL = "标记材质",
     LOCATION_SCALE = "地点缩放",
 
@@ -52,6 +53,7 @@ local translations = {
     CATEGORY_LABEL = "类别",
     READ_COORDINATES = "读取当前坐标",
     SAVE = "保存",
+    DELETE = "删除",
     CANCEL = "取消",
     EDIT_TITLE = "修改地点",
     ADD_TITLE = "添加地点",

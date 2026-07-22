@@ -4,7 +4,7 @@ local DB = {}
 local Config = SMK.Config
 local Model = SMK.LocationModel
 local obsoleteRootKeys = {
-    "locationScale", "showFullPanel", "shortcutSearchVisible", "showMapPins", "searchAllMaps",
+    "locationScale", "showFullPanel", "shortcutSearchVisible", "showMapPins", "showMapPinNames", "searchAllMaps",
     "shortcutSearchBarPosition", "mapSearchBarPosition", "locationEdits", "locationDeletions",
 }
 
@@ -32,6 +32,7 @@ local function NormalizeSettings(source)
         showFullPanel = BooleanOrDefault("showFullPanel"),
         shortcutSearchVisible = BooleanOrDefault("shortcutSearchVisible"),
         showMapPins = BooleanOrDefault("showMapPins"),
+        showMapPinNames = BooleanOrDefault("showMapPinNames"),
         searchAllMaps = BooleanOrDefault("searchAllMaps"),
         shortcutSearchBarPosition = CopyPosition(source.shortcutSearchBarPosition),
         mapSearchBarPosition = CopyPosition(source.mapSearchBarPosition),

@@ -102,12 +102,15 @@ assert(SearchMakerDB.locations[2].id ~= "user:4", "duplicate ID was not repaired
 assert(SMK.Settings:Get("showMapPins") and SMK.Settings:Get("locationScale") == 1.2,
     "nested settings were not initialized")
 assert(SMK.Settings:Get("showFullPanel") == false, "false setting was replaced by its default")
+assert(SMK.Settings:Get("showMapPinNames") == false, "pin name setting default was not initialized")
 assert(SearchMakerDB.locationScale == nil and SearchMakerDB.showMapPins == nil,
     "obsolete root settings were not removed")
 local changedSetting
 SMK.Settings:SetChangeHandler(function(key) changedSetting = key end)
 assert(SMK.Settings:Set("locationScale", 1.3) and changedSetting == "locationScale",
     "setting change was not normalized and announced")
+assert(SMK.Settings:Set("showMapPinNames", true) and changedSetting == "showMapPinNames",
+    "pin name setting was not persisted and announced")
 
 local first = SMK.Store:GetAll()[1]
 assert(first.categoryKey == "delves" and first.categoryLabel == "地下堡", "display projection is not localized")
@@ -224,6 +227,15 @@ local function NewTexture()
         Hide = function(self) self.shown = false end,
     }
 end
+local function NewFontString()
+    return {
+        SetPoint = function() end,
+        SetTextColor = function() end,
+        SetText = function(self, value) self.text = value end,
+        SetShown = function(self, value) self.shown = value end,
+        Hide = function(self) self.shown = false end,
+    }
+end
 function CreateFrame()
     return {
         EnableMouse = function() end,
@@ -232,6 +244,7 @@ function CreateFrame()
             self.scripts[event] = callback
         end,
         CreateTexture = function() return NewTexture() end,
+        CreateFontString = function() return NewFontString() end,
         SetSize = function() end,
         Show = function(self) self.shown = true end,
         Hide = function(self) self.shown = false end,
@@ -239,7 +252,13 @@ function CreateFrame()
     }
 end
 GameTooltip = {
-    SetOwner = function() end, SetText = function() end, AddLine = function() end, Show = function() end,
+    SetOwner = function() end,
+    SetText = function(self, value) self.title = value end,
+    AddLine = function(self, value)
+        self.lines = self.lines or {}
+        self.lines[#self.lines + 1] = value
+    end,
+    Show = function(self) self.shown = true end,
 }
 function GameTooltip_Hide() end
 
@@ -256,11 +275,25 @@ function fakeMap:RemoveAllPinsByTemplate(template)
     for _, pin in ipairs(self.pins) do self.pinPools[template].resetFunc(nil, pin) end
     self.pins = {}
 end
-assert(SMK.MapPins:Initialize(fakeMap), "map pin provider initialization failed")
+local editedPinEntry
+assert(SMK.MapPins:Initialize(fakeMap, {
+    onEdit = function(entry) editedPinEntry = entry end,
+}), "map pin provider initialization failed")
 SearchMakerDB.settings.showMapPins = true
 SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 1, "enabled map pin was not acquired")
 assert(fakeMap.pins[1].icon.atlas == SMK.PinTextureByID[5].atlas, "selected pin texture was ignored")
+assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown,
+    "enabled map pin name was not rendered")
+fakeMap.pins[1].scripts.OnEnter(fakeMap.pins[1])
+assert(GameTooltip.title == "旧地点" and GameTooltip.lines[1]:find("12.34", 1, true),
+    "map pin tooltip did not include its name and coordinates")
+fakeMap.pins[1].scripts.OnMouseUp(fakeMap.pins[1], "LeftButton")
+assert(editedPinEntry and editedPinEntry.name == "旧地点", "map pin click did not open its editor callback")
+SearchMakerDB.settings.showMapPinNames = false
+SMK.MapPins:Refresh()
+assert(#fakeMap.pins == 1 and fakeMap.pins[1].label.shown == false,
+    "disabled map pin name was still rendered")
 SearchMakerDB.settings.showMapPins = false
 SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 0, "disabled map pins were not cleared")

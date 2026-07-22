@@ -41,10 +41,11 @@ function Editor:Save()
     local frame = self.frame
     local mapID = frame.mode == "edit" and frame.entry and frame.entry.mapID
         or SMK.State.currentMapID or SMK.Map:GetContextMapID()
+    local lockedCoordinates = frame.mode == "edit" and frame.entry
     local values = {
         mapID = mapID,
-        x = tonumber(Util.Trim(self.inputs.x:GetText())),
-        y = tonumber(Util.Trim(self.inputs.y:GetText())),
+        x = lockedCoordinates and frame.entry.x or tonumber(Util.Trim(self.inputs.x:GetText())),
+        y = lockedCoordinates and frame.entry.y or tonumber(Util.Trim(self.inputs.y:GetText())),
         name = Util.Trim(self.inputs.name:GetText()),
         categoryKey = self.categoryKey,
         showPin = self.pinCheck:GetChecked() and 1 or 0,
@@ -73,9 +74,17 @@ function Editor:Save()
     frame:Hide()
 end
 
+--- 删除当前正在编辑的地点。
+function Editor:Delete()
+    local frame = self.frame
+    if frame.mode ~= "edit" or not frame.entry or not self.callbacks.onDelete then return end
+    if self.callbacks.onDelete(frame.entry) ~= false then frame:Hide() end
+end
+
 --- 读取玩家当前位置并填入 X/Y 字段。
 function Editor:FillCoordinates()
     local frame = self.frame
+    if frame.mode == "edit" then return end
     local mapID = frame.mode == "edit" and frame.entry and frame.entry.mapID
         or SMK.State.currentMapID or SMK.Map:GetContextMapID()
     local x, y = SMK.Map:GetPlayerCoordinates(mapID)
@@ -188,6 +197,7 @@ function Editor:Create(parent, callbacks)
     SetTabTarget(self.inputs.y, self.inputs.name)
 
     local coordinateButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    self.coordinateButton = coordinateButton
     coordinateButton:SetSize(120, 24)
     coordinateButton:SetPoint("TOP", frame, "TOP", 0, -188)
     coordinateButton:SetText(SMK.L.READ_COORDINATES)
@@ -255,13 +265,18 @@ function Editor:Create(parent, callbacks)
     end)
     
     local save = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    save:SetSize(90, 24)
-    save:SetPoint("BOTTOMRIGHT", frame, "BOTTOM", -6, 15)
+    save:SetSize(60, 24)
+    save:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 15)
     save:SetText(SMK.L.SAVE)
     save:SetScript("OnClick", function() self:Save() end)
+    self.deleteButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    self.deleteButton:SetSize(60, 24)
+    self.deleteButton:SetPoint("BOTTOM", frame, "BOTTOM", 0, 15)
+    self.deleteButton:SetText(SMK.L.DELETE)
+    self.deleteButton:SetScript("OnClick", function() self:Delete() end)
     local cancel = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    cancel:SetSize(90, 24)
-    cancel:SetPoint("BOTTOMLEFT", frame, "BOTTOM", 6, 15)
+    cancel:SetSize(60, 24)
+    cancel:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 15)
     cancel:SetText(SMK.L.CANCEL)
     cancel:SetScript("OnClick", function() frame:Hide() end)
     frame:SetScript("OnHide", function()
@@ -284,6 +299,15 @@ function Editor:Open(mode, entry)
     self.inputs.name:SetText(entry and entry.name or "")
     self.inputs.x:SetText(entry and tostring(entry.x) or "")
     self.inputs.y:SetText(entry and tostring(entry.y) or "")
+    local coordinatesEditable = mode ~= "edit"
+    self.inputs.x:SetEnabled(coordinatesEditable)
+    self.inputs.y:SetEnabled(coordinatesEditable)
+    self.coordinateButton:SetEnabled(coordinatesEditable)
+    local coordinateColor = coordinatesEditable and { 1, 1, 1 } or Config.colors.disabled
+    self.inputs.x:SetTextColor(unpack(coordinateColor))
+    self.inputs.y:SetTextColor(unpack(coordinateColor))
+    SetTabTarget(self.inputs.name, coordinatesEditable and self.inputs.x or self.inputs.name)
+    self.deleteButton:SetShown(mode == "edit")
     self.categoryKey = entry and Config.GetCategoryKey(entry.categoryKey)
         or Config.defaultCategoryKey
     self:UpdateCategory()

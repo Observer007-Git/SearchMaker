@@ -19,6 +19,8 @@ local translations = {
     LOCATION_COUNT = "坐标数量：%d/%d",
     SHOW_MAP_PINS = "显示地图标记",
     SHOW_MAP_PIN_NAMES = "显示标记名称",
+    PIN_TEXT_COLOR = "标记文字颜色",
+    PIN_TEXT_SIZE = "标记文字大小",
     PIN_TEXTURE_LABEL = "标记材质",
     LOCATION_SCALE = "地点缩放",
 
@@ -59,7 +61,7 @@ local translations = {
     ERROR_NO_MAP_ID = "无法取得当前地图 ID。",
     ERROR_INVALID_COORDINATES = "X、Y 坐标必须是 0 到 100 之间的数字。",
     ERROR_EMPTY_NAME = "请输入地点名字。",
-    ERROR_NAME_TOO_LONG = "地点名字最多输入 7 个汉字或字符。",
+    ERROR_NAME_TOO_LONG = "地点名字最多支持 10 个汉字或 20 个英文字母。",
 
     -- BulkDeleteDialog
     BULK_DELETE_TITLE = "批量删除",

@@ -75,6 +75,15 @@ local defaultTextureEntry = assert(SMK.LocationModel:Normalize({
 }))
 assert(defaultTextureEntry.pinTextureID == SMK.DefaultPinTextureID,
     "location normalization did not use the default pin texture")
+local function NormalizeNamedLocation(name)
+    return SMK.LocationModel:Normalize({
+        mapID = 100, x = 1, y = 2, name = name, categoryKey = "other",
+    })
+end
+assert(NormalizeNamedLocation("一二三四五六七八九十"), "ten-character Chinese name was rejected")
+assert(not NormalizeNamedLocation("一二三四五六七八九十一"), "eleven-character Chinese name was accepted")
+assert(NormalizeNamedLocation("abcdefghijklmnopqrst"), "twenty-letter English name was rejected")
+assert(not NormalizeNamedLocation("abcdefghijklmnopqrstu"), "twenty-one-letter English name was accepted")
 
 local popupHiddenID, dialogHidden
 local popup = { IsShown = function() return true end }
@@ -146,6 +155,10 @@ assert(SMK.Settings:Get("showMapPins") and SMK.Settings:Get("locationScale") == 
     "nested settings were not initialized")
 assert(SearchMakerDB.settings.showFullPanel == nil, "removed panel setting was retained")
 assert(SMK.Settings:Get("showMapPinNames") == false, "pin name setting default was not initialized")
+local defaultTextColor = SMK.Settings:Get("mapPinTextColor")
+assert(defaultTextColor.r == 1 and defaultTextColor.g == 0.82 and defaultTextColor.b == 0
+    and SMK.Settings:Get("mapPinTextScale") == 1,
+    "pin text appearance defaults were not initialized")
 assert(SearchMakerDB.locationScale == nil and SearchMakerDB.showMapPins == nil,
     "obsolete root settings were not removed")
 local changedSetting
@@ -154,6 +167,15 @@ assert(SMK.Settings:Set("locationScale", 1.3) and changedSetting == "locationSca
     "setting change was not normalized and announced")
 assert(SMK.Settings:Set("showMapPinNames", true) and changedSetting == "showMapPinNames",
     "pin name setting was not persisted and announced")
+assert(SMK.Settings:Set("mapPinTextColor", { r = 0.2, g = 0.4, b = 0.6 })
+    and changedSetting == "mapPinTextColor",
+    "pin text color was not persisted and announced")
+assert(SMK.Settings:Set("mapPinTextScale", 1.4) and changedSetting == "mapPinTextScale",
+    "pin text scale was not persisted and announced")
+assert(SMK.Settings:Set("shortcutSearchBarPosition", { x = 10, y = 20 })
+    and SMK.Settings:Set("shortcutSearchBarPosition", { x = 30, y = 40 })
+    and SMK.Settings:Get("shortcutSearchBarPosition").x == 30,
+    "color comparison interfered with position settings")
 
 local first = SMK.Store:GetAll()[1]
 assert(first.categoryKey == "delves" and first.categoryLabel == "地下堡", "display projection is not localized")
@@ -273,7 +295,8 @@ end
 local function NewFontString()
     return {
         SetPoint = function() end,
-        SetTextColor = function() end,
+        SetTextColor = function(self, r, g, b) self.color = { r = r, g = g, b = b } end,
+        SetScale = function(self, value) self.scale = value end,
         SetText = function(self, value) self.text = value end,
         SetShown = function(self, value) self.shown = value end,
         Hide = function(self) self.shown = false end,
@@ -329,6 +352,9 @@ assert(#fakeMap.pins == 1, "enabled map pin was not acquired")
 assert(fakeMap.pins[1].icon.atlas == SMK.PinTextureByID[5].atlas, "selected pin texture was ignored")
 assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown,
     "enabled map pin name was not rendered")
+assert(fakeMap.pins[1].label.color.r == 0.2 and fakeMap.pins[1].label.color.g == 0.4
+    and fakeMap.pins[1].label.color.b == 0.6 and fakeMap.pins[1].label.scale == 1.4,
+    "pin text appearance settings were not rendered")
 assert(SMK.MapPins:ContainsMouseFocus({ fakeMap.pins[1] }),
     "map pin focus was not identified")
 assert(not fakeMap.pins[1].scripts or (not fakeMap.pins[1].scripts.OnEnter

@@ -35,7 +35,7 @@
 | 地点图标（列表中） | `Config.lua` → `categories[*].atlas` |
 | 颜色（文字/边框/背景） | `Config.lua` → `colors.*` |
 | 面板底图 Atlas | `Config.lua` → `panel.backgroundAtlas` |
-| 数量限制：地点名最大字符 | `Config.lua` → `location.maxNameLength` |
+| 数量限制：地点名最大输入字符/显示宽度 | `Config.lua` → `location.maxNameLength` / `maxNameWidth` |
 | 缩放范围 | `Config.lua` → `location.minScale` / `maxScale` / `scaleStep` |
 
 ### 功能行为
@@ -83,7 +83,7 @@
 导出的 `SMK|2|` 使用稳定类别 ID；项目尚未投产，不维护旧前缀兼容。
 
 地图标记只显示 `mapID` 与当前地图完全一致的地点，不自动投影子地图地点到大陆地图。
-主面板可分别控制是否显示地图标记及标记上方的地点名称。
+主面板可分别控制是否显示地图标记及标记上方的地点名称，并可设置名称颜色和字体大小。
 
 ## 开发验证
 

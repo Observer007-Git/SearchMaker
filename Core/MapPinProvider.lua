@@ -26,9 +26,10 @@ local function CreatePinMixin()
         if not self.label then
             self.label = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
             self.label:SetPoint("BOTTOM", self, "TOP", 0, 2)
-            local color = SMK.Config.colors.gold
-            self.label:SetTextColor(color[1], color[2], color[3])
         end
+        local textColor = SMK.Settings:Get("mapPinTextColor")
+        self.label:SetTextColor(textColor.r, textColor.g, textColor.b)
+        self.label:SetScale(SMK.Settings:Get("mapPinTextScale"))
         local texture = SMK.PinTextureByID[tonumber(entry.pinTextureID)]
             or SMK.PinTextureByID[SMK.DefaultPinTextureID]
         self.icon:SetAtlas(texture and texture.atlas or SMK.Config.art.fallbackLocationAtlas, true)

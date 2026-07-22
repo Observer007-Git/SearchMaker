@@ -20,6 +20,8 @@ SMK.L = {
     BINDING_NAME = "Toggle Search",
     SHOW_MAP_PINS = "Show Map Pins",
     SHOW_MAP_PIN_NAMES = "Show Pin Names",
+    PIN_TEXT_COLOR = "Pin Text Color",
+    PIN_TEXT_SIZE = "Pin Text Size",
     PIN_TEXTURE_LABEL = "Pin Texture",
     LOCATION_SCALE = "Icon Scale",
 
@@ -57,7 +59,7 @@ SMK.L = {
     ERROR_NO_MAP_ID = "Cannot determine current map ID.",
     ERROR_INVALID_COORDINATES = "X and Y must be numbers between 0 and 100.",
     ERROR_EMPTY_NAME = "Please enter a location name.",
-    ERROR_NAME_TOO_LONG = "Name must be 7 characters or fewer.",
+    ERROR_NAME_TOO_LONG = "Name supports up to 10 Chinese characters or 20 English letters.",
 
     -- BulkDeleteDialog
     BULK_DELETE_TITLE = "Bulk Delete",

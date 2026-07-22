@@ -22,6 +22,20 @@ function SMK.Util.Normalize(text)
     return SMK.Util.Trim(text):lower():gsub("%s+", "")
 end
 
+--- 按显示宽度计算名称长度：ASCII 字符计 1，其他 UTF-8 字符计 2。
+-- @param text string
+-- @return number|nil 非法 UTF-8 返回 nil。
+function SMK.Util.GetTextWidth(text)
+    local value = tostring(text or "")
+    local ok, characterCount = pcall(strlenutf8, value)
+    if not ok then return nil end
+    local asciiCount = 0
+    for index = 1, #value do
+        if value:byte(index) < 128 then asciiCount = asciiCount + 1 end
+    end
+    return asciiCount + (characterCount - asciiCount) * 2
+end
+
 function SMK.Util.CopyTable(source)
     local copy = {}
     for key, value in pairs(source or {}) do

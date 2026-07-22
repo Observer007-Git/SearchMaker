@@ -23,7 +23,8 @@ local Config = {
         horizontalGap = 0,
         verticalGap = 1,
         groupGap = 1,
-        maxNameLength = 7,
+        maxNameLength = 20,
+        maxNameWidth = 20,
         maxCoordinateLength = 6,
         maxFrequent = 5,
         defaultScale = 1,
@@ -44,6 +45,10 @@ local Config = {
         size = 18,
         minScale = 0.8,
         maxScale = 1.2,
+        defaultTextScale = 1,
+        minTextScale = 0.5,
+        maxTextScale = 2,
+        textScaleStep = 0.1,
     },
     mapIndex = {
         roots = { 946, 947, 1, 2, 13, 197, 4080 },
@@ -112,6 +117,12 @@ Config.settingsDefaults = {
     shortcutSearchVisible = false,
     showMapPins = false,
     showMapPinNames = false,
+    mapPinTextColor = {
+        r = Config.colors.gold[1],
+        g = Config.colors.gold[2],
+        b = Config.colors.gold[3],
+    },
+    mapPinTextScale = Config.mapPins.defaultTextScale,
     searchAllMaps = false,
 }
 

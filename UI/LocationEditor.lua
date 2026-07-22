@@ -63,8 +63,8 @@ function Editor:Save()
     elseif values.name == "" then
         return self:SetError(SMK.L.ERROR_EMPTY_NAME)
     end
-    local ok, length = pcall(strlenutf8, values.name)
-    if not ok or length > Config.location.maxNameLength then
+    local nameWidth = Util.GetTextWidth(values.name)
+    if not nameWidth or nameWidth > Config.location.maxNameWidth then
         return self:SetError(SMK.L.ERROR_NAME_TOO_LONG)
     end
     local dupEntry, dupMessage = SMK.Store:FindDuplicate(values, frame.entry)

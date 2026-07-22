@@ -173,6 +173,15 @@ function MainPanel:UpdateScaleControls()
     self.frame.locationScalePlus:SetEnabled(scale < Config.location.maxScale)
     self.showPinsCheck:SetChecked(SMK.Settings:Get("showMapPins"))
     self.showPinNamesCheck:SetChecked(SMK.Settings:Get("showMapPinNames"))
+    local color = SMK.Settings:Get("mapPinTextColor")
+    self.pinTextColorButton.swatch:SetColorTexture(color.r, color.g, color.b)
+    local textScale = SMK.Settings:Get("mapPinTextScale")
+    local pinsAvailable = SMK.MapPins:IsAvailable()
+    self.pinTextScaleValue:SetText(string.format("%d%%", math.floor(textScale * 100 + 0.5)))
+    self.pinTextColorButton:SetEnabled(pinsAvailable)
+    self.pinTextColorButton.swatch:SetAlpha(pinsAvailable and 1 or 0.45)
+    self.pinTextScaleMinus:SetEnabled(pinsAvailable and textScale > Config.mapPins.minTextScale)
+    self.pinTextScalePlus:SetEnabled(pinsAvailable and textScale < Config.mapPins.maxTextScale)
 end
 
 --- 调整图标/文字缩放并刷新。
@@ -182,6 +191,44 @@ function MainPanel:ChangeScale(delta)
         math.min(Config.location.maxScale, SMK.Settings:Get("locationScale") + delta))
     local changed, message = SMK.Settings:Set("locationScale", value)
     if not changed then SMK:Print(message) end
+end
+
+function MainPanel:ChangePinTextScale(delta)
+    local value = math.max(Config.mapPins.minTextScale,
+        math.min(Config.mapPins.maxTextScale, SMK.Settings:Get("mapPinTextScale") + delta))
+    local changed, message = SMK.Settings:Set("mapPinTextScale", value)
+    if not changed then SMK:Print(message) end
+    self:UpdateScaleControls()
+end
+
+function MainPanel:SetPinTextColor(r, g, b)
+    local changed, message = SMK.Settings:Set("mapPinTextColor", { r = r, g = g, b = b })
+    if not changed then SMK:Print(message) end
+    self:UpdateScaleControls()
+end
+
+function MainPanel:OpenPinTextColorPicker()
+    local color = SMK.Settings:Get("mapPinTextColor")
+    local previous = { r = color.r, g = color.g, b = color.b }
+    ColorPickerFrame:Hide()
+    ColorPickerFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    ColorPickerFrame:SetFrameLevel(self.frame:GetFrameLevel() + 20)
+    ColorPickerFrame:SetClampedToScreen(true)
+    self.colorPickerOpen = true
+    self.colorPickerCancelled = false
+    ColorPickerFrame:SetupColorPickerAndShow({
+        r = color.r,
+        g = color.g,
+        b = color.b,
+        hasOpacity = false,
+        swatchFunc = function()
+            self.pinTextColorButton.swatch:SetColorTexture(ColorPickerFrame:GetColorRGB())
+        end,
+        cancelFunc = function()
+            self.colorPickerCancelled = true
+            self.pinTextColorButton.swatch:SetColorTexture(previous.r, previous.g, previous.b)
+        end,
+    })
 end
 
 function MainPanel:HideDialogs()
@@ -210,7 +257,10 @@ function MainPanel:SetSearchActive(active)
 end
 
 function MainPanel:ContainsMouseFocus(foci)
-    return self.frame and DoesAncestryIncludeAny and DoesAncestryIncludeAny(self.frame, foci)
+    if not DoesAncestryIncludeAny then return false end
+    if self.colorPickerOpen and ColorPickerFrame and ColorPickerFrame:IsShown()
+        and DoesAncestryIncludeAny(ColorPickerFrame, foci) then return true end
+    return self.frame and DoesAncestryIncludeAny(self.frame, foci)
 end
 
 function MainPanel:OpenEditor(mode, entry)
@@ -375,6 +425,50 @@ function MainPanel:Create(searchBar, callbacks)
             SMK:Print(message)
         end
     end)
+    local function SetControlTooltip(control, text)
+        control:SetScript("OnEnter", function()
+            GameTooltip:SetOwner(control, "ANCHOR_TOP")
+            GameTooltip:SetText(text)
+            GameTooltip:Show()
+        end)
+        control:SetScript("OnLeave", GameTooltip_Hide)
+    end
+    self.pinTextColorButton = CreateFrame("Button", nil, scaleRow, "UIPanelButtonTemplate")
+    self.pinTextColorButton:SetSize(28, 22)
+    self.pinTextColorButton:SetPoint("LEFT", pinNamesLabel, "RIGHT", 8, 0)
+    self.pinTextColorButton.swatch = self.pinTextColorButton:CreateTexture(nil, "ARTWORK")
+    self.pinTextColorButton.swatch:SetPoint("TOPLEFT", 5, -5)
+    self.pinTextColorButton.swatch:SetPoint("BOTTOMRIGHT", -5, 5)
+    self.pinTextColorButton:SetScript("OnClick", function() self:OpenPinTextColorPicker() end)
+    SetControlTooltip(self.pinTextColorButton, SMK.L.PIN_TEXT_COLOR)
+    self.pinTextScaleMinus = CreateFrame("Button", nil, scaleRow, "UIPanelButtonTemplate")
+    self.pinTextScaleMinus:SetSize(24, 22)
+    self.pinTextScaleMinus:SetPoint("LEFT", self.pinTextColorButton, "RIGHT", 8, 0)
+    self.pinTextScaleMinus:EnableKeyboard(false)
+    self.pinTextScaleMinus:SetText("-")
+    self.pinTextScaleMinus:SetScript("OnClick", function()
+        self:ChangePinTextScale(-Config.mapPins.textScaleStep)
+    end)
+    SetControlTooltip(self.pinTextScaleMinus, SMK.L.PIN_TEXT_SIZE)
+    self.pinTextScaleValue = scaleRow:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    self.pinTextScaleValue:SetPoint("LEFT", self.pinTextScaleMinus, "RIGHT", 4, 0)
+    self.pinTextScaleValue:SetWidth(44)
+    self.pinTextScaleValue:SetJustifyH("CENTER")
+    self.pinTextScalePlus = CreateFrame("Button", nil, scaleRow, "UIPanelButtonTemplate")
+    self.pinTextScalePlus:SetSize(24, 22)
+    self.pinTextScalePlus:SetPoint("LEFT", self.pinTextScaleValue, "RIGHT", 4, 0)
+    self.pinTextScalePlus:EnableKeyboard(false)
+    self.pinTextScalePlus:SetText("+")
+    self.pinTextScalePlus:SetScript("OnClick", function()
+        self:ChangePinTextScale(Config.mapPins.textScaleStep)
+    end)
+    SetControlTooltip(self.pinTextScalePlus, SMK.L.PIN_TEXT_SIZE)
+    if not SMK.MapPins:IsAvailable() then
+        self.pinTextColorButton:SetEnabled(false)
+        self.pinTextScaleMinus:SetEnabled(false)
+        self.pinTextScalePlus:SetEnabled(false)
+        self.pinTextColorButton.swatch:SetAlpha(0.45)
+    end
 
     self.frequentRow = CreateFrame("Frame", nil, frame)
     self.frequentRow:SetPoint("TOPLEFT", 14, -75)
@@ -411,10 +505,25 @@ function MainPanel:Create(searchBar, callbacks)
     SMK.ModalManager:Register(SMK.ShareDialog)
     SMK.ModalManager:Register(SMK.BulkDeleteDialog, { "dropdown" })
     frame:HookScript("OnHide", function()
+        if self.colorPickerOpen and ColorPickerFrame and ColorPickerFrame:IsShown() then
+            self.colorPickerCancelled = true
+            ColorPickerFrame:Hide()
+        end
         frame.isExpanded = false
         self:HideDialogs()
         if self.callbacks.onHidden then self.callbacks.onHidden() end
     end)
+    if ColorPickerFrame then
+        ColorPickerFrame:HookScript("OnHide", function()
+            if not self.colorPickerOpen then return end
+            self.colorPickerOpen = false
+            if self.colorPickerCancelled then
+                self:UpdateScaleControls()
+            else
+                self:SetPinTextColor(ColorPickerFrame:GetColorRGB())
+            end
+        end)
+    end
     return frame
 end
 

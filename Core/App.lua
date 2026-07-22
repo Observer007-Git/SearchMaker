@@ -61,7 +61,8 @@ function App:SettingChanged(key)
         self:RequestRefresh("scale")
     elseif key == "showMapPins" then
         self:RequestRefresh("pins")
-    elseif key == "showMapPinNames" then
+    elseif key == "showMapPinNames" or key == "mapPinTextColor"
+        or key == "mapPinTextScale" then
         self:RequestRefresh("pins")
     elseif key == "searchAllMaps" then
         self:RequestRefresh("scope")

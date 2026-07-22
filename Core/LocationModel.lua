@@ -29,8 +29,8 @@ function Model:Normalize(values)
         or entry.name == "" then
         return nil, "INVALID_LOCATION"
     end
-    local ok, length = pcall(strlenutf8, entry.name)
-    if not ok or length > Config.location.maxNameLength then
+    local nameWidth = Util.GetTextWidth(entry.name)
+    if not nameWidth or nameWidth > Config.location.maxNameWidth then
         return nil, "INVALID_LOCATION"
     end
     return entry

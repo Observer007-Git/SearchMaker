@@ -23,12 +23,26 @@ local function NormalizeSettings(source)
     source = type(source) == "table" and source or {}
     local scale = tonumber(source.locationScale) or Config.settingsDefaults.locationScale
     scale = math.max(Config.location.minScale, math.min(Config.location.maxScale, scale))
+    local textScale = tonumber(source.mapPinTextScale) or Config.settingsDefaults.mapPinTextScale
+    textScale = math.max(Config.mapPins.minTextScale, math.min(Config.mapPins.maxTextScale, textScale))
+    local sourceColor = type(source.mapPinTextColor) == "table" and source.mapPinTextColor or {}
+    local defaultColor = Config.settingsDefaults.mapPinTextColor
+    local function ColorComponent(key)
+        local value = tonumber(sourceColor[key]) or defaultColor[key]
+        return math.max(0, math.min(1, value))
+    end
     local function BooleanOrDefault(key)
         if type(source[key]) == "boolean" then return source[key] end
         return Config.settingsDefaults[key]
     end
     return {
         locationScale = math.floor(scale * 10 + 0.5) / 10,
+        mapPinTextScale = math.floor(textScale * 10 + 0.5) / 10,
+        mapPinTextColor = {
+            r = ColorComponent("r"),
+            g = ColorComponent("g"),
+            b = ColorComponent("b"),
+        },
         shortcutSearchVisible = BooleanOrDefault("shortcutSearchVisible"),
         showMapPins = BooleanOrDefault("showMapPins"),
         showMapPinNames = BooleanOrDefault("showMapPinNames"),

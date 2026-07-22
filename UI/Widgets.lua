@@ -128,9 +128,12 @@ function Widgets:CreateLocationButton(parent, callbacks)
 
     button.iconBox = CreateFrame("Frame", nil, button)
     button.icon = button.iconBox:CreateTexture(nil, "ARTWORK")
-    button.icon:SetAllPoints(button.iconBox)
     button.iconFrame = button.iconBox:CreateTexture(nil, "OVERLAY")
-    button.iconFrame:SetAllPoints(button.iconBox)
+    local frameExpand = Art.searchResultIconFrameExpand
+    button.icon:SetPoint("TOPLEFT", button.iconBox, "TOPLEFT", -frameExpand, frameExpand)
+    button.icon:SetPoint("BOTTOMRIGHT", button.iconBox, "BOTTOMRIGHT", frameExpand, -frameExpand)
+    button.iconFrame:SetPoint("TOPLEFT", button.iconBox, "TOPLEFT", -frameExpand, frameExpand)
+    button.iconFrame:SetPoint("BOTTOMRIGHT", button.iconBox, "BOTTOMRIGHT", frameExpand, -frameExpand)
     button.iconFrame:SetTexture(Art.searchResultIconFrame)
 
     button.hitArea = CreateFrame("Button", nil, button)
@@ -194,7 +197,7 @@ end
 -- @param targetWidth number 期望宽度。
 function Widgets:StretchSearchResult(button, targetWidth)
     button:SetWidth(math.max(targetWidth, button:GetWidth()))
-    button:SetClipsChildren(true)
+    button:SetClipsChildren(false)
 end
 
 --- 创建带有图标和大号文字的类别标题栏。

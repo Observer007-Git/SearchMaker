@@ -59,7 +59,8 @@ end
 assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\VAS_CharacterTransfer"
-    and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame",
+    and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
+    and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
 local locationSign = SMK.Config.art.locationSign
 assert(locationSign.leftAtlas == "housing-dashboard-woodsign-left"
@@ -438,7 +439,7 @@ assert(layoutButton.width == 274 and layoutButton.background.left.width == leftW
     and layoutButton.background.right.width == rightWidth,
     "search result location sign did not stretch only its center segment")
 SMK.Widgets:StretchSearchResult(layoutButton, 340)
-assert(layoutButton.width == 340 and layoutButton.clipsChildren
+assert(layoutButton.width == 340 and not layoutButton.clipsChildren
     and layoutButton.background.left.width == leftWidth
     and layoutButton.background.right.width == rightWidth,
     "search result center segment did not fill the result width")

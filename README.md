@@ -36,7 +36,7 @@
 | 地点图标（列表中） | `Config.lua` → `categories[*].atlas` |
 | 当前地图搜索图标 | `Config.lua` → `art.searchIcon` |
 | 全图搜索图标 | `Config.lua` → `art.searchAllMapsIcon` |
-| 搜索结果图标边框 | `Config.lua` → `art.searchResultIconFrame` |
+| 搜索结果图标边框及扩展 | `Config.lua` → `art.searchResultIconFrame` / `searchResultIconFrameExpand` |
 | 颜色（文字/边框/背景） | `Config.lua` → `colors.*` |
 | 面板底图 Atlas | `Config.lua` → `panel.backgroundAtlas` |
 | 数量限制：地点名最大输入字符/显示宽度 | `Config.lua` → `location.maxNameLength` / `maxNameWidth` |

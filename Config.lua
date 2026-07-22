@@ -59,6 +59,7 @@ local Config = {
         searchIcon = "Interface\\ICONS\\VAS_NameChange",
         searchAllMapsIcon = "Interface\\ICONS\\VAS_CharacterTransfer",
         searchResultIconFrame = "Interface\\SPELLBOOK\\RotationIconFrame",
+        searchResultIconFrameExpand = 4,
         button = "Interface\\ENCOUNTERJOURNAL\\loottab-item-background",
         highlight = "Interface\\QuestFrame\\UI-QuestTitleHighlight",
         fallbackLocationAtlas = "Waypoint-MapPin-Minimap-Tracked",

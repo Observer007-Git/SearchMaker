@@ -47,7 +47,6 @@ function Editor:Save()
         y = tonumber(Util.Trim(self.inputs.y:GetText())),
         name = Util.Trim(self.inputs.name:GetText()),
         categoryKey = self.categoryKey,
-        icon = Config.art.defaultLocationIcon,
         showPin = self.pinCheck:GetChecked() and 1 or 0,
         pinTextureID = tonumber(self.pinTextureID) or 1,
     }

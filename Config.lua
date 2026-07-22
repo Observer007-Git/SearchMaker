@@ -2,7 +2,7 @@ local _, SMK = ...
 
 -- 常用尺寸、视觉和限制集中在本文件；修改后 /reload 即可生效。
 local Config = {
-    databaseSchemaVersion = 2,
+    databaseSchemaVersion = 3,
     panel = {
         width = 700,
         height = 512,
@@ -41,8 +41,17 @@ local Config = {
         prefix = "SMK|",
         version = 2,
     },
+    mapPins = {
+        size = 18,
+        minScale = 0.8,
+        maxScale = 1.2,
+    },
+    mapIndex = {
+        roots = { 946, 947, 1, 2, 13, 197, 4080 },
+        maxDepth = 20,
+        maxResults = 5,
+    },
     art = {
-        defaultLocationIcon = "Interface\\ICONS\\VAS_CharacterTransfer",
         searchIcon = "Interface\\ICONS\\INV_Misc_Map03",
         button = "Interface\\ENCOUNTERJOURNAL\\loottab-item-background",
         highlight = "Interface\\QuestFrame\\UI-QuestTitleHighlight",
@@ -72,16 +81,16 @@ local Config = {
 
 -- id 是共享格式中的稳定编号；调整显示顺序时不得修改已有 id。
 Config.categories = {
-    { id = 1, key = "Delves", nameKey = "CAT_DELVES", legacyNames = { "地下堡" }, atlas = "delves-bountiful" },
-    { id = 2, key = "Dungeons", nameKey = "CAT_DUNGEONS", legacyNames = { "地下城" }, atlas = "Dungeon" },
-    { id = 3, key = "Raids", nameKey = "CAT_RAIDS", legacyNames = { "团队副本" }, atlas = "Raid" },
-    { id = 4, key = "Teleport Points", nameKey = "CAT_TELEPORT", legacyNames = { "传送点" }, atlas = "TaxiNode_Continent_Neutral" },
-    { id = 5, key = "Flight Paths", nameKey = "CAT_FLIGHT", legacyNames = { "飞行点" }, atlas = "TaxiNode_Neutral" },
-    { id = 6, key = "Professions", nameKey = "CAT_PROFESSIONS", legacyNames = { "专业" }, atlas = "MajorFactions_MapIcons_Expedition64" },
-    { id = 7, key = "NPC", nameKey = "CAT_NPC", legacyNames = { "NPC" }, atlas = "Embercourt-Guest-PrinceRenathal" },
-    { id = 8, key = "Other", nameKey = "CAT_OTHER", legacyNames = { "其他" }, atlas = Config.art.fallbackLocationAtlas },
+    { id = 1, key = "delves", nameKey = "CAT_DELVES", atlas = "delves-bountiful" },
+    { id = 2, key = "dungeons", nameKey = "CAT_DUNGEONS", atlas = "Dungeon" },
+    { id = 3, key = "raids", nameKey = "CAT_RAIDS", atlas = "Raid" },
+    { id = 4, key = "teleport", nameKey = "CAT_TELEPORT", atlas = "TaxiNode_Continent_Neutral" },
+    { id = 5, key = "flight", nameKey = "CAT_FLIGHT", atlas = "TaxiNode_Neutral" },
+    { id = 6, key = "professions", nameKey = "CAT_PROFESSIONS", atlas = "MajorFactions_MapIcons_Expedition64" },
+    { id = 7, key = "npc", nameKey = "CAT_NPC", atlas = "Embercourt-Guest-PrinceRenathal" },
+    { id = 8, key = "other", nameKey = "CAT_OTHER", atlas = Config.art.fallbackLocationAtlas },
 }
-Config.defaultCategoryKey = "Other"
+Config.defaultCategoryKey = "other"
 Config.categoryByKey = {}
 Config.categoryByID = {}
 Config.categoryOrder = {}
@@ -93,19 +102,19 @@ end
 
 function Config.GetCategoryKey(value)
     local text = SMK.Util.Trim(value)
-    if Config.categoryByKey[text] then
-        return text
-    end
-    for _, category in ipairs(Config.categories) do
-        if SMK.L and SMK.L[category.nameKey] == text then
-            return category.key
-        end
-        for _, legacyName in ipairs(category.legacyNames or {}) do
-            if legacyName == text then return category.key end
-        end
-    end
+    if Config.categoryByKey[text] then return text end
+    local category = Config.categoryByID[tonumber(text)]
+    if category then return category.key end
     return Config.defaultCategoryKey
 end
+
+Config.settingsDefaults = {
+    locationScale = Config.location.defaultScale,
+    showFullPanel = true,
+    shortcutSearchVisible = false,
+    showMapPins = false,
+    searchAllMaps = false,
+}
 
 Config.panelBackdrop = {
     bgFile = "Interface\\Buttons\\WHITE8X8",

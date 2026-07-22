@@ -6,7 +6,7 @@ local Art = Config.art
 local Util = SMK.Util
 
 local function IsAllMaps()
-    return SMK.DB:Get().searchAllMaps
+    return SMK.Settings:Get("searchAllMaps")
 end
 
 --- 检查已保存的栏位置表是否包含有效坐标。
@@ -130,21 +130,18 @@ function SearchBar:UpdateResults()
     self._lastQuery = query
     if query == "" then
         self:HideResults()
-        if self.panel and self.panel:IsExpanded() then
-            self.panel.frequentRow:Show()
-        end
+        if self.panel and self.panel:IsExpanded() then self.panel:SetSearchActive(false) end
         return
     end
-    if self.panel then self.panel.frequentRow:Hide() end
+    if self.panel then self.panel:SetSearchActive(true) end
     local source = IsAllMaps() and SMK.Store:GetAll() or SMK.State.currentEntries
     self.searchResults:Render(source, query, IsAllMaps())
 end
 
 --- 切换当前地图/全图搜索模式。
 function SearchBar:ToggleScope()
-    local database = SMK.DB:Get()
-    database.searchAllMaps = not database.searchAllMaps
-    self:UpdateSearchIcon()
+    local changed, message = SMK.Settings:Set("searchAllMaps", not IsAllMaps())
+    if not changed then return SMK:Print(message) end
     self:SetQuery("")
     self:HideResults()
     self:UpdateInstructions()
@@ -166,7 +163,7 @@ function SearchBar:SetPanelExpanded(expanded)
 end
 
 function SearchBar:UpdateModeButton()
-    self.modeButton:SetText(SMK.DB:Get().showFullPanel and SMK.L.HIDE_PANEL or SMK.L.SHOW_PANEL)
+    self.modeButton:SetText(SMK.Settings:Get("showFullPanel") and SMK.L.HIDE_PANEL or SMK.L.SHOW_PANEL)
 end
 
 --- 关闭结果面板，清空搜索框，隐藏模式按钮。
@@ -214,6 +211,58 @@ function SearchBar:AttachPanel(panel)
     })
 end
 
+function SearchBar:IsVisible()
+    return self.bar and self.bar:IsShown()
+end
+
+function SearchBar:IsMapMode()
+    return self.bar and self.bar.positionMode == "map"
+end
+
+function SearchBar:GetQuery()
+    return self.box and self.box:GetText() or ""
+end
+
+function SearchBar:Focus()
+    if self.box then self.box:SetFocus() end
+end
+
+function SearchBar:ClearFocus()
+    if self.box then self.box:ClearFocus() end
+end
+
+function SearchBar:PrepareForDialog()
+    self:HideResults()
+    self:SetQuery("")
+    self:ClearFocus()
+end
+
+function SearchBar:ShowForMap()
+    self:ApplyPosition("map")
+    if not self:IsVisible() then self.bar:Show() end
+    self:SetPanelExpanded(false)
+    self.modeButton:Hide()
+end
+
+function SearchBar:HandleWorldMapHidden()
+    if SMK.Settings:Get("shortcutSearchVisible") then
+        self:ApplyPosition("shortcut")
+        self:SetPanelExpanded(false)
+        self.modeButton:Hide()
+    else
+        self.bar:Hide()
+    end
+end
+
+function SearchBar:RestoreVisibility()
+    if WorldMapFrame:IsShown() then
+        self:ShowForMap()
+    elseif SMK.Settings:Get("shortcutSearchVisible") then
+        self:ApplyPosition("shortcut")
+        self.bar:Show()
+    end
+end
+
 function SearchBar:RefreshContext()
     self:UpdateInstructions()
     self:CancelPendingSearch()
@@ -230,12 +279,13 @@ function SearchBar:ToggleShortcut()
         self.box:SetFocus()
         return
     end
-    local database = SMK.DB:Get()
     if self.bar:IsShown() then
-        database.shortcutSearchVisible = false
+        local changed, message = SMK.Settings:Set("shortcutSearchVisible", false)
+        if not changed then return SMK:Print(message) end
         self.bar:Hide()
     else
-        database.shortcutSearchVisible = true
+        local changed, message = SMK.Settings:Set("shortcutSearchVisible", true)
+        if not changed then return SMK:Print(message) end
         self:ApplyPosition("shortcut")
         self.bar:Show()
         self.box:SetFocus()
@@ -285,10 +335,11 @@ function SearchBar:Create(callbacks)
     self.modeButton:SetFrameLevel(bar:GetFrameLevel() + 5)
     self.modeButton:EnableKeyboard(false)
     self.modeButton:SetScript("OnClick", function()
-        local database = SMK.DB:Get()
-        database.showFullPanel = not database.showFullPanel
+        local showPanel = not SMK.Settings:Get("showFullPanel")
+        local changed, message = SMK.Settings:Set("showFullPanel", showPanel)
+        if not changed then return SMK:Print(message) end
         self:UpdateModeButton()
-        self:SetPanelExpanded(database.showFullPanel)
+        self:SetPanelExpanded(showPanel)
         self:UpdateResults()
         self.box:SetFocus()
     end)
@@ -311,7 +362,7 @@ function SearchBar:Create(callbacks)
         self.box.moveHint:Hide()
         self.modeButton:Show()
         self:UpdateModeButton()
-        self:SetPanelExpanded(SMK.DB:Get().showFullPanel)
+        self:SetPanelExpanded(SMK.Settings:Get("showFullPanel"))
         self:UpdateResults()
     end)
     self.box:SetScript("OnTabPressed", function() self:ToggleScope() end)
@@ -349,7 +400,7 @@ function SearchBar:Create(callbacks)
         if not (self.panel and self.panel:IsExpanded()) and not self.searchResults:IsShown()
             and not self.modeButton:IsShown() then return end
         local foci = GetMouseFoci()
-        if DoesAncestryIncludeAny(self.panel.frame, foci) or DoesAncestryIncludeAny(bar, foci)
+        if self.panel:ContainsMouseFocus(foci) or DoesAncestryIncludeAny(bar, foci)
             or SMK.ModalManager:ContainsMouseFocus(foci) then return end
         self:ClosePanel()
     end)

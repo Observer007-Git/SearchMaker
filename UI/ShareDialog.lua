@@ -97,38 +97,15 @@ end
 --- 从文本框中的 SMK| 共享文本导入条目。
 -- 跳过已存在的条目（通过 GetDuplicateKey 匹配）。
 function Dialog:Import()
-    local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
-    if readOnlyMessage then return self:SetStatus(readOnlyMessage, true) end
-    local entries, errorMessage, invalid = SMK.ShareCodec:Decode(self.textBox:GetText())
-    if not entries then return self:SetStatus(errorMessage, true) end
-    local existing = {}
-    for _, entry in ipairs(SMK.Store:GetAll()) do
-        existing[SMK.Store:GetDuplicateKey(entry)] = true
-    end
-    local imported, duplicates = 0, 0
-    for _, entry in ipairs(entries) do
-        local key = SMK.Store:GetDuplicateKey(entry)
-        if existing[key] then
-            duplicates = duplicates + 1
-        else
-            local added = SMK.Store:Add(entry)
-            if added then
-                existing[key] = true
-                imported = imported + 1
-            else
-                invalid = (invalid or 0) + 1
-            end
-        end
-    end
-    if imported > 0 and self.callbacks.onChanged then self.callbacks.onChanged() end
+    local result, errorMessage = SMK.Import:ImportText(self.textBox:GetText())
+    if not result then return self:SetStatus(errorMessage, true) end
     local summary = string.format(SMK.L.IMPORT_RESULT,
-        imported, duplicates, invalid or 0)
-    self:SetStatus(summary, imported == 0 and (invalid or 0) > 0)
+        result.imported, result.duplicates, result.invalid)
+    self:SetStatus(summary, result.imported == 0 and result.invalid > 0)
     SMK:Print(summary)
 end
 
-function Dialog:Create(parent, callbacks)
-    self.callbacks = callbacks or {}
+function Dialog:Create(parent)
     local frame = CreateFrame("Frame", SMK.name .. "ShareFrame", parent, "BackdropTemplate")
     self.frame = frame
     frame:SetSize(600, 350)

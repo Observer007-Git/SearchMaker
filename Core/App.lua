@@ -14,6 +14,10 @@ local RefreshProfiles = {
         search = true, geometry = true,
     },
     search = { search = true },
+    scale = { panel = true, search = true },
+    pins = { pins = true },
+    scope = { searchIcon = true, instructions = true, search = true },
+    usage = { panel = true },
 }
 
 function App:GetRefreshCoordinator()
@@ -34,16 +38,31 @@ end
 function App:FlushRefresh(flags)
     if flags.geometry then SMK.Widgets:ClearGeometryCache() end
     if flags.context then self:LoadContext() end
-    if flags.pins then SMK.Widgets:RefreshMapPins() end
+    if flags.pins then SMK.MapPins:Refresh() end
     if not self.initialized then return end
 
     if flags.panel and SMK.MainPanel:IsExpanded() then SMK.MainPanel:Refresh() end
-    if not SMK.SearchBar.bar:IsShown() then return end
+    if flags.searchIcon then SMK.SearchBar:UpdateSearchIcon() end
+    if not SMK.SearchBar:IsVisible() then return end
     if flags.resetSearch then
         SMK.SearchBar:RefreshContext()
     else
         if flags.instructions then SMK.SearchBar:UpdateInstructions() end
         if flags.search then SMK.SearchBar:RefreshResultsIfVisible() end
+    end
+end
+
+function App:StoreChanged(reason)
+    self:RequestRefresh(reason == "usage" and "usage" or "data")
+end
+
+function App:SettingChanged(key)
+    if key == "locationScale" then
+        self:RequestRefresh("scale")
+    elseif key == "showMapPins" then
+        self:RequestRefresh("pins")
+    elseif key == "searchAllMaps" then
+        self:RequestRefresh("scope")
     end
 end
 
@@ -68,14 +87,12 @@ function App:Activate(entry, fromSearchResult)
             -- 播放传送门音效
             PlaySound(875)
             SMK.SearchBar:ClosePanel()
-            if SMK.SearchBar.bar:IsShown() then
-                SMK.SearchBar.box:SetFocus()
-            end
+            if SMK.SearchBar:IsVisible() then SMK.SearchBar:Focus() end
         end
         return
     end
-    if fromSearchResult and SMK.DB:Get().searchAllMaps
-        and SMK.SearchBar.bar.positionMode == "map"
+    if fromSearchResult and SMK.Settings:Get("searchAllMaps")
+        and SMK.SearchBar:IsMapMode()
         and WorldMapFrame:IsShown() then
         SMK.Map:OpenMap(entry.mapID)
     end
@@ -110,7 +127,6 @@ function App:SaveLocation(mode, entry, values)
         if not added then return false, SMK.L.SAVE_FAILED end
         SMK:Print(string.format(SMK.L.ADD_SUCCESS, values.name, values.x, values.y))
     end
-    self:DataChanged()
     return true
 end
 
@@ -124,16 +140,15 @@ function App:DeleteLocation(entry)
         return SMK:Print(SMK.L.DELETE_INVALID)
     end
     GameTooltip_Hide()
-    local query = SMK.SearchBar.box:GetText()
+    local query = SMK.SearchBar:GetQuery()
     local deleted = SMK.Store:Delete(entry)
     if deleted == 0 then
         return SMK:Print(SMK.L.DELETE_UNKNOWN_SOURCE)
     end
     SMK:Print(string.format(SMK.L.DELETE_SUCCESS, entry.name, entry.x, entry.y))
-    self:DataChanged()
     if query ~= "" then
         SMK.SearchBar:SetQuery(query)
-        SMK.SearchBar.box:SetFocus()
+        SMK.SearchBar:Focus()
     end
 end
 
@@ -147,12 +162,17 @@ end
 function App:CreateUI()
     if self.initialized then return end
     SMK.DB:Initialize()
+    SMK.Store:SetChangeHandler(function(reason) self:StoreChanged(reason) end)
+    SMK.Settings:SetChangeHandler(function(key) self:SettingChanged(key) end)
     local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
     if readOnlyMessage and not self.warnedReadOnlyDatabase then
         self.warnedReadOnlyDatabase = true
         SMK:Print(readOnlyMessage)
     end
-    SMK.MapPins:Initialize(WorldMapFrame)
+    local initializedPins, pinsReady = pcall(SMK.MapPins.Initialize, SMK.MapPins, WorldMapFrame)
+    if not initializedPins or not pinsReady then
+        SMK:Print(SMK.L.ERROR_MAP_PINS_UNAVAILABLE)
+    end
     local bar = SMK.SearchBar:Create({
         onShown = function() self:RequestRefresh("visible") end,
         onActivate = function(entry, result) self:Activate(entry, result) end,
@@ -163,87 +183,33 @@ function App:CreateUI()
         onActivate = function(entry, result) self:Activate(entry, result) end,
         onDelete = function(entry) self:DeleteLocation(entry) end,
         onSaveLocation = function(mode, entry, values) return self:SaveLocation(mode, entry, values) end,
-        onChanged = function() self:DataChanged() end,
-        onScaleChanged = function() self:RequestRefresh("search") end,
-        onDialogOpened = function()
-            SMK.SearchBar:HideResults()
-            SMK.SearchBar:SetQuery("")
-            SMK.SearchBar.box:ClearFocus()
-        end,
+        onDialogOpened = function() SMK.SearchBar:PrepareForDialog() end,
         onClose = function() SMK.SearchBar:ClosePanel() end,
         onHidden = function() SMK.SearchBar:OnPanelHidden() end,
     })
     SMK.SearchBar:AttachPanel(SMK.MainPanel)
     self.initialized = true
     self:RequestRefresh("initialize")
-
-    WorldMapFrame:HookScript("OnShow", function()
-        SMK.MapIndex:Rebuild()
-        SMK.SearchBar:ApplyPosition("map")
-        if not SMK.SearchBar.bar:IsShown() then SMK.SearchBar.bar:Show() end
-        SMK.SearchBar:SetPanelExpanded(false)
-        SMK.SearchBar.modeButton:Hide()
-        self:RequestRefresh("map")
-    end)
-    WorldMapFrame:HookScript("OnHide", function()
-        if SMK.DB:Get().shortcutSearchVisible then
-            SMK.SearchBar:ApplyPosition("shortcut")
-            SMK.SearchBar:SetPanelExpanded(false)
-            SMK.SearchBar.modeButton:Hide()
-        else
-            SMK.SearchBar.bar:Hide()
-        end
-        self:RequestRefresh("map")
-    end)
-    hooksecurefunc(WorldMapFrame, "SetMapID", function()
-        if WorldMapFrame:IsShown() then self:RequestRefresh("map") end
-    end)
-
-    C_Timer.After(0, function()
-        if WorldMapFrame:IsShown() then
-            SMK.SearchBar:ApplyPosition("map")
-            SMK.SearchBar.bar:Show()
-        elseif SMK.DB:Get().shortcutSearchVisible then
-            SMK.SearchBar:ApplyPosition("shortcut")
-            SMK.SearchBar.bar:Show()
-        end
-    end)
-    -- 地图索引构建：WorldMap 就绪后立即尝试，失败则 1 秒后重试（最多 10 次）
-    local rebuildAttempts = 0
-    local function TryRebuildMapIndex()
-        if SMK.MapIndex:Rebuild() then return end
-        rebuildAttempts = rebuildAttempts + 1
-        if rebuildAttempts < 10 then
-            C_Timer.After(1, TryRebuildMapIndex)
-        end
-    end
-    TryRebuildMapIndex()
-    local addOnMapFrame = CreateFrame("Frame")
-    addOnMapFrame:RegisterEvent("GLOBAL_MOUSE_DOWN")
-    addOnMapFrame:SetScript("OnEvent", function(_, _, button)
-        if button ~= "LeftButton" or not IsAltKeyDown()
-            or not WorldMapFrame or not WorldMapFrame:IsShown() then return end
-        local container = WorldMapFrame.ScrollContainer
-        if not container then return end
-        local foci = GetMouseFoci and GetMouseFoci() or nil
-        local overCanvas
-        if foci and DoesAncestryIncludeAny then
-            overCanvas = DoesAncestryIncludeAny(container, foci)
-        else
-            overCanvas = container:IsMouseOver()
-        end
-        if not overCanvas then return end
-        local x, y = SMK.Map:GetCursorMapCoordinates()
-        local mapID = x and SMK.Map:GetContextMapID() or nil
-        if not mapID then return end
-        local marked, message = SMK.Map:BeginTemporaryWaypoint({ mapID = mapID, x = x, y = y })
-        if not marked then
-            if message then SMK:Print(message) end
-            return
-        end
-        SMK.MainPanel:OpenEditor("add", { mapID = mapID, x = x, y = y })
-    end)
-
+    SMK.WorldMapController:Initialize({
+        onShown = function()
+            SMK.SearchBar:ShowForMap()
+            self:RequestRefresh("map")
+        end,
+        onHidden = function()
+            SMK.SearchBar:HandleWorldMapHidden()
+            self:RequestRefresh("map")
+        end,
+        onMapChanged = function() self:RequestRefresh("map") end,
+        onReady = function() SMK.SearchBar:RestoreVisibility() end,
+        onAltClick = function(mapID, x, y)
+            local marked, message = SMK.Map:BeginTemporaryWaypoint({ mapID = mapID, x = x, y = y })
+            if not marked then
+                if message then SMK:Print(message) end
+                return
+            end
+            SMK.MainPanel:OpenEditor("add", { mapID = mapID, x = x, y = y })
+        end,
+    })
 end
 
 --- 切换浮动搜索栏的显示（由快捷键触发）。
@@ -266,12 +232,8 @@ end
 
 
 function App:ScanChatForImports()
-    local existing = {}
-    for _, entry in ipairs(SMK.Store:GetAll()) do
-        existing[SMK.Store:GetDuplicateKey(entry)] = true
-    end
-    local seenKeys = {}
-    local imported = 0
+    local collected = {}
+    local invalidTotal = 0
     local sawTruncated = false
     local sawShareCode = false
     for i = 1, NUM_CHAT_WINDOWS or 7 do
@@ -302,33 +264,34 @@ function App:ScanChatForImports()
                     sawShareCode = true
                     local entries, _, invalid = SMK.ShareCodec:Decode(sharePart)
                     if entries then
+                        invalidTotal = invalidTotal + (invalid or 0)
                         if invalid and invalid > 0 then sawTruncated = true end
-                        for _, entry in ipairs(entries) do
-                            local key = SMK.Store:GetDuplicateKey(entry)
-                            if not seenKeys[key] and not existing[key] then
-                                local added = SMK.Store:Add(entry)
-                                if added then
-                                    seenKeys[key] = true
-                                    imported = imported + 1
-                                end
-                            end
-                        end
+                        for _, entry in ipairs(entries) do collected[#collected + 1] = entry end
+                    else
+                        invalidTotal = invalidTotal + 1
+                        sawTruncated = true
                     end
                 end
             end
         end
     end
+    if not sawShareCode then
+        SMK:Print(SMK.L.CHAT_IMPORT_NONE)
+        return SMK.L.CHAT_IMPORT_NONE
+    end
+    local result, importError = SMK.Import:ImportEntries(collected, invalidTotal)
+    if not result then
+        SMK:Print(importError)
+        return importError
+    end
     local truncMsg = sawTruncated and " " .. SMK.L.CHAT_IMPORT_TRUNCATED or ""
     local msg
-    if imported > 0 then
-        msg = string.format(SMK.L.CHAT_IMPORT_SUCCESS, imported) .. truncMsg
-    elseif sawShareCode then
-        msg = SMK.L.CHAT_IMPORT_ALL_DUPLICATES .. truncMsg
+    if result.imported > 0 then
+        msg = string.format(SMK.L.CHAT_IMPORT_SUCCESS, result.imported) .. truncMsg
     else
-        msg = SMK.L.CHAT_IMPORT_NONE .. truncMsg
+        msg = SMK.L.CHAT_IMPORT_ALL_DUPLICATES .. truncMsg
     end
     SMK:Print(msg)
-    if imported > 0 then self:DataChanged() end
     return msg
 end
 

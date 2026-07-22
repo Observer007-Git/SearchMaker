@@ -8,7 +8,7 @@ local function CreatePinMixin()
 
     function mixin:OnLoad()
         self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
-        self:SetScalingLimits(1, 0.8, 1.2)
+        self:SetScalingLimits(1, SMK.Config.mapPins.minScale, SMK.Config.mapPins.maxScale)
     end
 
     function mixin:OnAcquired(entry)
@@ -18,13 +18,13 @@ local function CreatePinMixin()
         end
         self.entry = entry
         self:SetPosition(entry.x / 100, entry.y / 100)
-        self:SetSize(18, 18)
+        self:SetSize(SMK.Config.mapPins.size, SMK.Config.mapPins.size)
         if not self.icon then
             self.icon = self:CreateTexture(nil, "OVERLAY")
             self.icon:SetAllPoints(self)
         end
         local texture = SMK.PinTextureByID[tonumber(entry.pinTextureID) or 1]
-        self.icon:SetAtlas(texture and texture.atlas or "Waypoint-MapPin-Minimap-Tracked", true)
+        self.icon:SetAtlas(texture and texture.atlas or SMK.Config.art.fallbackLocationAtlas, true)
         self.icon:Show()
         self:Show()
     end
@@ -74,7 +74,10 @@ end
 
 function MapPins:Initialize(map)
     if self.provider then return true end
-    if not map or not MapCanvasDataProviderMixin or not MapCanvasPinMixin then return false end
+    if not map or not MapCanvasDataProviderMixin or not MapCanvasPinMixin then
+        self.available = false
+        return false
+    end
 
     local provider = CreateFromMixins(MapCanvasDataProviderMixin)
     function provider:RemoveAllData()
@@ -82,7 +85,7 @@ function MapPins:Initialize(map)
     end
     function provider:RefreshAllData()
         self:RemoveAllData()
-        if not SMK.DB:Get().showMapPins then return end
+        if not SMK.Settings:Get("showMapPins") then return end
         local mapID = self:GetMap():GetMapID()
         if not mapID then return end
         for _, entry in ipairs(SMK.Store:GetByMap(mapID)) do
@@ -95,7 +98,12 @@ function MapPins:Initialize(map)
     CreatePinPool(map, CreatePinMixin())
     map:AddDataProvider(provider)
     self.provider = provider
+    self.available = true
     return true
+end
+
+function MapPins:IsAvailable()
+    return self.available == true
 end
 
 function MapPins:Refresh()

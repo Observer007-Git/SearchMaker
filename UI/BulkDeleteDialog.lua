@@ -25,7 +25,7 @@ function Dialog:RequestDelete(mode)
     if readOnlyMessage then return self:SetStatus(readOnlyMessage, true) end
     local matches, description
     if mode == "category" then
-        matches = SMK.Store:DeleteByCategory(self.categoryKey)
+        matches = SMK.Store:FindByCategory(self.categoryKey)
         local category = Config.categoryByKey[self.categoryKey]
         local label = category and (SMK.L[category.nameKey] or category.key) or self.categoryKey
         description = string.format(SMK.L.DELETE_CATEGORY_DESC, label)
@@ -34,7 +34,7 @@ function Dialog:RequestDelete(mode)
         if not mapID or mapID <= 0 or mapID % 1 ~= 0 then
             return self:SetStatus(SMK.L.ENTER_VALID_MAP_ID, true)
         end
-        matches = SMK.Store:DeleteByMap(mapID)
+        matches = SMK.Store:FindByMap(mapID)
         description = string.format(SMK.L.DELETE_MAP_DESC, mapID)
     end
     if #matches == 0 then
@@ -50,10 +50,8 @@ end
 
 --- 创建批量删除对话框窗口。
 -- @param parent Frame 父框架。
--- @param callbacks table { onChanged }。
 -- @return Frame
-function Dialog:Create(parent, callbacks)
-    self.callbacks = callbacks or {}
+function Dialog:Create(parent)
     local frame = CreateFrame("Frame", SMK.name .. "BulkDeleteFrame", parent, "BackdropTemplate")
     self.frame = frame
     frame:SetSize(430, 205)
@@ -131,7 +129,6 @@ function Dialog:Create(parent, callbacks)
             if deleted > 0 then
                 SMK:Print(string.format(SMK.L.BULK_DELETE_SUCCESS, data.description, deleted))
                 data.owner.frame:Hide()
-                if data.owner.callbacks.onChanged then data.owner.callbacks.onChanged() end
             end
         end,
         timeout = 0,

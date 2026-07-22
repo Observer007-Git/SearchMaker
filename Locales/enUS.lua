@@ -27,6 +27,7 @@ SMK.L = {
     -- Namespace
     ERROR_NO_CLIENT_SUPPORT = "Current client does not support built-in map markers.",
     ERROR_MAP_NOT_SUPPORTED = "This map does not support built-in markers.",
+    ERROR_MAP_PINS_UNAVAILABLE = "Map pins are unavailable on this client.",
     LOAD_WORLD_MAP_FAILED = "Failed to load world map: %s",
     UNKNOWN_REASON = "Unknown reason",
 

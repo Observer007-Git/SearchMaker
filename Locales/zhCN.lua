@@ -31,6 +31,7 @@ local translations = {
     UNKNOWN_REASON = "未知原因",
     ERROR_NO_CLIENT_SUPPORT = "当前客户端不支持内置地图标记。",
     ERROR_MAP_NOT_SUPPORTED = "当前地图不支持内置路径点。",
+    ERROR_MAP_PINS_UNAVAILABLE = "当前客户端无法加载地图标记。",
 
     -- MapService
     UNKNOWN_MAP = "未知地图",

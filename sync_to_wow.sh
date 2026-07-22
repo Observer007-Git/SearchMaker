@@ -4,8 +4,11 @@ DST="/Applications/World of Warcraft/_retail_/Interface/AddOns/SearchMaker"
 mkdir -p "$DST"
 rsync -a --delete --delete-excluded \
     --exclude '.DS_Store' \
+    --exclude '.git/' \
+    --exclude '.github/' \
     --exclude '.gitignore' \
     --exclude 'Tests/' \
+    --exclude 'README.md' \
     --exclude 'sync_to_wow.sh' \
     "$SRC/" "$DST/"
 echo "SYNC OK"

@@ -12,7 +12,7 @@ function ModalManager:HideAll(except)
     end
 end
 
-function ModalManager:ShowOnly(dialog)
+function ModalManager:PrepareToShow(dialog)
     self:HideAll(dialog)
 end
 

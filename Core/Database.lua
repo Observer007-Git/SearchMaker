@@ -2,26 +2,44 @@ local _, SMK = ...
 
 local DB = {}
 local Config = SMK.Config
+local Model = SMK.LocationModel
+local obsoleteRootKeys = {
+    "locationScale", "showFullPanel", "shortcutSearchVisible", "showMapPins", "searchAllMaps",
+    "shortcutSearchBarPosition", "mapSearchBarPosition", "locationEdits", "locationDeletions",
+}
 
-local function NormalizeStoredLocation(entry)
-    if type(entry) ~= "table" then return end
-    entry.mapID = tonumber(entry.mapID)
-    entry.x = tonumber(entry.x)
-    entry.y = tonumber(entry.y)
-    entry.categoryKey = Config.GetCategoryKey(entry.categoryKey or entry.category)
-    entry.category = nil
-    entry.showPin = (entry.showPin == true or tonumber(entry.showPin) == 1) and 1 or 0
-    local pinTextureID = tonumber(entry.pinTextureID or entry.pinTexture)
-    entry.pinTextureID = pinTextureID and SMK.PinTextureByID[pinTextureID] and pinTextureID or 1
-    entry.pinTexture = nil
-    if entry.keywords ~= nil and type(entry.keywords) ~= "string" then
-        entry.keywords = tostring(entry.keywords)
+local function CopyPosition(position)
+    if type(position) ~= "table" or type(position.x) ~= "number" or type(position.y) ~= "number" then
+        return nil
     end
+    return {
+        x = position.x,
+        y = position.y,
+        relativePoint = position.relativePoint,
+    }
 end
 
---- 确保每个保存的地点都有唯一的字符串 id。
-local function AssignSavedLocationIDs(database)
-    database.nextLocationID = math.max(1, tonumber(database.nextLocationID) or 1)
+local function NormalizeSettings(source)
+    source = type(source) == "table" and source or {}
+    local scale = tonumber(source.locationScale) or Config.settingsDefaults.locationScale
+    scale = math.max(Config.location.minScale, math.min(Config.location.maxScale, scale))
+    local function BooleanOrDefault(key)
+        if type(source[key]) == "boolean" then return source[key] end
+        return Config.settingsDefaults[key]
+    end
+    return {
+        locationScale = math.floor(scale * 10 + 0.5) / 10,
+        showFullPanel = BooleanOrDefault("showFullPanel"),
+        shortcutSearchVisible = BooleanOrDefault("shortcutSearchVisible"),
+        showMapPins = BooleanOrDefault("showMapPins"),
+        searchAllMaps = BooleanOrDefault("searchAllMaps"),
+        shortcutSearchBarPosition = CopyPosition(source.shortcutSearchBarPosition),
+        mapSearchBarPosition = CopyPosition(source.mapSearchBarPosition),
+    }
+end
+
+local function AssignLocationIDs(database)
+    database.nextLocationID = math.max(1, math.floor(tonumber(database.nextLocationID) or 1))
     local used = {}
     for _, entry in ipairs(database.locations) do
         if type(entry) == "table" then
@@ -38,34 +56,27 @@ local function AssignSavedLocationIDs(database)
     end
 end
 
-local Migrations = {
-    [1] = function(database)
-        AssignSavedLocationIDs(database)
-    end,
-    [2] = function(database)
-        for _, entry in ipairs(database.locations) do
-            NormalizeStoredLocation(entry)
+local function NormalizeLocations(database)
+    for _, stored in ipairs(database.locations) do
+        local normalized = Model:Normalize(stored)
+        if normalized then
+            for _, key in ipairs(Model.persistentKeys) do stored[key] = normalized[key] end
+            stored.category = nil
+            stored.pinTexture = nil
+            stored.icon = nil
         end
-        database.locationEdits = nil
-        database.locationDeletions = nil
-    end,
-}
+    end
+end
 
 local function CreateFutureRuntime(database)
     local runtime = SMK.Util.CopyTable(database)
     runtime.locations = type(database.locations) == "table" and database.locations or {}
     runtime.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
-    local locationScale = tonumber(database.locationScale) or Config.location.defaultScale
-    locationScale = math.max(Config.location.minScale, math.min(Config.location.maxScale, locationScale))
-    runtime.locationScale = math.floor(locationScale * 10 + 0.5) / 10
-    if type(runtime.showFullPanel) ~= "boolean" then runtime.showFullPanel = true end
-    if type(runtime.shortcutSearchVisible) ~= "boolean" then runtime.shortcutSearchVisible = false end
-    if type(runtime.showMapPins) ~= "boolean" then runtime.showMapPins = false end
-    if type(runtime.searchAllMaps) ~= "boolean" then runtime.searchAllMaps = false end
+    runtime.settings = NormalizeSettings(database.settings)
     return runtime
 end
 
---- 初始化保存数据并顺序执行 schema 迁移。可多次安全调用。
+--- 初始化当前存档结构。更高版本的存档只读打开，避免旧插件覆盖新数据。
 function DB:Initialize()
     SearchMakerDB = type(SearchMakerDB) == "table" and SearchMakerDB or {}
     local database = SearchMakerDB
@@ -80,29 +91,13 @@ function DB:Initialize()
     end
 
     self.readOnly = false
+    database.schemaVersion = Config.databaseSchemaVersion
     database.locations = type(database.locations) == "table" and database.locations or {}
     database.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
-    while schemaVersion < Config.databaseSchemaVersion do
-        schemaVersion = schemaVersion + 1
-        local migrate = Migrations[schemaVersion]
-        if migrate then migrate(database) end
-        database.schemaVersion = schemaVersion
-    end
-
-    local locationScale = tonumber(database.locationScale) or Config.location.defaultScale
-    locationScale = math.max(Config.location.minScale, math.min(Config.location.maxScale, locationScale))
-    database.locationScale = math.floor(locationScale * 10 + 0.5) / 10
-    if type(database.showFullPanel) ~= "boolean" then database.showFullPanel = true end
-    if type(database.shortcutSearchVisible) ~= "boolean" then database.shortcutSearchVisible = false end
-    if type(database.showMapPins) ~= "boolean" then database.showMapPins = false end
-    if type(database.searchAllMaps) ~= "boolean" then database.searchAllMaps = false end
-
-    -- 每次加载都执行轻量修复，以处理外部手工修改的 SavedVariables。
-    AssignSavedLocationIDs(database)
-    for _, entry in ipairs(database.locations) do
-        NormalizeStoredLocation(entry)
-    end
-
+    database.settings = NormalizeSettings(database.settings)
+    for _, key in ipairs(obsoleteRootKeys) do database[key] = nil end
+    AssignLocationIDs(database)
+    NormalizeLocations(database)
     self.data = database
     return database
 end

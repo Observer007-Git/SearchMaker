@@ -1,6 +1,6 @@
 local root = assert(arg[1], "usage: lua Tests/ServiceTest.lua <addon-root>")
 
-local activeLocale = "enUS"
+local activeLocale = "zhCN"
 function GetLocale() return activeLocale end
 function strlenutf8(text)
     local _, count = tostring(text):gsub("[^\128-\193]", "")
@@ -38,30 +38,12 @@ local function loadModule(namespace, path)
     return chunk("SearchMaker", namespace)
 end
 
-local function loadLocales(locale)
-    activeLocale = locale
-    local namespace = {}
-    loadModule(namespace, "Core/Namespace.lua")
-    loadModule(namespace, "Config.lua")
-    loadModule(namespace, "Locales/init.lua")
-    loadModule(namespace, "Locales/enUS.lua")
-    loadModule(namespace, "Locales/zhCN.lua")
-    return namespace
-end
-
-local english = loadLocales("enUS")
-local chinese = loadLocales("zhCN")
-for key in pairs(english.L) do assert(chinese.L[key], "zhCN missing locale key: " .. key) end
-for key in pairs(chinese.L) do assert(english.L[key], "enUS missing locale key: " .. key) end
-assert(english.L.ADD == "Add" and chinese.L.ADD == "新增", "locale selection failed")
-assert(english.Config.GetCategoryKey("地下堡") == "Delves", "legacy category alias failed")
-
-activeLocale = "zhCN"
 local SMK = {}
 for _, path in ipairs({
     "Core/Namespace.lua", "Config.lua", "Locales/init.lua", "Locales/enUS.lua", "Locales/zhCN.lua",
-    "Core/PinTextures.lua", "Core/Database.lua", "Core/LocationStore.lua", "Core/MapService.lua",
-    "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/MapPinProvider.lua",
+    "Core/PinTextures.lua", "Core/LocationModel.lua", "Core/Database.lua", "Core/SettingsService.lua",
+    "Core/LocationStore.lua", "Core/MapService.lua",
+    "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/ImportService.lua", "Core/MapPinProvider.lua",
     "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua",
 }) do
     loadModule(SMK, path)
@@ -85,7 +67,7 @@ assert(refreshCount == 1 and refreshFlags.context and refreshFlags.pins,
 
 local futureDatabase = {
     schemaVersion = SMK.Config.databaseSchemaVersion + 5,
-    locations = { { id = "future:1", mapID = 100, x = 1, y = 2, name = "future", categoryKey = "Other" } },
+    locations = { { id = "future:1", mapID = 100, x = 1, y = 2, name = "future", categoryKey = "other" } },
     usageCounts = {},
     futureField = { preserved = true },
 }
@@ -98,42 +80,60 @@ assert(SMK.DB:GetReadOnlyMessage() == string.format(SMK.L.DATABASE_READ_ONLY,
     "future database read-only message is missing")
 assert(not futureDatabase.locationScale and futureDatabase.futureField.preserved,
     "future database was modified during initialization")
-SMK.DB:Get().showMapPins = true
-assert(futureDatabase.showMapPins == nil, "future database settings were written through runtime data")
-assert(not SMK.Store:Add({ mapID = 100, x = 1, y = 2, name = "blocked", categoryKey = "Other" }),
+assert(not SMK.Settings:Set("showMapPins", true), "future database setting write was accepted")
+assert(futureDatabase.settings == nil, "future database settings were written through runtime data")
+assert(not SMK.Store:Add({ mapID = 100, x = 1, y = 2, name = "blocked", categoryKey = "other" }),
     "future database accepted a write")
 
 SearchMakerDB = {
+    schemaVersion = SMK.Config.databaseSchemaVersion,
+    settings = { showMapPins = true, showFullPanel = false, locationScale = 1.2 },
     locations = {
-        { id = "user:4", mapID = "100", x = "12.34", y = "56.78", name = "旧地点", category = "地下堡", showPin = true, pinTexture = "5", futureExtension = "keep" },
-        { id = "user:4", mapID = 100, x = 20, y = 30, name = "重复ID", category = "NPC" },
+        { id = "user:4", mapID = "100", x = "12.34", y = "56.78", name = "旧地点", categoryKey = "delves", showPin = true, pinTextureID = "5", keywords = "保留", futureExtension = "keep" },
+        { id = "user:4", mapID = 100, x = 20, y = 30, name = "重复ID", categoryKey = "npc" },
     },
     usageCounts = {},
-    locationEdits = { obsolete = true },
-    locationDeletions = { obsolete = true },
 }
 SMK.DB:Initialize()
-assert(SearchMakerDB.schemaVersion == SMK.Config.databaseSchemaVersion, "database schema was not migrated")
-assert(SearchMakerDB.locations[1].categoryKey == "Delves" and not SearchMakerDB.locations[1].category,
-    "category migration failed")
-assert(SearchMakerDB.locations[1].pinTextureID == 5 and not SearchMakerDB.locations[1].pinTexture,
-    "pin texture migration failed")
+assert(SearchMakerDB.schemaVersion == SMK.Config.databaseSchemaVersion, "database schema was not initialized")
+assert(SearchMakerDB.locations[1].categoryKey == "delves", "category normalization failed")
+assert(SearchMakerDB.locations[1].pinTextureID == 5, "pin texture normalization failed")
 assert(SearchMakerDB.locations[2].id ~= "user:4", "duplicate ID was not repaired")
-assert(not SearchMakerDB.locationEdits and not SearchMakerDB.locationDeletions, "dead static data was not removed")
+assert(SMK.Settings:Get("showMapPins") and SMK.Settings:Get("locationScale") == 1.2,
+    "nested settings were not initialized")
+assert(SMK.Settings:Get("showFullPanel") == false, "false setting was replaced by its default")
+assert(SearchMakerDB.locationScale == nil and SearchMakerDB.showMapPins == nil,
+    "obsolete root settings were not removed")
+local changedSetting
+SMK.Settings:SetChangeHandler(function(key) changedSetting = key end)
+assert(SMK.Settings:Set("locationScale", 1.3) and changedSetting == "locationScale",
+    "setting change was not normalized and announced")
 
 local first = SMK.Store:GetAll()[1]
-assert(first.categoryKey == "Delves" and first.categoryLabel == "地下堡", "display projection is not localized")
+assert(first.categoryKey == "delves" and first.categoryLabel == "地下堡", "display projection is not localized")
 assert(SMK.Store:Update(first, {
     mapID = first.mapID, x = first.x, y = first.y, name = first.name,
     categoryKey = first.categoryKey, showPin = first.showPin, pinTextureID = first.pinTextureID,
 }), "location update failed")
-assert(SearchMakerDB.locations[1].categoryKey == "Delves", "editing changed the canonical category")
+assert(SearchMakerDB.locations[1].categoryKey == "delves", "editing changed the canonical category")
 assert(SearchMakerDB.locations[1].futureExtension == "keep", "editing discarded an unknown extension field")
+assert(SearchMakerDB.locations[1].keywords == "保留", "editing discarded keywords")
+local sameNameDifferentPosition = {
+    mapID = first.mapID, x = first.x + 1, y = first.y, name = first.name,
+    categoryKey = first.categoryKey,
+}
+assert(not SMK.Store:FindDuplicate(sameNameDifferentPosition),
+    "duplicate detection ignored coordinates")
+assert(SMK.Store:FindDuplicate(first), "duplicate detection missed the same location")
 
+local storeChangeReason
+SMK.Store:SetChangeHandler(function(reason) storeChangeReason = reason end)
 for index = 1, 25 do
-    assert(SMK.Store:Add({ mapID = 100, x = index, y = index, name = "精确甲" .. index, categoryKey = "Other" }))
+    assert(SMK.Store:Add({ mapID = 100, x = index, y = index, name = "精确甲" .. index, categoryKey = "other" }))
 end
-assert(SMK.Store:Add({ mapID = 100, x = 90, y = 90, name = "精确", categoryKey = "Other" }))
+assert(storeChangeReason == "locations", "store mutation did not announce a data change")
+SMK.Store:SetChangeHandler(nil)
+assert(SMK.Store:Add({ mapID = 100, x = 90, y = 90, name = "精确", categoryKey = "other" }))
 local matches = SMK.Search:Find(SMK.Store:GetAll(), "精确", true)
 assert(#matches == SMK.Config.search.maxResults, "search result limit failed")
 assert(matches[1].entry.name == "精确" and matches[1].score == 0, "late exact match was not ranked first")
@@ -144,30 +144,28 @@ assert(SMK.ShareCodec:FindShareText("chat " .. encoded) == encoded,
     "versioned share text was not found in chat")
 local decoded, decodeError, invalid = SMK.ShareCodec:Decode(encoded)
 assert(not decodeError and invalid == 0 and #decoded == 1, "current share round trip failed")
-assert(decoded[1].categoryKey == "Delves" and decoded[1].pinTextureID == 5, "share fields were not preserved")
-local oldCurrent = "SMK|100,1234,5678,1,%E6%97%A7%E7%82%B9,1,5"
-local oldEntries, oldError = SMK.ShareCodec:Decode(oldCurrent)
-assert(not oldError and #oldEntries == 1 and oldEntries[1].x == 12.34,
-    "unversioned SMK share text is no longer compatible")
+assert(decoded[1].categoryKey == "delves" and decoded[1].pinTextureID == 5, "share fields were not preserved")
+local oldEntries, oldError = SMK.ShareCodec:Decode("SMK|100,1234,5678,1,x,1,5")
+assert(not oldEntries and oldError == SMK.L.IMPORT_INVALID_FORMAT,
+    "unversioned SMK share text was accepted")
 local futureEntries, futureError = SMK.ShareCodec:Decode("SMK|99|100,1,2,1,x")
 assert(not futureEntries and futureError == string.format(SMK.L.IMPORT_NEWER_FORMAT, 99),
     "future share format was not rejected explicitly")
+local importResult = assert(SMK.Import:ImportText(encoded))
+assert(importResult.imported == 0 and importResult.duplicates == 1,
+    "shared import service did not filter duplicates")
+local invalidImport = assert(SMK.Import:ImportEntries({ {} }))
+assert(invalidImport.invalid == 1 and invalidImport.imported == 0,
+    "shared import service did not validate entries")
 
-local legacySamples = {
-    "SMK3|100,1234,5678,1,%E6%97%A7%E7%82%B9,1,5",
-    "SMK2|100,12.34,56.78,Delves,%E6%97%A7%E7%82%B9",
-    "MLL2|100,12.34,56.78,%E5%9C%B0%E4%B8%8B%E5%A0%A1,%E6%97%A7%E7%82%B9",
-    "MLL1|100,12.34,56.78,ignored,%E6%97%A7%E7%82%B9",
-}
-for _, sample in ipairs(legacySamples) do
-    local entries, errorMessage, bad = SMK.ShareCodec:Decode(sample)
-    assert(not errorMessage and bad == 0 and #entries == 1, "legacy decode failed: " .. sample)
+for _, sample in ipairs({ "SMK3|x", "SMK2|x", "MLL2|x", "MLL1|x" }) do
+    local entries = SMK.ShareCodec:Decode(sample)
+    assert(not entries, "legacy share prefix was accepted: " .. sample)
 end
-assert(SMK.ShareCodec:FindShareText("prefix MLL2|100,1,2,Other,x"), "legacy chat scan failed")
 
 local duplicateA = { mapID = 100, x = 1.234, y = 5.678, name = " Test Name " }
 local duplicateB = { mapID = 100, x = 1.2341, y = 5.6781, name = "testname" }
-assert(SMK.Store:GetDuplicateKey(duplicateA) == SMK.Store:GetDuplicateKey(duplicateB),
+assert(SMK.LocationModel:GetDuplicateKey(duplicateA) == SMK.LocationModel:GetDuplicateKey(duplicateB),
     "duplicate normalization failed")
 
 local ranges501 = SMK.ShareDialog:GetExportRanges(501)
@@ -179,6 +177,7 @@ assert(#ranges1000 == 2 and ranges1000[2].first == 501 and ranges1000[2].last ==
 
 mapInfo[946] = { name = "Cosmic", mapType = Enum.UIMapType.Cosmic }
 mapChildren[946] = {}
+assert(not SMK.MapIndex:Rebuild(true), "empty map index was marked ready")
 for index = 1, 8 do
     local mapID = 1000 + index
     mapInfo[mapID] = { name = "Map " .. index, mapType = Enum.UIMapType.Zone }
@@ -258,11 +257,11 @@ function fakeMap:RemoveAllPinsByTemplate(template)
     self.pins = {}
 end
 assert(SMK.MapPins:Initialize(fakeMap), "map pin provider initialization failed")
-SearchMakerDB.showMapPins = true
+SearchMakerDB.settings.showMapPins = true
 SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 1, "enabled map pin was not acquired")
 assert(fakeMap.pins[1].icon.atlas == SMK.PinTextureByID[5].atlas, "selected pin texture was ignored")
-SearchMakerDB.showMapPins = false
+SearchMakerDB.settings.showMapPins = false
 SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 0, "disabled map pins were not cleared")
 

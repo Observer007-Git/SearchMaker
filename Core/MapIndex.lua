@@ -2,12 +2,13 @@ local _, SMK = ...
 
 local MapIndex = {}
 local Util = SMK.Util
+local Config = SMK.Config
 
 local index = {}
 local built = false
 
 local function Traverse(mapID, depth, visited)
-    if depth > 20 or visited[mapID] then return end
+    if depth > Config.mapIndex.maxDepth or visited[mapID] then return end
     visited[mapID] = true
     local info = C_Map.GetMapInfo(mapID)
     if not info then return end
@@ -37,13 +38,13 @@ function MapIndex:Rebuild(force)
     local visited = {}
     local rootsFound = 0
     -- 同时遍历已知宇宙/世界根，visited 会消除重叠子树与循环。
-    for _, mapID in ipairs({ 946, 947, 1, 2, 13, 197, 4080 }) do
+    for _, mapID in ipairs(Config.mapIndex.roots) do
         if C_Map.GetMapInfo(mapID) then
             rootsFound = rootsFound + 1
             Traverse(mapID, 0, visited)
         end
     end
-    if rootsFound == 0 then return false end
+    if rootsFound == 0 or #index == 0 then return false end
     table.sort(index, function(a, b)
         if a.normalizedName ~= b.normalizedName then return a.normalizedName < b.normalizedName end
         return a.mapID < b.mapID
@@ -82,7 +83,7 @@ function MapIndex:Search(query)
         end
         return a.entry.mapID < b.entry.mapID
     end)
-    for position = #matches, 6, -1 do matches[position] = nil end
+    for position = #matches, Config.mapIndex.maxResults + 1, -1 do matches[position] = nil end
     return matches
 end
 

@@ -3,13 +3,16 @@ local _, SMK = ...
 local Store = {}
 local Config = SMK.Config
 local Util = SMK.Util
+local Model = SMK.LocationModel
 
 local cacheDirty = true
 local cachedEntries = {}
 local mapIndex = {}
-local persistentKeys = {
-    "mapID", "x", "y", "name", "categoryKey", "icon", "showPin", "pinTextureID", "keywords",
-}
+local changeHandler
+
+local function NotifyChanged(reason)
+    if changeHandler then changeHandler(reason) end
+end
 
 local function GetCategoryLabel(categoryKey)
     local category = Config.categoryByKey[categoryKey]
@@ -17,36 +20,8 @@ local function GetCategoryLabel(categoryKey)
         or (SMK.L.CAT_OTHER or Config.defaultCategoryKey)
 end
 
-local function NormalizeLocation(values)
-    if type(values) ~= "table" then return nil, "invalid location" end
-    local entry = {
-        mapID = tonumber(values.mapID),
-        x = tonumber(values.x),
-        y = tonumber(values.y),
-        name = Util.Trim(values.name),
-        categoryKey = Config.GetCategoryKey(values.categoryKey or values.category),
-        icon = values.icon or Config.art.defaultLocationIcon,
-        showPin = (values.showPin == true or tonumber(values.showPin) == 1) and 1 or 0,
-        keywords = values.keywords ~= nil and Util.Trim(values.keywords) or nil,
-    }
-    local pinTextureID = tonumber(values.pinTextureID or values.pinTexture)
-    entry.pinTextureID = pinTextureID and SMK.PinTextureByID[pinTextureID] and pinTextureID or 1
-    if entry.keywords == "" then entry.keywords = nil end
-    if not entry.mapID or entry.mapID <= 0 or entry.mapID % 1 ~= 0
-        or not entry.x or entry.x < 0 or entry.x > 100
-        or not entry.y or entry.y < 0 or entry.y > 100
-        or entry.name == "" then
-        return nil, "invalid location"
-    end
-    local ok, length = pcall(strlenutf8, entry.name)
-    if not ok or length > Config.location.maxNameLength then
-        return nil, "invalid location"
-    end
-    return entry
-end
-
 local function BuildSavedEntry(entry, index)
-    local display = NormalizeLocation(entry)
+    local display = Model:Normalize(entry)
     if not display then return end
     display.id = entry.id
     display.source = "saved"
@@ -77,24 +52,12 @@ local function RebuildCache()
     cacheDirty = false
 end
 
-function Store:GetCategory(entry)
-    return GetCategoryLabel(entry and entry.categoryKey or Config.defaultCategoryKey)
-end
-
-function Store:NormalizeCategory(category)
-    return Config.GetCategoryKey(category)
-end
-
-function Store:NormalizeLocation(values)
-    return NormalizeLocation(values)
-end
-
-function Store:IsValid(entry)
-    return NormalizeLocation(entry) ~= nil
-end
-
 function Store:InvalidateCache()
     cacheDirty = true
+end
+
+function Store:SetChangeHandler(callback)
+    changeHandler = callback
 end
 
 function Store:GetAll()
@@ -108,21 +71,21 @@ function Store:GetByMap(mapID)
 end
 
 function Store:Add(values)
-    if SMK.DB:IsReadOnly() then return nil, "database read-only" end
-    local entry, errorMessage = NormalizeLocation(values)
+    if SMK.DB:IsReadOnly() then return nil, "READ_ONLY" end
+    local entry, errorMessage = Model:Normalize(values)
     if not entry then return nil, errorMessage end
     local database = SMK.DB:Get()
     entry.id = SMK.DB:NextLocationID()
     database.locations[#database.locations + 1] = entry
     self:InvalidateCache()
-    return BuildSavedEntry(entry, #database.locations)
+    local display = BuildSavedEntry(entry, #database.locations)
+    NotifyChanged("locations")
+    return display
 end
 
 function Store:Update(entry, values)
-    if SMK.DB:IsReadOnly() then return false, "database read-only" end
+    if SMK.DB:IsReadOnly() then return false, "READ_ONLY" end
     if type(entry) ~= "table" or not entry.id then return false end
-    local normalized = NormalizeLocation(values)
-    if not normalized then return false end
     local database = SMK.DB:Get()
     local target = database.locations[entry.sourceIndex]
     if not target or target.id ~= entry.id then
@@ -135,13 +98,18 @@ function Store:Update(entry, values)
         end
     end
     if not target then return false end
-    for _, key in ipairs(persistentKeys) do target[key] = normalized[key] end
+    local updateValues = Util.CopyTable(values)
+    if updateValues.keywords == nil then updateValues.keywords = target.keywords end
+    local normalized = Model:Normalize(updateValues)
+    if not normalized then return false end
+    for _, key in ipairs(Model.persistentKeys) do target[key] = normalized[key] end
     self:InvalidateCache()
+    NotifyChanged("locations")
     return true
 end
 
 function Store:DeleteMany(entries)
-    if SMK.DB:IsReadOnly() then return 0, "database read-only" end
+    if SMK.DB:IsReadOnly() then return 0, "READ_ONLY" end
     local database = SMK.DB:Get()
     local requestedIDs = {}
     for _, entry in ipairs(entries or {}) do
@@ -156,7 +124,10 @@ function Store:DeleteMany(entries)
             deleted = deleted + 1
         end
     end
-    if deleted > 0 then self:InvalidateCache() end
+    if deleted > 0 then
+        self:InvalidateCache()
+        NotifyChanged("locations")
+    end
     return deleted
 end
 
@@ -164,7 +135,7 @@ function Store:Delete(entry)
     return self:DeleteMany({ entry })
 end
 
-function Store:DeleteByCategory(category)
+function Store:FindByCategory(category)
     local categoryKey = Config.GetCategoryKey(category)
     local matches = {}
     for _, entry in ipairs(self:GetAll()) do
@@ -173,7 +144,7 @@ function Store:DeleteByCategory(category)
     return matches
 end
 
-function Store:DeleteByMap(mapID)
+function Store:FindByMap(mapID)
     local matches = {}
     for _, entry in ipairs(self:GetByMap(mapID)) do matches[#matches + 1] = entry end
     return matches
@@ -181,10 +152,10 @@ end
 
 function Store:FindDuplicate(values, excludeEntry)
     if not values or not values.mapID then return end
-    local normalizedName = Util.Normalize(values.name)
+    local duplicateKey = Model:GetDuplicateKey(values)
     for _, entry in ipairs(self:GetByMap(tonumber(values.mapID))) do
         if not (excludeEntry and excludeEntry.id == entry.id)
-            and entry.normalizedName == normalizedName then
+            and Model:GetDuplicateKey(entry) == duplicateKey then
             return entry, string.format(SMK.L.DUPLICATE_NAME, entry.name)
         end
     end
@@ -203,14 +174,8 @@ function Store:RecordUsage(entry)
     local counts = SMK.DB:Get().usageCounts
     local key = UsageKey(entry)
     counts[key] = self:GetUsage(entry) + 1
+    NotifyChanged("usage")
     return true
-end
-
-function Store:GetDuplicateKey(entry)
-    local mapID = math.floor(tonumber(entry.mapID) or 0)
-    local x = math.floor((tonumber(entry.x) or 0) * 100 + 0.5)
-    local y = math.floor((tonumber(entry.y) or 0) * 100 + 0.5)
-    return table.concat({ mapID, Util.Normalize(entry.name), x, y }, "\031")
 end
 
 SMK.Store = Store

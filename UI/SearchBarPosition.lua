@@ -22,18 +22,17 @@ end
 function SearchBarPosition:Apply(mode)
     local owner = self.owner
     local bar = owner.bar
-    local database = SMK.DB:Get()
     bar.positionMode = mode
     bar:ClearAllPoints()
     if mode == "shortcut" then
-        local position = database.shortcutSearchBarPosition
+        local position = SMK.Settings:Get("shortcutSearchBarPosition")
         if IsSavedPosition(position) then
             bar:SetPoint("CENTER", UIParent, "CENTER", position.x, position.y)
         else
             bar:SetPoint("CENTER", UIParent, "CENTER", 0, SMK.Config.search.shortcutDefaultOffsetY)
         end
     else
-        local position = database.mapSearchBarPosition
+        local position = SMK.Settings:Get("mapSearchBarPosition")
         if IsSavedPosition(position) then
             if position.relativePoint == "CENTER" then
                 bar:SetPoint("CENTER", WorldMapFrame, "CENTER", position.x, position.y)
@@ -67,8 +66,9 @@ function SearchBarPosition:Save()
         y = (sy - ay) / scale,
         relativePoint = relativePoint,
     }
-    local database = SMK.DB:Get()
-    database[shortcut and "shortcutSearchBarPosition" or "mapSearchBarPosition"] = position
+    local key = shortcut and "shortcutSearchBarPosition" or "mapSearchBarPosition"
+    local saved, message = SMK.Settings:Set(key, position)
+    if not saved and message ~= "INVALID_SETTING" then SMK:Print(message) end
     bar:ClearAllPoints()
     bar:SetPoint("CENTER", anchor, relativePoint, position.x, position.y)
 end

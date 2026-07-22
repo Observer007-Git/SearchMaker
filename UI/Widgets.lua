@@ -5,7 +5,7 @@ local Config = SMK.Config
 local Art = Config.art
 
 local function GetLocationScale()
-    return SMK.DB:Get().locationScale or Config.location.defaultScale
+    return SMK.Settings:Get("locationScale") or Config.location.defaultScale
 end
 
 -- Cache map: "text|scale" → pixel width. Avoids font measurement on re-render.
@@ -231,7 +231,8 @@ function Widgets:CreateCategoryHeading(parent)
     heading.backgroundRight:SetPoint("BOTTOMRIGHT")
     heading.backgroundRight:SetTexture(Art.button)
     heading.backgroundRight:SetTexCoord(Art.textLeft / Art.buttonTextureWidth,
-        Art.buttonArtWidth / Art.buttonTextureWidth, 0, Art.buttonArtHeight / Art.buttonTextureHeight)    heading.icon = heading:CreateTexture(nil, "ARTWORK")
+        Art.buttonArtWidth / Art.buttonTextureWidth, 0, Art.buttonArtHeight / Art.buttonTextureHeight)
+    heading.icon = heading:CreateTexture(nil, "ARTWORK")
     heading.icon:SetPoint("TOPLEFT", Art.iconLeft * verticalScale, -Art.iconTop * verticalScale)
     heading.icon:SetSize(Art.iconWidth * verticalScale, Art.iconHeight * verticalScale)
     heading.label = heading:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -255,14 +256,6 @@ function Widgets:SetCategory(heading, displayName, storageKey)
     heading.label:SetText(displayName)
     local catInfo = Config.categoryByKey[storageKey]
     heading.icon:SetAtlas(catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas, false)
-end
-
-function Widgets:RefreshMapPins()
-    if SMK.MapPins then SMK.MapPins:Refresh() end
-end
-
-function Widgets:ClearMapPins()
-    if SMK.MapPins then SMK.MapPins:Clear() end
 end
 
 SMK.Widgets = Widgets

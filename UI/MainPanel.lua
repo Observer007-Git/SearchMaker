@@ -167,7 +167,7 @@ function MainPanel:Refresh()
 end
 
 function MainPanel:UpdateScaleControls()
-    local scale = SMK.DB:Get().locationScale
+    local scale = SMK.Settings:Get("locationScale")
     self.scaleValue:SetText(string.format("%d%%", math.floor(scale * 100 + 0.5)))
     self.frame.locationScaleMinus:SetEnabled(scale > Config.location.minScale)
     self.frame.locationScalePlus:SetEnabled(scale < Config.location.maxScale)
@@ -176,12 +176,10 @@ end
 --- 调整图标/文字缩放并刷新。
 -- @param delta number 增加或减少步长。
 function MainPanel:ChangeScale(delta)
-    local database = SMK.DB:Get()
     local value = math.max(Config.location.minScale,
-        math.min(Config.location.maxScale, database.locationScale + delta))
-    database.locationScale = math.floor(value * 10 + 0.5) / 10
-    self:Refresh()
-    if self.callbacks.onScaleChanged then self.callbacks.onScaleChanged() end
+        math.min(Config.location.maxScale, SMK.Settings:Get("locationScale") + delta))
+    local changed, message = SMK.Settings:Set("locationScale", value)
+    if not changed then SMK:Print(message) end
 end
 
 function MainPanel:HideDialogs()
@@ -205,20 +203,28 @@ function MainPanel:IsExpanded()
     return self.frame.isExpanded and self.frame:IsShown()
 end
 
+function MainPanel:SetSearchActive(active)
+    self.frequentRow:SetShown(not active)
+end
+
+function MainPanel:ContainsMouseFocus(foci)
+    return self.frame and DoesAncestryIncludeAny and DoesAncestryIncludeAny(self.frame, foci)
+end
+
 function MainPanel:OpenEditor(mode, entry)
-    SMK.ModalManager:ShowOnly(SMK.LocationEditor)
+    SMK.ModalManager:PrepareToShow(SMK.LocationEditor)
     if self.callbacks.onDialogOpened then self.callbacks.onDialogOpened() end
     SMK.LocationEditor:Open(mode, entry)
 end
 
 function MainPanel:OpenShare()
-    SMK.ModalManager:ShowOnly(SMK.ShareDialog)
+    SMK.ModalManager:PrepareToShow(SMK.ShareDialog)
     if self.callbacks.onDialogOpened then self.callbacks.onDialogOpened() end
     SMK.ShareDialog:Open()
 end
 
 function MainPanel:OpenBulkDelete()
-    SMK.ModalManager:ShowOnly(SMK.BulkDeleteDialog)
+    SMK.ModalManager:PrepareToShow(SMK.BulkDeleteDialog)
     if self.callbacks.onDialogOpened then self.callbacks.onDialogOpened() end
     SMK.BulkDeleteDialog:Open()
 end
@@ -332,15 +338,21 @@ function MainPanel:Create(searchBar, callbacks)
     self.showPinsCheck = CreateFrame("CheckButton", nil, scaleRow, "UICheckButtonTemplate")
     self.showPinsCheck:SetSize(24, 24)
     self.showPinsCheck:SetPoint("LEFT", frame.locationScalePlus, "RIGHT", 16, 0)
-    self.showPinsCheck:SetChecked(SMK.DB:Get().showMapPins)
+    self.showPinsCheck:SetChecked(SMK.Settings:Get("showMapPins"))
     local pinsLabel = scaleRow:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     pinsLabel:SetPoint("LEFT", self.showPinsCheck, "RIGHT", 4, 0)
     pinsLabel:SetText(SMK.L.SHOW_MAP_PINS)
     pinsLabel:SetTextColor(unpack(Config.colors.gold))
+    if not SMK.MapPins:IsAvailable() then
+        self.showPinsCheck:SetEnabled(false)
+        pinsLabel:SetTextColor(unpack(Config.colors.disabled))
+    end
     self.showPinsCheck:SetScript("OnClick", function()
-        local database = SMK.DB:Get()
-        database.showMapPins = self.showPinsCheck:GetChecked()
-        SMK.Widgets:RefreshMapPins()
+        local changed, message = SMK.Settings:Set("showMapPins", self.showPinsCheck:GetChecked())
+        if not changed then
+            self.showPinsCheck:SetChecked(SMK.Settings:Get("showMapPins"))
+            SMK:Print(message)
+        end
     end)
 
     self.frequentRow = CreateFrame("Frame", nil, frame)
@@ -371,8 +383,8 @@ function MainPanel:Create(searchBar, callbacks)
             return self.callbacks.onSaveLocation(mode, entry, values)
         end,
     })
-    SMK.ShareDialog:Create(frame, { onChanged = self.callbacks.onChanged })
-    SMK.BulkDeleteDialog:Create(frame, { onChanged = self.callbacks.onChanged })
+    SMK.ShareDialog:Create(frame)
+    SMK.BulkDeleteDialog:Create(frame)
     SMK.ModalManager:Register(SMK.LocationEditor, { "dropdown", "pinDropdown" })
     SMK.ModalManager:Register(SMK.ShareDialog)
     SMK.ModalManager:Register(SMK.BulkDeleteDialog, { "dropdown" })

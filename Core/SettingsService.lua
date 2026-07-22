@@ -5,7 +5,6 @@ local Config = SMK.Config
 local changeHandler
 
 local booleanKeys = {
-    showFullPanel = true,
     shortcutSearchVisible = true,
     showMapPins = true,
     showMapPinNames = true,

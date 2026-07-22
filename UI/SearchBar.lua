@@ -162,11 +162,12 @@ function SearchBar:SetPanelExpanded(expanded)
     self:UpdateOutsideListener()
 end
 
-function SearchBar:UpdateModeButton()
-    self.modeButton:SetText(SMK.Settings:Get("showFullPanel") and SMK.L.HIDE_PANEL or SMK.L.SHOW_PANEL)
+function SearchBar:OpenPanel()
+    self:SetPanelExpanded(true)
+    self:UpdateResults()
 end
 
---- 关闭结果面板，清空搜索框，隐藏模式按钮。
+--- 关闭主面板和搜索结果，并清空搜索框。
 function SearchBar:ClosePanel()
     self.suppressPanelHidden = true
     if self.panel then self.panel:SetExpanded(false) end
@@ -175,14 +176,12 @@ function SearchBar:ClosePanel()
     self:CancelPendingSearch()
     self:SetQuery("")
     self.box:ClearFocus()
-    self.modeButton:Hide()
     self:UpdateOutsideListener()
 end
 
 --- 根据界面可见性注册或注销 GLOBAL_MOUSE_DOWN 监听器。
 function SearchBar:UpdateOutsideListener()
-    local needs = (self.panel and self.panel:IsExpanded())
-        or self.searchResults:IsShown() or self.modeButton:IsShown()
+    local needs = (self.panel and self.panel:IsExpanded()) or self.searchResults:IsShown()
     if needs then
         self.outsideListener:RegisterEvent("GLOBAL_MOUSE_DOWN")
     else
@@ -241,14 +240,12 @@ function SearchBar:ShowForMap()
     self:ApplyPosition("map")
     if not self:IsVisible() then self.bar:Show() end
     self:SetPanelExpanded(false)
-    self.modeButton:Hide()
 end
 
 function SearchBar:HandleWorldMapHidden()
     if SMK.Settings:Get("shortcutSearchVisible") then
         self:ApplyPosition("shortcut")
         self:SetPanelExpanded(false)
-        self.modeButton:Hide()
     else
         self.bar:Hide()
     end
@@ -292,7 +289,7 @@ function SearchBar:ToggleShortcut()
     end
 end
 
---- 创建搜索框框架、编辑框、模式按钮和结果下拉框。
+--- 创建搜索框框架、编辑框和结果下拉框。
 -- 这是整个插件界面的主要入口点。
 -- @param callbacks table { onShown, onActivate, onEdit, onDelete }。
 -- @return Frame 搜索栏框架。
@@ -326,25 +323,11 @@ function SearchBar:Create(callbacks)
     self.box:HookScript("OnEnter", function(box)
         if not box:HasFocus() then box.moveHint:Show() end
     end)
-    self.box:HookScript("OnMouseDown", function(box) box.moveHint:Hide() end)
-    self.box:HookScript("OnLeave", function(box) box.moveHint:Hide() end)
-
-    self.modeButton = CreateFrame("Button", nil, bar, "UIPanelButtonTemplate")
-    self.modeButton:SetSize(Config.search.modeButtonWidth, 22)
-    self.modeButton:SetPoint("LEFT", self.box, "RIGHT", 4, 0)
-    self.modeButton:SetFrameLevel(bar:GetFrameLevel() + 5)
-    self.modeButton:EnableKeyboard(false)
-    self.modeButton:SetScript("OnClick", function()
-        local showPanel = not SMK.Settings:Get("showFullPanel")
-        local changed, message = SMK.Settings:Set("showFullPanel", showPanel)
-        if not changed then return SMK:Print(message) end
-        self:UpdateModeButton()
-        self:SetPanelExpanded(showPanel)
-        self:UpdateResults()
-        self.box:SetFocus()
+    self.box:HookScript("OnMouseDown", function(box, button)
+        box.moveHint:Hide()
+        if button == "RightButton" then self:OpenPanel() end
     end)
-    self:UpdateModeButton()
-    self.modeButton:Hide()
+    self.box:HookScript("OnLeave", function(box) box.moveHint:Hide() end)
 
     self.searchResults = SMK.SearchResults:New(bar, self.box, {
         onActivate = self.callbacks.onActivate,
@@ -360,9 +343,6 @@ function SearchBar:Create(callbacks)
     self.box:HookScript("OnEditFocusGained", function()
         self:StopShortcutCapture()
         self.box.moveHint:Hide()
-        self.modeButton:Show()
-        self:UpdateModeButton()
-        self:SetPanelExpanded(SMK.Settings:Get("showFullPanel"))
         self:UpdateResults()
     end)
     self.box:SetScript("OnTabPressed", function() self:ToggleScope() end)
@@ -395,20 +375,24 @@ function SearchBar:Create(callbacks)
     self.box:ClearFocus()
 
     self.outsideListener = CreateFrame("Frame")
-    self.outsideListener:SetScript("OnEvent", function()
+    self.outsideListener:SetScript("OnEvent", function(_, _, button)
         if SMK.ModalManager:IsMenuOpen() then return end
-        if not (self.panel and self.panel:IsExpanded()) and not self.searchResults:IsShown()
-            and not self.modeButton:IsShown() then return end
+        local panelExpanded = self.panel and self.panel:IsExpanded()
+        if not panelExpanded and not self.searchResults:IsShown() then return end
         local foci = GetMouseFoci()
-        if self.panel:ContainsMouseFocus(foci) or DoesAncestryIncludeAny(bar, foci)
-            or SMK.ModalManager:ContainsMouseFocus(foci) then return end
+        if self.panel:ContainsMouseFocus(foci) or SMK.ModalManager:ContainsMouseFocus(foci)
+            or DoesAncestryIncludeAny(self.results, foci) then return end
+        if panelExpanded then
+            if button == "RightButton" and DoesAncestryIncludeAny(self.box, foci) then return end
+        elseif DoesAncestryIncludeAny(bar, foci) then
+            return
+        end
         self:ClosePanel()
     end)
 
     bar:SetScript("OnShow", function()
         self:RefreshContext()
         self:SetPanelExpanded(false)
-        self.modeButton:Hide()
         if self.callbacks.onShown then self.callbacks.onShown() end
     end)
     bar:SetScript("OnHide", function()

@@ -101,7 +101,7 @@ assert(SearchMakerDB.locations[1].pinTextureID == 5, "pin texture normalization 
 assert(SearchMakerDB.locations[2].id ~= "user:4", "duplicate ID was not repaired")
 assert(SMK.Settings:Get("showMapPins") and SMK.Settings:Get("locationScale") == 1.2,
     "nested settings were not initialized")
-assert(SMK.Settings:Get("showFullPanel") == false, "false setting was replaced by its default")
+assert(SearchMakerDB.settings.showFullPanel == nil, "removed panel setting was retained")
 assert(SMK.Settings:Get("showMapPinNames") == false, "pin name setting default was not initialized")
 assert(SearchMakerDB.locationScale == nil and SearchMakerDB.showMapPins == nil,
     "obsolete root settings were not removed")

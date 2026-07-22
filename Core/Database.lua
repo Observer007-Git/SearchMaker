@@ -29,7 +29,6 @@ local function NormalizeSettings(source)
     end
     return {
         locationScale = math.floor(scale * 10 + 0.5) / 10,
-        showFullPanel = BooleanOrDefault("showFullPanel"),
         shortcutSearchVisible = BooleanOrDefault("shortcutSearchVisible"),
         showMapPins = BooleanOrDefault("showMapPins"),
         showMapPinNames = BooleanOrDefault("showMapPinNames"),

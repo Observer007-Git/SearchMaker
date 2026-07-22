@@ -14,7 +14,6 @@ local Config = {
         barHeight = 52,
         boxWidth = 240,
         boxHeight = 44,
-        modeButtonWidth = 96,
         maxResults = 20,
         shortcutDefaultOffsetY = 200,
     },
@@ -110,7 +109,6 @@ end
 
 Config.settingsDefaults = {
     locationScale = Config.location.defaultScale,
-    showFullPanel = true,
     shortcutSearchVisible = false,
     showMapPins = false,
     showMapPinNames = false,

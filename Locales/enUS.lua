@@ -89,7 +89,9 @@ SMK.L = {
     EXPORT_NO_LOCATIONS = "No locations to export on this map.",
     EXPORT_NO_LOCATIONS_ALL = "No locations to export.",
     IMPORT_INVALID_FORMAT = "Invalid format: missing SMK prefix.",
+    IMPORT_NEWER_FORMAT = "This share text uses unsupported format version %d.",
     IMPORT_EMPTY = "No locations found in text.",
+    DATABASE_READ_ONLY = "Saved data schema %d is newer than supported schema %d. SearchMaker is running read-only to protect it.",
 
     -- Widgets tooltip
     TOOLTIP_USAGE_COUNT = "Usage: %d",

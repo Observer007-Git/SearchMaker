@@ -7,6 +7,9 @@ local Util = SMK.Util
 local cacheDirty = true
 local cachedEntries = {}
 local mapIndex = {}
+local persistentKeys = {
+    "mapID", "x", "y", "name", "categoryKey", "icon", "showPin", "pinTextureID", "keywords",
+}
 
 local function GetCategoryLabel(categoryKey)
     local category = Config.categoryByKey[categoryKey]
@@ -105,6 +108,7 @@ function Store:GetByMap(mapID)
 end
 
 function Store:Add(values)
+    if SMK.DB:IsReadOnly() then return nil, "database read-only" end
     local entry, errorMessage = NormalizeLocation(values)
     if not entry then return nil, errorMessage end
     local database = SMK.DB:Get()
@@ -115,6 +119,7 @@ function Store:Add(values)
 end
 
 function Store:Update(entry, values)
+    if SMK.DB:IsReadOnly() then return false, "database read-only" end
     if type(entry) ~= "table" or not entry.id then return false end
     local normalized = NormalizeLocation(values)
     if not normalized then return false end
@@ -130,15 +135,13 @@ function Store:Update(entry, values)
         end
     end
     if not target then return false end
-    local id = target.id
-    for key in pairs(target) do target[key] = nil end
-    for key, value in pairs(normalized) do target[key] = value end
-    target.id = id
+    for _, key in ipairs(persistentKeys) do target[key] = normalized[key] end
     self:InvalidateCache()
     return true
 end
 
 function Store:DeleteMany(entries)
+    if SMK.DB:IsReadOnly() then return 0, "database read-only" end
     local database = SMK.DB:Get()
     local requestedIDs = {}
     for _, entry in ipairs(entries or {}) do
@@ -196,9 +199,11 @@ function Store:GetUsage(entry)
 end
 
 function Store:RecordUsage(entry)
+    if SMK.DB:IsReadOnly() then return false end
     local counts = SMK.DB:Get().usageCounts
     local key = UsageKey(entry)
     counts[key] = self:GetUsage(entry) + 1
+    return true
 end
 
 function Store:GetDuplicateKey(entry)

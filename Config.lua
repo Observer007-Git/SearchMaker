@@ -39,6 +39,7 @@ local Config = {
     },
     share = {
         prefix = "SMK|",
+        version = 2,
     },
     art = {
         defaultLocationIcon = "Interface\\ICONS\\VAS_CharacterTransfer",

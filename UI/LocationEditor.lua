@@ -266,7 +266,6 @@ function Editor:Create(parent, callbacks)
     cancel:SetText(SMK.L.CANCEL)
     cancel:SetScript("OnClick", function() frame:Hide() end)
     frame:SetScript("OnHide", function()
-        SMK.SearchBar.suppressPanelHidden = false
         SMK.Map:ClearTemporaryWaypoint()
         for _, input in pairs(self.inputs) do input:ClearFocus() end
     end)

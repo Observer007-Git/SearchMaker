@@ -91,7 +91,9 @@ local translations = {
     EXPORT_NO_LOCATIONS = "该地图没有可导出的地点。",
     EXPORT_NO_LOCATIONS_ALL = "没有可导出的地点。",
     IMPORT_INVALID_FORMAT = "文本格式无效：缺少 SMK 版本标记。",
+    IMPORT_NEWER_FORMAT = "该共享文本使用了尚不支持的格式版本 %d。",
     IMPORT_EMPTY = "文本中没有可导入的地点。",
+    DATABASE_READ_ONLY = "存档版本 %d 高于当前支持的版本 %d，SearchMaker 已进入只读模式以保护数据。",
 
     -- Widgets tooltip
     TOOLTIP_USAGE_COUNT = "使用次数：%d",

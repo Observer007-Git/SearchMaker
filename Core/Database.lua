@@ -51,14 +51,37 @@ local Migrations = {
     end,
 }
 
+local function CreateFutureRuntime(database)
+    local runtime = SMK.Util.CopyTable(database)
+    runtime.locations = type(database.locations) == "table" and database.locations or {}
+    runtime.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
+    local locationScale = tonumber(database.locationScale) or Config.location.defaultScale
+    locationScale = math.max(Config.location.minScale, math.min(Config.location.maxScale, locationScale))
+    runtime.locationScale = math.floor(locationScale * 10 + 0.5) / 10
+    if type(runtime.showFullPanel) ~= "boolean" then runtime.showFullPanel = true end
+    if type(runtime.shortcutSearchVisible) ~= "boolean" then runtime.shortcutSearchVisible = false end
+    if type(runtime.showMapPins) ~= "boolean" then runtime.showMapPins = false end
+    if type(runtime.searchAllMaps) ~= "boolean" then runtime.searchAllMaps = false end
+    return runtime
+end
+
 --- 初始化保存数据并顺序执行 schema 迁移。可多次安全调用。
 function DB:Initialize()
     SearchMakerDB = type(SearchMakerDB) == "table" and SearchMakerDB or {}
     local database = SearchMakerDB
+    local schemaVersion = math.max(0, math.floor(tonumber(database.schemaVersion) or 0))
+    self.savedData = database
+    self.futureSchemaVersion = nil
+    if schemaVersion > Config.databaseSchemaVersion then
+        self.readOnly = true
+        self.futureSchemaVersion = schemaVersion
+        self.data = CreateFutureRuntime(database)
+        return self.data
+    end
+
+    self.readOnly = false
     database.locations = type(database.locations) == "table" and database.locations or {}
     database.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
-
-    local schemaVersion = math.max(0, math.floor(tonumber(database.schemaVersion) or 0))
     while schemaVersion < Config.databaseSchemaVersion do
         schemaVersion = schemaVersion + 1
         local migrate = Migrations[schemaVersion]
@@ -88,7 +111,22 @@ function DB:Get()
     return self.data or self:Initialize()
 end
 
+function DB:IsReadOnly()
+    return self.readOnly == true
+end
+
+function DB:GetFutureSchemaVersion()
+    return self.futureSchemaVersion
+end
+
+function DB:GetReadOnlyMessage()
+    if not self:IsReadOnly() then return end
+    return string.format(SMK.L.DATABASE_READ_ONLY,
+        self:GetFutureSchemaVersion(), Config.databaseSchemaVersion)
+end
+
 function DB:NextLocationID()
+    if self:IsReadOnly() then return nil end
     local database = self:Get()
     local id = "user:" .. database.nextLocationID
     database.nextLocationID = database.nextLocationID + 1

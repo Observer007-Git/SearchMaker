@@ -21,6 +21,8 @@ end
 --- 构建要删除的条目列表并显示确认弹窗。
 -- @param mode string "category" 或 "map"。
 function Dialog:RequestDelete(mode)
+    local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
+    if readOnlyMessage then return self:SetStatus(readOnlyMessage, true) end
     local matches, description
     if mode == "category" then
         matches = SMK.Store:DeleteByCategory(self.categoryKey)

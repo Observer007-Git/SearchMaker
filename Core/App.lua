@@ -5,6 +5,48 @@ BINDING_NAME_SEARCHMAKER_TOGGLE_SEARCH = SMK.L.BINDING_NAME
 
 local App = {}
 
+local RefreshProfiles = {
+    initialize = { context = true, panel = true, instructions = true },
+    visible = { context = true, instructions = true },
+    map = { context = true, panel = true, instructions = true, resetSearch = true },
+    data = {
+        context = true, panel = true, pins = true, instructions = true,
+        search = true, geometry = true,
+    },
+    search = { search = true },
+}
+
+function App:GetRefreshCoordinator()
+    if not self.refreshCoordinator then
+        self.refreshCoordinator = SMK.RefreshCoordinator:New(
+            function(flags) self:FlushRefresh(flags) end,
+            function(callback) C_Timer.After(0, callback) end)
+    end
+    return self.refreshCoordinator
+end
+
+--- 请求一次合并刷新。相邻地图事件会在下一帧统一处理。
+function App:RequestRefresh(reason)
+    local flags = RefreshProfiles[reason]
+    if flags then self:GetRefreshCoordinator():Request(flags) end
+end
+
+function App:FlushRefresh(flags)
+    if flags.geometry then SMK.Widgets:ClearGeometryCache() end
+    if flags.context then self:LoadContext() end
+    if flags.pins then SMK.Widgets:RefreshMapPins() end
+    if not self.initialized then return end
+
+    if flags.panel and SMK.MainPanel:IsExpanded() then SMK.MainPanel:Refresh() end
+    if not SMK.SearchBar.bar:IsShown() then return end
+    if flags.resetSearch then
+        SMK.SearchBar:RefreshContext()
+    else
+        if flags.instructions then SMK.SearchBar:UpdateInstructions() end
+        if flags.search then SMK.SearchBar:RefreshResultsIfVisible() end
+    end
+end
+
 --- 刷新当前地图上下文：更新 currentMapID、currentEntries 和总数。
 -- 在地图切换、数据变更和启动时调用。
 function App:LoadContext()
@@ -14,7 +56,6 @@ function App:LoadContext()
     SMK.State.currentMapID = mapID
     SMK.State.currentEntries = current
     SMK.State.totalLocationCount = total
-    if self.initialized then SMK.MainPanel:Refresh() end
 end
 
 --- 激活地点：为用户条目设置路径点，或为地图传送门跳转到目标地图。
@@ -57,6 +98,8 @@ end
 -- @param values table 编辑器表单值。
 -- @return boolean|nil, string|nil 成功标志或错误消息。
 function App:SaveLocation(mode, entry, values)
+    local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
+    if readOnlyMessage then return false, readOnlyMessage end
     if mode == "edit" then
         if not SMK.Store:Update(entry, values) then
             return false, SMK.L.EDIT_NOT_FOUND
@@ -75,6 +118,8 @@ end
 -- 保留当前搜索词，删除后重新聚焦搜索框。
 -- @param entry table
 function App:DeleteLocation(entry)
+    local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
+    if readOnlyMessage then return SMK:Print(readOnlyMessage) end
     if type(entry) ~= "table" then
         return SMK:Print(SMK.L.DELETE_INVALID)
     end
@@ -87,19 +132,14 @@ function App:DeleteLocation(entry)
     SMK:Print(string.format(SMK.L.DELETE_SUCCESS, entry.name, entry.x, entry.y))
     self:DataChanged()
     if query ~= "" then
-        SMK.SearchBar.box:SetText(query)
+        SMK.SearchBar:SetQuery(query)
         SMK.SearchBar.box:SetFocus()
-        SMK.SearchBar:UpdateResults()
     end
 end
 
 --- 响应数据变更：重新加载上下文，清除缓存，更新界面。
 function App:DataChanged()
-    SMK.Widgets:ClearGeometryCache()
-    self:LoadContext()
-    SMK.Widgets:RefreshMapPins()
-    SMK.SearchBar:UpdateInstructions()
-    SMK.SearchBar:UpdateResults()
+    self:RequestRefresh("data")
 end
 
 --- 初始化整个界面：搜索栏、主面板、对话框和世界地图钩子。
@@ -107,9 +147,14 @@ end
 function App:CreateUI()
     if self.initialized then return end
     SMK.DB:Initialize()
+    local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
+    if readOnlyMessage and not self.warnedReadOnlyDatabase then
+        self.warnedReadOnlyDatabase = true
+        SMK:Print(readOnlyMessage)
+    end
     SMK.MapPins:Initialize(WorldMapFrame)
     local bar = SMK.SearchBar:Create({
-        onRefreshContext = function() self:LoadContext() end,
+        onShown = function() self:RequestRefresh("visible") end,
         onActivate = function(entry, result) self:Activate(entry, result) end,
         onEdit = function(entry) SMK.MainPanel:OpenEditor("edit", entry) end,
         onDelete = function(entry) self:DeleteLocation(entry) end,
@@ -119,10 +164,10 @@ function App:CreateUI()
         onDelete = function(entry) self:DeleteLocation(entry) end,
         onSaveLocation = function(mode, entry, values) return self:SaveLocation(mode, entry, values) end,
         onChanged = function() self:DataChanged() end,
-        onScaleChanged = function() SMK.SearchBar:UpdateResults() end,
+        onScaleChanged = function() self:RequestRefresh("search") end,
         onDialogOpened = function()
             SMK.SearchBar:HideResults()
-            SMK.SearchBar.box:SetText("")
+            SMK.SearchBar:SetQuery("")
             SMK.SearchBar.box:ClearFocus()
         end,
         onClose = function() SMK.SearchBar:ClosePanel() end,
@@ -130,32 +175,28 @@ function App:CreateUI()
     })
     SMK.SearchBar:AttachPanel(SMK.MainPanel)
     self.initialized = true
-    self:LoadContext()
+    self:RequestRefresh("initialize")
 
     WorldMapFrame:HookScript("OnShow", function()
         SMK.MapIndex:Rebuild()
-        SMK.Widgets:RefreshMapPins()
         SMK.SearchBar:ApplyPosition("map")
-        if SMK.SearchBar.bar:IsShown() then
-            SMK.SearchBar:RefreshContext()
-            SMK.SearchBar:SetPanelExpanded(false)
-            SMK.SearchBar.modeButton:Hide()
-        else
-            SMK.SearchBar.bar:Show()
-        end
+        if not SMK.SearchBar.bar:IsShown() then SMK.SearchBar.bar:Show() end
+        SMK.SearchBar:SetPanelExpanded(false)
+        SMK.SearchBar.modeButton:Hide()
+        self:RequestRefresh("map")
     end)
     WorldMapFrame:HookScript("OnHide", function()
         if SMK.DB:Get().shortcutSearchVisible then
             SMK.SearchBar:ApplyPosition("shortcut")
-            SMK.SearchBar:RefreshContext()
             SMK.SearchBar:SetPanelExpanded(false)
             SMK.SearchBar.modeButton:Hide()
         else
             SMK.SearchBar.bar:Hide()
         end
+        self:RequestRefresh("map")
     end)
     hooksecurefunc(WorldMapFrame, "SetMapID", function()
-        if WorldMapFrame:IsShown() then SMK.Widgets:RefreshMapPins() SMK.SearchBar:RefreshContext() end
+        if WorldMapFrame:IsShown() then self:RequestRefresh("map") end
     end)
 
     C_Timer.After(0, function()

@@ -35,9 +35,28 @@ local function SplitRecord(record)
     end
 end
 
-local function GetPrefix(text)
-    for _, prefix in ipairs(supportedPrefixes) do
-        if text:sub(1, #prefix) == prefix then return prefix end
+local function GetFormat(text)
+    if text:sub(1, #Config.share.prefix) == Config.share.prefix then
+        local payload = text:sub(#Config.share.prefix + 1)
+        local versionText, versionedPayload = payload:match("^(%d+)|(.*)$")
+        if not versionText then
+            return { prefix = Config.share.prefix, version = 1, scaledCoordinates = true }, payload
+        end
+        local version = tonumber(versionText)
+        if version > Config.share.version then
+            return nil, nil, string.format(SMK.L.IMPORT_NEWER_FORMAT, version)
+        end
+        if version < 1 then return nil, nil, SMK.L.IMPORT_INVALID_FORMAT end
+        return { prefix = Config.share.prefix, version = version, scaledCoordinates = true }, versionedPayload
+    end
+    for index = 2, #supportedPrefixes do
+        local prefix = supportedPrefixes[index]
+        if text:sub(1, #prefix) == prefix then
+            return {
+                prefix = prefix,
+                scaledCoordinates = prefix == "SMK3|",
+            }, text:sub(#prefix + 1)
+        end
     end
 end
 
@@ -64,11 +83,11 @@ function Codec:Encode(entries)
             tonumber(entry.pinTextureID) or 1,
         }, ",")
     end
-    return Config.share.prefix .. table.concat(records, ";")
+    return Config.share.prefix .. Config.share.version .. "|" .. table.concat(records, ";")
 end
 
-local function DecodeCategory(field, prefix)
-    if prefix == "MLL1|" then return Config.defaultCategoryKey end
+local function DecodeCategory(field, format)
+    if format.prefix == "MLL1|" then return Config.defaultCategoryKey end
     local decoded = DecodeField(field)
     local categoryID = tonumber(decoded)
     if categoryID and Config.categoryByID[categoryID] then
@@ -77,10 +96,10 @@ local function DecodeCategory(field, prefix)
     return Config.GetCategoryKey(decoded)
 end
 
-local function DecodeCoordinates(fields, prefix)
+local function DecodeCoordinates(fields, format)
     local x, y = tonumber(fields[2]), tonumber(fields[3])
     if not x or not y then return end
-    if prefix == Config.share.prefix or prefix == "SMK3|" then
+    if format.scaledCoordinates then
         return x / 100, y / 100
     end
     return x, y
@@ -88,20 +107,19 @@ end
 
 function Codec:Decode(text)
     text = Util.Trim(text)
-    local prefix = GetPrefix(text)
-    if not prefix then return nil, SMK.L.IMPORT_INVALID_FORMAT end
-    local payload = text:sub(#prefix + 1)
+    local format, payload, formatError = GetFormat(text)
+    if not format then return nil, formatError or SMK.L.IMPORT_INVALID_FORMAT end
     if payload == "" then return nil, SMK.L.IMPORT_EMPTY end
 
     local entries, invalid = {}, 0
     for record in payload:gmatch("[^;]+") do
         local fields = SplitRecord(record)
-        local x, y = DecodeCoordinates(fields, prefix)
+        local x, y = DecodeCoordinates(fields, format)
         local values = {
             mapID = tonumber(fields[1]),
             x = x,
             y = y,
-            categoryKey = DecodeCategory(fields[4], prefix),
+            categoryKey = DecodeCategory(fields[4], format),
             name = DecodeField(fields[5]),
             icon = Config.art.defaultLocationIcon,
             showPin = tonumber(fields[6]) or 0,

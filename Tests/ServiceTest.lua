@@ -62,14 +62,50 @@ for _, path in ipairs({
     "Core/Namespace.lua", "Config.lua", "Locales/init.lua", "Locales/enUS.lua", "Locales/zhCN.lua",
     "Core/PinTextures.lua", "Core/Database.lua", "Core/LocationStore.lua", "Core/MapService.lua",
     "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/MapPinProvider.lua",
-    "UI/ShareDialog.lua",
+    "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua",
 }) do
     loadModule(SMK, path)
 end
 
+local scheduledRefresh
+local refreshCount, refreshFlags = 0
+local coordinator = SMK.RefreshCoordinator:New(function(flags)
+    refreshCount = refreshCount + 1
+    refreshFlags = flags
+end, function(callback)
+    assert(not scheduledRefresh, "refresh scheduled more than once")
+    scheduledRefresh = callback
+end)
+coordinator:Request({ context = true })
+coordinator:Request({ pins = true })
+assert(refreshCount == 0 and scheduledRefresh, "refresh was not deferred")
+scheduledRefresh()
+assert(refreshCount == 1 and refreshFlags.context and refreshFlags.pins,
+    "refresh requests were not merged")
+
+local futureDatabase = {
+    schemaVersion = SMK.Config.databaseSchemaVersion + 5,
+    locations = { { id = "future:1", mapID = 100, x = 1, y = 2, name = "future", categoryKey = "Other" } },
+    usageCounts = {},
+    futureField = { preserved = true },
+}
+SearchMakerDB = futureDatabase
+SMK.DB:Initialize()
+assert(SMK.DB:IsReadOnly() and SMK.DB:GetFutureSchemaVersion() == futureDatabase.schemaVersion,
+    "future database schema was not opened read-only")
+assert(SMK.DB:GetReadOnlyMessage() == string.format(SMK.L.DATABASE_READ_ONLY,
+    futureDatabase.schemaVersion, SMK.Config.databaseSchemaVersion),
+    "future database read-only message is missing")
+assert(not futureDatabase.locationScale and futureDatabase.futureField.preserved,
+    "future database was modified during initialization")
+SMK.DB:Get().showMapPins = true
+assert(futureDatabase.showMapPins == nil, "future database settings were written through runtime data")
+assert(not SMK.Store:Add({ mapID = 100, x = 1, y = 2, name = "blocked", categoryKey = "Other" }),
+    "future database accepted a write")
+
 SearchMakerDB = {
     locations = {
-        { id = "user:4", mapID = "100", x = "12.34", y = "56.78", name = "旧地点", category = "地下堡", showPin = true, pinTexture = "5" },
+        { id = "user:4", mapID = "100", x = "12.34", y = "56.78", name = "旧地点", category = "地下堡", showPin = true, pinTexture = "5", futureExtension = "keep" },
         { id = "user:4", mapID = 100, x = 20, y = 30, name = "重复ID", category = "NPC" },
     },
     usageCounts = {},
@@ -92,6 +128,7 @@ assert(SMK.Store:Update(first, {
     categoryKey = first.categoryKey, showPin = first.showPin, pinTextureID = first.pinTextureID,
 }), "location update failed")
 assert(SearchMakerDB.locations[1].categoryKey == "Delves", "editing changed the canonical category")
+assert(SearchMakerDB.locations[1].futureExtension == "keep", "editing discarded an unknown extension field")
 
 for index = 1, 25 do
     assert(SMK.Store:Add({ mapID = 100, x = index, y = index, name = "精确甲" .. index, categoryKey = "Other" }))
@@ -102,9 +139,19 @@ assert(#matches == SMK.Config.search.maxResults, "search result limit failed")
 assert(matches[1].entry.name == "精确" and matches[1].score == 0, "late exact match was not ranked first")
 
 local encoded = SMK.ShareCodec:Encode({ SMK.Store:GetAll()[1] })
+assert(encoded:sub(1, 6) == "SMK|2|", "current share format is not explicitly versioned")
+assert(SMK.ShareCodec:FindShareText("chat " .. encoded) == encoded,
+    "versioned share text was not found in chat")
 local decoded, decodeError, invalid = SMK.ShareCodec:Decode(encoded)
 assert(not decodeError and invalid == 0 and #decoded == 1, "current share round trip failed")
 assert(decoded[1].categoryKey == "Delves" and decoded[1].pinTextureID == 5, "share fields were not preserved")
+local oldCurrent = "SMK|100,1234,5678,1,%E6%97%A7%E7%82%B9,1,5"
+local oldEntries, oldError = SMK.ShareCodec:Decode(oldCurrent)
+assert(not oldError and #oldEntries == 1 and oldEntries[1].x == 12.34,
+    "unversioned SMK share text is no longer compatible")
+local futureEntries, futureError = SMK.ShareCodec:Decode("SMK|99|100,1,2,1,x")
+assert(not futureEntries and futureError == string.format(SMK.L.IMPORT_NEWER_FORMAT, 99),
+    "future share format was not rejected explicitly")
 
 local legacySamples = {
     "SMK3|100,1234,5678,1,%E6%97%A7%E7%82%B9,1,5",

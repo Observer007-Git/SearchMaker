@@ -97,6 +97,8 @@ end
 --- 从文本框中的 SMK| 共享文本导入条目。
 -- 跳过已存在的条目（通过 GetDuplicateKey 匹配）。
 function Dialog:Import()
+    local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
+    if readOnlyMessage then return self:SetStatus(readOnlyMessage, true) end
     local entries, errorMessage, invalid = SMK.ShareCodec:Decode(self.textBox:GetText())
     if not entries then return self:SetStatus(errorMessage, true) end
     local existing = {}

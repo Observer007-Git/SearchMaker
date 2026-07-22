@@ -8,7 +8,7 @@
 - `Tab`：切换「当前地图」/「全图搜索」模式
 - `Alt + 左键（世界地图上）」：在鼠标位置添加地点
 - `右键搜索框`：打开地点主面板
-- `左键单击地图标记`：修改或删除该地点（编辑时坐标只读）
+- `左键单击地图标记`：修改或删除该地点（坐标可编辑）
 - `鼠标悬停地图标记`：查看地点名称和坐标
 - `Shift + 拖动搜索框」：移动搜索框
 
@@ -33,6 +33,7 @@
 | 地点按钮大小 | `Config.lua` → `location.baseWidth` / `location.baseHeight` |
 | 按钮背景贴图 | `Config.lua` → `art.button`（接口路径） |
 | 地点图标（列表中） | `Config.lua` → `categories[*].atlas` |
+| 当前地图搜索图标 | `Config.lua` → `art.searchIconAtlas` |
 | 颜色（文字/边框/背景） | `Config.lua` → `colors.*` |
 | 面板底图 Atlas | `Config.lua` → `panel.backgroundAtlas` |
 | 数量限制：地点名最大输入字符/显示宽度 | `Config.lua` → `location.maxNameLength` / `maxNameWidth` |

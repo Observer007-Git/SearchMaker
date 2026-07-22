@@ -51,6 +51,7 @@ for _, path in ipairs({
     "Core/LocationStore.lua", "Core/MapService.lua",
     "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/ImportService.lua", "Core/MapPinProvider.lua",
     "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua", "UI/ModalManager.lua", "UI/BulkDeleteDialog.lua",
+    "UI/Widgets.lua",
 }) do
     loadModule(SMK, path)
 end
@@ -59,6 +60,13 @@ assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.colors.searchAllMapsIconFill[4] == 1,
     "search scope icon art is not configured")
+local locationSign = SMK.Config.art.locationSign
+assert(locationSign.leftAtlas == "housing-dashboard-woodsign-left"
+    and locationSign.centerAtlas == "housing-dashboard-woodsign-center"
+    and locationSign.rightAtlas == "housing-dashboard-woodsign-right"
+    and locationSign.leftWidth + locationSign.centerWidth + locationSign.rightWidth == 136
+    and locationSign.height == 29 and locationSign.textPadding == 2,
+    "location sign art is not configured")
 assert(SMK.DefaultPinTextureID == 1 and SMK.PinTextures[1].atlas == "MonsterEnemy",
     "MonsterEnemy is not the first and default pin texture")
 local expectedPinAtlases = {
@@ -379,5 +387,42 @@ assert(#fakeMap.pins == 1 and fakeMap.pins[1].label.shown == false,
 SearchMakerDB.settings.showMapPins = false
 SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 0, "disabled map pins were not cleared")
+
+local layoutButton = {
+    iconAspectRatio = 2,
+    SetSize = function(self, width, height) self.width, self.height = width, height end,
+    iconBox = {
+        ClearAllPoints = function() end,
+        SetPoint = function() end,
+        SetSize = function(self, width, height) self.width, self.height = width, height end,
+    },
+    background = {
+        ClearAllPoints = function() end,
+        SetPoint = function() end,
+        left = { SetWidth = function(self, width) self.width = width end },
+        right = { SetWidth = function(self, width) self.width = width end },
+    },
+    hitArea = { ClearAllPoints = function() end, SetAllPoints = function() end },
+    label = {
+        text = "short",
+        width = 50,
+        GetText = function(self) return self.text end,
+        GetUnboundedStringWidth = function(self) return self.width end,
+        ClearAllPoints = function() end,
+        SetPoint = function(self, point, _, _, x)
+            if point == "LEFT" then self.leftOffset = x end
+        end,
+    },
+}
+SMK.Widgets:UpdateLocationGeometry(layoutButton)
+assert(layoutButton.height == 38 and layoutButton.width == 255
+    and layoutButton.iconBox.width == 76 and layoutButton.label.leftOffset == 2,
+    "location sign default geometry is incorrect")
+local leftWidth, rightWidth = layoutButton.background.left.width, layoutButton.background.right.width
+layoutButton.label.text, layoutButton.label.width = "long", 220
+SMK.Widgets:UpdateLocationGeometry(layoutButton)
+assert(layoutButton.width == 300 and layoutButton.background.left.width == leftWidth
+    and layoutButton.background.right.width == rightWidth,
+    "location sign did not stretch only its center segment")
 
 print("SearchMaker service tests passed")

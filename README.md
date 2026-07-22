@@ -31,7 +31,7 @@
 | 搜索输入框宽度/高度 | `Config.lua` → `search.boxWidth` / `search.boxHeight` |
 | 面板宽度/高度 | `Config.lua` → `panel.width` / `panel.height` |
 | 地点按钮大小 | `Config.lua` → `location.baseWidth` / `location.baseHeight` |
-| 按钮背景贴图 | `Config.lua` → `art.button`（接口路径） |
+| 地点木牌背景 Atlas | `Config.lua` → `art.locationSign` |
 | 地点图标（列表中） | `Config.lua` → `categories[*].atlas` |
 | 当前地图搜索图标 | `Config.lua` → `art.searchIcon` |
 | 颜色（文字/边框/背景） | `Config.lua` → `colors.*` |

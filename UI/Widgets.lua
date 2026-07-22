@@ -3,6 +3,7 @@ local _, SMK = ...
 local Widgets = {}
 local Config = SMK.Config
 local Art = Config.art
+local Sign = Art.locationSign
 
 local function GetLocationScale()
     return SMK.Settings:Get("locationScale") or Config.location.defaultScale
@@ -18,8 +19,6 @@ local geometryCache = {}
 -- @param button Frame 地点按钮部件。
 function Widgets:UpdateLocationGeometry(button)
     local locationScale = GetLocationScale()
-    local _, fontSize = button.label:GetFont()
-    local textHeight = math.max(1, tonumber(fontSize) or button.label:GetStringHeight() or 1)
     local text = button.label:GetText() or ""
     local cacheKey = text .. "|" .. tostring(locationScale)
     local textWidth = geometryCache[cacheKey]
@@ -30,27 +29,28 @@ function Widgets:UpdateLocationGeometry(button)
         geometryCache[cacheKey] = textWidth
     end
 
-    local height = math.ceil(textHeight + Art.verticalPadding * locationScale)
-    local verticalScale = height / Art.buttonArtHeight
-    local naturalWidth = Art.buttonArtWidth * verticalScale
-    local reservedRatio = (Art.textLeft + Art.textRightPadding) / Art.buttonArtWidth
-    local width = math.ceil(math.max(
-        naturalWidth,
-        (textWidth + Art.textLeftPadding * locationScale) / (1 - reservedRatio)
-    ))
-    local horizontalScale = width / Art.buttonArtWidth
-    button:SetSize(width, height)
+    local height = math.ceil(Sign.height * locationScale)
+    local signScale = height / Sign.height
+    local leftWidth = Sign.leftWidth * signScale
+    local rightWidth = Sign.rightWidth * signScale
+    local naturalSignWidth = (Sign.leftWidth + Sign.centerWidth + Sign.rightWidth) * signScale
+    local textPadding = Sign.textPadding
+    local signWidth = math.max(naturalSignWidth, textWidth + textPadding * 2)
+    local iconWidth = height * (button.iconAspectRatio or 1)
+    button:SetSize(math.ceil(iconWidth + signWidth), height)
     button.iconBox:ClearAllPoints()
-    button.iconBox:SetPoint("TOPLEFT", button, "TOPLEFT",
-        Art.iconLeft * horizontalScale, -Art.iconTop * verticalScale)
-    button.iconBox:SetSize(Art.iconWidth * horizontalScale, Art.iconHeight * verticalScale)
+    button.iconBox:SetPoint("TOPLEFT")
+    button.iconBox:SetSize(iconWidth, height)
+    button.background:ClearAllPoints()
+    button.background:SetPoint("TOPLEFT", button.iconBox, "TOPRIGHT")
+    button.background:SetPoint("BOTTOMRIGHT")
+    button.background.left:SetWidth(leftWidth)
+    button.background.right:SetWidth(rightWidth)
     button.hitArea:ClearAllPoints()
     button.hitArea:SetAllPoints(button)
-    local labelLeft = Art.textLeft * horizontalScale + Art.textLeftPadding * locationScale
-    local labelRight = Art.textRightPadding * locationScale
     button.label:ClearAllPoints()
-    button.label:SetPoint("LEFT", labelLeft, 0)
-    button.label:SetPoint("RIGHT", -labelRight, 0)
+    button.label:SetPoint("LEFT", button.background, "LEFT", textPadding, 0)
+    button.label:SetPoint("RIGHT", button.background, "RIGHT", -textPadding, 0)
     button.label:SetPoint("TOP")
     button.label:SetPoint("BOTTOM")
 end
@@ -75,12 +75,17 @@ function Widgets:SetLocationEntry(button, entry, displayText)
     button.isSearchSelected = false
     button.highlight:Hide()
     button.label:SetText(displayText or entry.name)
+    local atlas
     if entry.isMapPortal then
-        button.icon:SetAtlas("poi-islands-table", false)
+        atlas = "poi-islands-table"
     else
         local catInfo = Config.categoryByKey[entry.categoryKey]
-        button.icon:SetAtlas(catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas, false)
+        atlas = catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas
     end
+    button.icon:SetAtlas(atlas, false)
+    local atlasInfo = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)
+    button.iconAspectRatio = atlasInfo and atlasInfo.width and atlasInfo.height
+        and atlasInfo.height > 0 and atlasInfo.width / atlasInfo.height or 1
     self:UpdateLocationGeometry(button)
     button:Show()
 end
@@ -95,11 +100,21 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button:SetSize(Config.location.baseWidth, Config.location.baseHeight)
     button.callbacks = callbacks or {}
 
-    button.background = button:CreateTexture(nil, "BACKGROUND")
+    button.background = CreateFrame("Frame", nil, button)
+    button.background:SetFrameLevel(math.max(0, button:GetFrameLevel() - 1))
     button.background:SetAllPoints(button)
-    button.background:SetTexture(Art.button)
-    button.background:SetTexCoord(0, Art.buttonArtWidth / Art.buttonTextureWidth,
-        0, Art.buttonArtHeight / Art.buttonTextureHeight)
+    button.background.left = button.background:CreateTexture(nil, "BACKGROUND")
+    button.background.left:SetPoint("TOPLEFT")
+    button.background.left:SetPoint("BOTTOMLEFT")
+    button.background.left:SetAtlas(Sign.leftAtlas, false)
+    button.background.right = button.background:CreateTexture(nil, "BACKGROUND")
+    button.background.right:SetPoint("TOPRIGHT")
+    button.background.right:SetPoint("BOTTOMRIGHT")
+    button.background.right:SetAtlas(Sign.rightAtlas, false)
+    button.background.center = button.background:CreateTexture(nil, "BACKGROUND")
+    button.background.center:SetPoint("TOPLEFT", button.background.left, "TOPRIGHT")
+    button.background.center:SetPoint("BOTTOMRIGHT", button.background.right, "BOTTOMLEFT")
+    button.background.center:SetAtlas(Sign.centerAtlas, false)
 
     button.highlight = button:CreateTexture(nil, "ARTWORK")
     button.highlight:SetAllPoints(button)

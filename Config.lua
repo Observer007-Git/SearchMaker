@@ -6,7 +6,7 @@ local Config = {
     panel = {
         width = 700,
         height = 512,
-        backgroundAtlas = "shop-virtual currency-menu-bg",
+        backgroundAtlas = "catalog-list-preview-bg",
         borderAtlas = "housing-wood-frame",
     },
     search = {

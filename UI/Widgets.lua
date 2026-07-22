@@ -35,6 +35,7 @@ function Widgets:UpdateLocationGeometry(button)
     local rightWidth = Sign.rightWidth * signScale
     local naturalSignWidth = (Sign.leftWidth + Sign.centerWidth + Sign.rightWidth) * signScale
     local textPadding = Sign.textPadding
+    local textOffsetY = Sign.textOffsetY
     local signWidth = math.max(naturalSignWidth, textWidth + textPadding * 2)
     local iconWidth = height * (button.iconAspectRatio or 1)
     button:SetSize(math.ceil(iconWidth + signWidth), height)
@@ -49,10 +50,8 @@ function Widgets:UpdateLocationGeometry(button)
     button.hitArea:ClearAllPoints()
     button.hitArea:SetAllPoints(button)
     button.label:ClearAllPoints()
-    button.label:SetPoint("LEFT", button.background, "LEFT", textPadding, 0)
-    button.label:SetPoint("RIGHT", button.background, "RIGHT", -textPadding, 0)
-    button.label:SetPoint("TOP")
-    button.label:SetPoint("BOTTOM")
+    button.label:SetPoint("LEFT", button.background, "LEFT", textPadding, textOffsetY)
+    button.label:SetPoint("RIGHT", button.background, "RIGHT", -textPadding, textOffsetY)
 end
 
 --- 清除字体测量缓存（数据变更时调用）。

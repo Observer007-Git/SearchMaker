@@ -65,7 +65,8 @@ assert(locationSign.leftAtlas == "housing-dashboard-woodsign-left"
     and locationSign.centerAtlas == "housing-dashboard-woodsign-center"
     and locationSign.rightAtlas == "housing-dashboard-woodsign-right"
     and locationSign.leftWidth + locationSign.centerWidth + locationSign.rightWidth == 136
-    and locationSign.height == 29 and locationSign.textPadding == 2,
+    and locationSign.height == 29 and locationSign.textPadding == 8
+    and locationSign.textOffsetY == 0,
     "location sign art is not configured")
 assert(SMK.DefaultPinTextureID == 1 and SMK.PinTextures[1].atlas == "MonsterEnemy",
     "MonsterEnemy is not the first and default pin texture")
@@ -409,19 +410,20 @@ local layoutButton = {
         GetText = function(self) return self.text end,
         GetUnboundedStringWidth = function(self) return self.width end,
         ClearAllPoints = function() end,
-        SetPoint = function(self, point, _, _, x)
-            if point == "LEFT" then self.leftOffset = x end
+        SetPoint = function(self, point, _, _, x, y)
+            if point == "LEFT" then self.leftOffset, self.yOffset = x, y end
         end,
     },
 }
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
 assert(layoutButton.height == 38 and layoutButton.width == 255
-    and layoutButton.iconBox.width == 76 and layoutButton.label.leftOffset == 2,
+    and layoutButton.iconBox.width == 76 and layoutButton.label.leftOffset == 8
+    and layoutButton.label.yOffset == 0,
     "location sign default geometry is incorrect")
 local leftWidth, rightWidth = layoutButton.background.left.width, layoutButton.background.right.width
 layoutButton.label.text, layoutButton.label.width = "long", 220
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
-assert(layoutButton.width == 300 and layoutButton.background.left.width == leftWidth
+assert(layoutButton.width == 312 and layoutButton.background.left.width == leftWidth
     and layoutButton.background.right.width == rightWidth,
     "location sign did not stretch only its center segment")
 

@@ -1,0 +1,322 @@
+local _, SMK = ...
+
+BINDING_HEADER_SEARCHMAKER = SMK.L.BINDING_HEADER
+BINDING_NAME_SEARCHMAKER_TOGGLE_SEARCH = SMK.L.BINDING_NAME
+
+local App = {}
+
+--- 刷新当前地图上下文：更新 currentMapID、currentEntries 和总数。
+-- 在地图切换、数据变更和启动时调用。
+function App:LoadContext()
+    local mapID = SMK.Map:GetContextMapID()
+    local current = SMK.Store:GetByMap(mapID)
+    local total = #SMK.Store:GetAll()
+    SMK.State.currentMapID = mapID
+    SMK.State.currentEntries = current
+    SMK.State.totalLocationCount = total
+    if self.initialized then SMK.MainPanel:Refresh() end
+end
+
+--- 激活地点：为用户条目设置路径点，或为地图传送门跳转到目标地图。
+-- 如果来自搜索结果且为全图搜索模式，先打开目标地图再设路径点。
+-- @param entry table 地点条目或地图传送门条目。
+-- @param fromSearchResult boolean 是否来自搜索结果下拉框。
+function App:Activate(entry, fromSearchResult)
+    if entry.isMapPortal then
+        if SMK.Map:OpenMap(entry.mapID) then
+            -- 播放传送门音效
+            PlaySound(875)
+            SMK.SearchBar:ClosePanel()
+            if SMK.SearchBar.bar:IsShown() then
+                SMK.SearchBar.box:SetFocus()
+            end
+        end
+        return
+    end
+    if fromSearchResult and SMK.DB:Get().searchAllMaps
+        and SMK.SearchBar.bar.positionMode == "map"
+        and WorldMapFrame:IsShown() then
+        SMK.Map:OpenMap(entry.mapID)
+    end
+    local marked, message = SMK.Map:SetWaypoint(entry)
+    GameTooltip_Hide()
+    if marked then
+        PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_SUPER_TRACK_ON)
+        SMK.Store:RecordUsage(entry)
+    else
+        PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_BUTTON_CLICK_OFF)
+        if message then SMK:Print(message) end
+    end
+    SMK.SearchBar:ClosePanel()
+end
+
+--- 从编辑器保存或更新地点。
+-- 成功时清除临时地图路径点。
+-- @param mode string "add" 或 "edit"。
+-- @param entry table|nil 原始条目（编辑模式）。
+-- @param values table 编辑器表单值。
+-- @return boolean|nil, string|nil 成功标志或错误消息。
+function App:SaveLocation(mode, entry, values)
+    if mode == "edit" then
+        if not SMK.Store:Update(entry, values) then
+            return false, SMK.L.EDIT_NOT_FOUND
+        end
+        SMK:Print(string.format(SMK.L.EDIT_SUCCESS, values.name, values.x, values.y))
+    else
+        local added = SMK.Store:Add(values)
+        if not added then return false, SMK.L.SAVE_FAILED end
+        SMK:Print(string.format(SMK.L.ADD_SUCCESS, values.name, values.x, values.y))
+    end
+    self:DataChanged()
+    return true
+end
+
+--- 从编辑器或右键菜单删除单个地点。
+-- 保留当前搜索词，删除后重新聚焦搜索框。
+-- @param entry table
+function App:DeleteLocation(entry)
+    if type(entry) ~= "table" then
+        return SMK:Print(SMK.L.DELETE_INVALID)
+    end
+    GameTooltip_Hide()
+    local query = SMK.SearchBar.box:GetText()
+    local deleted = SMK.Store:Delete(entry)
+    if deleted == 0 then
+        return SMK:Print(SMK.L.DELETE_UNKNOWN_SOURCE)
+    end
+    SMK:Print(string.format(SMK.L.DELETE_SUCCESS, entry.name, entry.x, entry.y))
+    self:DataChanged()
+    if query ~= "" then
+        SMK.SearchBar.box:SetText(query)
+        SMK.SearchBar.box:SetFocus()
+        SMK.SearchBar:UpdateResults()
+    end
+end
+
+--- 响应数据变更：重新加载上下文，清除缓存，更新界面。
+function App:DataChanged()
+    SMK.Widgets:ClearGeometryCache()
+    self:LoadContext()
+    SMK.Widgets:RefreshMapPins()
+    SMK.SearchBar:UpdateInstructions()
+    SMK.SearchBar:UpdateResults()
+end
+
+--- 初始化整个界面：搜索栏、主面板、对话框和世界地图钩子。
+-- 在 Blizzard_WorldMap 的 ADDON_LOADED 事件时调用一次（如果已加载则立即调用）。
+function App:CreateUI()
+    if self.initialized then return end
+    SMK.DB:Initialize()
+    SMK.MapPins:Initialize(WorldMapFrame)
+    local bar = SMK.SearchBar:Create({
+        onRefreshContext = function() self:LoadContext() end,
+        onActivate = function(entry, result) self:Activate(entry, result) end,
+        onEdit = function(entry) SMK.MainPanel:OpenEditor("edit", entry) end,
+        onDelete = function(entry) self:DeleteLocation(entry) end,
+    })
+    SMK.MainPanel:Create(bar, {
+        onActivate = function(entry, result) self:Activate(entry, result) end,
+        onDelete = function(entry) self:DeleteLocation(entry) end,
+        onSaveLocation = function(mode, entry, values) return self:SaveLocation(mode, entry, values) end,
+        onChanged = function() self:DataChanged() end,
+        onScaleChanged = function() SMK.SearchBar:UpdateResults() end,
+        onDialogOpened = function()
+            SMK.SearchBar:HideResults()
+            SMK.SearchBar.box:SetText("")
+            SMK.SearchBar.box:ClearFocus()
+        end,
+        onClose = function() SMK.SearchBar:ClosePanel() end,
+        onHidden = function() SMK.SearchBar:OnPanelHidden() end,
+    })
+    SMK.SearchBar:AttachPanel(SMK.MainPanel)
+    self.initialized = true
+    self:LoadContext()
+
+    WorldMapFrame:HookScript("OnShow", function()
+        SMK.MapIndex:Rebuild()
+        SMK.Widgets:RefreshMapPins()
+        SMK.SearchBar:ApplyPosition("map")
+        if SMK.SearchBar.bar:IsShown() then
+            SMK.SearchBar:RefreshContext()
+            SMK.SearchBar:SetPanelExpanded(false)
+            SMK.SearchBar.modeButton:Hide()
+        else
+            SMK.SearchBar.bar:Show()
+        end
+    end)
+    WorldMapFrame:HookScript("OnHide", function()
+        if SMK.DB:Get().shortcutSearchVisible then
+            SMK.SearchBar:ApplyPosition("shortcut")
+            SMK.SearchBar:RefreshContext()
+            SMK.SearchBar:SetPanelExpanded(false)
+            SMK.SearchBar.modeButton:Hide()
+        else
+            SMK.SearchBar.bar:Hide()
+        end
+    end)
+    hooksecurefunc(WorldMapFrame, "SetMapID", function()
+        if WorldMapFrame:IsShown() then SMK.Widgets:RefreshMapPins() SMK.SearchBar:RefreshContext() end
+    end)
+
+    C_Timer.After(0, function()
+        if WorldMapFrame:IsShown() then
+            SMK.SearchBar:ApplyPosition("map")
+            SMK.SearchBar.bar:Show()
+        elseif SMK.DB:Get().shortcutSearchVisible then
+            SMK.SearchBar:ApplyPosition("shortcut")
+            SMK.SearchBar.bar:Show()
+        end
+    end)
+    -- 地图索引构建：WorldMap 就绪后立即尝试，失败则 1 秒后重试（最多 10 次）
+    local rebuildAttempts = 0
+    local function TryRebuildMapIndex()
+        if SMK.MapIndex:Rebuild() then return end
+        rebuildAttempts = rebuildAttempts + 1
+        if rebuildAttempts < 10 then
+            C_Timer.After(1, TryRebuildMapIndex)
+        end
+    end
+    TryRebuildMapIndex()
+    local addOnMapFrame = CreateFrame("Frame")
+    addOnMapFrame:RegisterEvent("GLOBAL_MOUSE_DOWN")
+    addOnMapFrame:SetScript("OnEvent", function(_, _, button)
+        if button ~= "LeftButton" or not IsAltKeyDown()
+            or not WorldMapFrame or not WorldMapFrame:IsShown() then return end
+        local container = WorldMapFrame.ScrollContainer
+        if not container then return end
+        local foci = GetMouseFoci and GetMouseFoci() or nil
+        local overCanvas
+        if foci and DoesAncestryIncludeAny then
+            overCanvas = DoesAncestryIncludeAny(container, foci)
+        else
+            overCanvas = container:IsMouseOver()
+        end
+        if not overCanvas then return end
+        local x, y = SMK.Map:GetCursorMapCoordinates()
+        local mapID = x and SMK.Map:GetContextMapID() or nil
+        if not mapID then return end
+        local marked, message = SMK.Map:BeginTemporaryWaypoint({ mapID = mapID, x = x, y = y })
+        if not marked then
+            if message then SMK:Print(message) end
+            return
+        end
+        SMK.MainPanel:OpenEditor("add", { mapID = mapID, x = x, y = y })
+    end)
+
+end
+
+--- 切换浮动搜索栏的显示（由快捷键触发）。
+-- 如果插件尚未初始化，按需加载 Blizzard_WorldMap。
+function App:ToggleSearch()
+    if not self.initialized then
+        local loaded, reason = C_AddOns.LoadAddOn("Blizzard_WorldMap")
+        if not loaded and not C_AddOns.IsAddOnLoaded("Blizzard_WorldMap") then
+            return SMK:Print(string.format(SMK.L.LOAD_WORLD_MAP_FAILED, tostring(reason or SMK.L.UNKNOWN_REASON)))
+        end
+    end
+    if self.initialized then
+        SMK.SearchBar:ToggleShortcut()
+    else
+        C_Timer.After(0, function()
+            if self.initialized then SMK.SearchBar:ToggleShortcut() end
+        end)
+    end
+end
+
+
+function App:ScanChatForImports()
+    local existing = {}
+    for _, entry in ipairs(SMK.Store:GetAll()) do
+        existing[SMK.Store:GetDuplicateKey(entry)] = true
+    end
+    local seenKeys = {}
+    local imported = 0
+    local sawTruncated = false
+    local sawShareCode = false
+    for i = 1, NUM_CHAT_WINDOWS or 7 do
+        local cf = _G["ChatFrame" .. i]
+        if cf then
+            local num = cf:GetNumMessages()
+            local start = math.max(1, num - 49)
+            for j = start, num do
+                -- cf:GetMessageInfo returns different formats across WoW versions:
+                -- old: first return = string message; new: returns include a table with message data
+                local allReturns = { cf:GetMessageInfo(j) }
+                local sharePart
+                for _, val in ipairs(allReturns) do
+                    if type(val) == "string" then
+                        sharePart = SMK.ShareCodec:FindShareText(val)
+                        if sharePart then break end
+                    elseif type(val) == "table" then
+                        for _, field in ipairs(val) do
+                            if type(field) == "string" then
+                                sharePart = SMK.ShareCodec:FindShareText(field)
+                                if sharePart then break end
+                            end
+                        end
+                        if sharePart then break end
+                    end
+                end
+                if sharePart then
+                    sawShareCode = true
+                    local entries, _, invalid = SMK.ShareCodec:Decode(sharePart)
+                    if entries then
+                        if invalid and invalid > 0 then sawTruncated = true end
+                        for _, entry in ipairs(entries) do
+                            local key = SMK.Store:GetDuplicateKey(entry)
+                            if not seenKeys[key] and not existing[key] then
+                                local added = SMK.Store:Add(entry)
+                                if added then
+                                    seenKeys[key] = true
+                                    imported = imported + 1
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local truncMsg = sawTruncated and " " .. SMK.L.CHAT_IMPORT_TRUNCATED or ""
+    local msg
+    if imported > 0 then
+        msg = string.format(SMK.L.CHAT_IMPORT_SUCCESS, imported) .. truncMsg
+    elseif sawShareCode then
+        msg = SMK.L.CHAT_IMPORT_ALL_DUPLICATES .. truncMsg
+    else
+        msg = SMK.L.CHAT_IMPORT_NONE .. truncMsg
+    end
+    SMK:Print(msg)
+    if imported > 0 then self:DataChanged() end
+    return msg
+end
+
+SMK.App = App
+
+function SearchMaker_ToggleSearch()
+    App:ToggleSearch()
+end
+
+local loader = CreateFrame("Frame")
+loader:RegisterEvent("ADDON_LOADED")
+local loadedSearchMaker = false
+loader:SetScript("OnEvent", function(self, _, addonName)
+    if addonName == SMK.name then
+        loadedSearchMaker = true
+        SMK.DB:Initialize()
+        if App.initialized then
+            SMK.Store:InvalidateCache()
+            SMK.SearchBar:UpdateSearchIcon()
+            App:DataChanged()
+        end
+    elseif addonName == "Blizzard_WorldMap" then
+        App:CreateUI()
+    end
+    if loadedSearchMaker and App.initialized then
+        self:UnregisterEvent("ADDON_LOADED")
+    end
+end)
+
+if C_AddOns.IsAddOnLoaded("Blizzard_WorldMap") then
+    App:CreateUI()
+end

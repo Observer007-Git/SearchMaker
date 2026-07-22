@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding name="SEARCHMAKER_TOGGLE_SEARCH" header="SEARCHMAKER" default="CTRL-SPACE">
+        SearchMaker_ToggleSearch()
+    </Binding>
+</Bindings>

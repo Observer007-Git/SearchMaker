@@ -56,7 +56,7 @@ for _, path in ipairs({
 end
 
 assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
-assert(SMK.Config.art.searchIconAtlas == "VAS_NameChange"
+assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.colors.searchAllMapsIconFill[4] == 1,
     "search scope icon art is not configured")
 assert(SMK.DefaultPinTextureID == 1 and SMK.PinTextures[1].atlas == "MonsterEnemy",

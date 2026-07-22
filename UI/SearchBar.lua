@@ -59,8 +59,8 @@ function SearchBar:UpdateSearchIcon()
         self.box.locationIcon:SetAtlas("poi-islands-table", false)
     else
         self.box.locationIconFill:Hide()
-        self.box.locationIcon:SetTexture(nil)
-        self.box.locationIcon:SetAtlas(Art.searchIconAtlas, false)
+        self.box.locationIcon:SetAtlas(nil)
+        self.box.locationIcon:SetTexture(Art.searchIcon)
     end
 end
 

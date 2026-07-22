@@ -56,7 +56,7 @@ local Config = {
         maxResults = 5,
     },
     art = {
-        searchIconAtlas = "VAS_NameChange",
+        searchIcon = "Interface\\ICONS\\VAS_NameChange",
         button = "Interface\\ENCOUNTERJOURNAL\\loottab-item-background",
         highlight = "Interface\\QuestFrame\\UI-QuestTitleHighlight",
         fallbackLocationAtlas = "Waypoint-MapPin-Minimap-Tracked",

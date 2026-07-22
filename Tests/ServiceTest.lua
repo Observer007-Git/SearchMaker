@@ -55,24 +55,23 @@ for _, path in ipairs({
     loadModule(SMK, path)
 end
 
-assert(#SMK.PinTextures == 19, "pin texture atlas list is incomplete")
-assert(SMK.DefaultPinTextureID == 8 and SMK.PinTextures[1].atlas == "MonsterEnemy",
+assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
+assert(SMK.DefaultPinTextureID == 1 and SMK.PinTextures[1].atlas == "MonsterEnemy",
     "MonsterEnemy is not the first and default pin texture")
-assert(not SMK.PinTextureByID[3] and not SMK.PinTextureByID[4],
-    "removed pin textures are still available")
 local expectedPinAtlases = {
-    [6] = "VignetteEvent-SuperTracked", [7] = "ElementalStorm-Lesser-Fire", [8] = "MonsterEnemy",
-    [9] = "MonsterFriend", [10] = "PlayerPartyBlip", [11] = "vignettekillboss-SuperTracked",
-    [12] = "poi-traveldirections-arrow2", [13] = "poi-door-up", [14] = "poi-door-down",
-    [15] = "poi-door-left", [16] = "poi-door-right", [17] = "CrossedFlags",
-    [18] = "Professions_Tracking_Fish_Special", [19] = "Map-MarkedDefeated",
-    [20] = "ElementalStorm-Boss-Fire", [21] = "XMarksTheSpot",
+    "MonsterEnemy", "Ping_Map_Whole_OnMyWay", "Ping_Map_Whole_Warning", "Ping_Map_Whole_Assist",
+    "VignetteEvent-SuperTracked", "ElementalStorm-Lesser-Fire", "MonsterFriend", "PlayerPartyBlip",
+    "vignettekillboss-SuperTracked", "poi-traveldirections-arrow2", "poi-door-up", "poi-door-down",
+    "poi-door-left", "poi-door-right", "CrossedFlags", "Professions_Tracking_Fish_Special",
+    "Map-MarkedDefeated", "ElementalStorm-Boss-Fire", "XMarksTheSpot", "MiniMap-DeadArrow",
 }
-for id, atlas in pairs(expectedPinAtlases) do
+for id, atlas in ipairs(expectedPinAtlases) do
     assert(SMK.PinTextureByID[id].atlas == atlas, "new pin texture atlas IDs are unstable")
+    assert(atlas ~= "Ping_Map_Whole_Danger" and atlas ~= "Ping_Map_Whole_Help",
+        "removed pin textures are still available")
 end
 local defaultTextureEntry = assert(SMK.LocationModel:Normalize({
-    mapID = 100, x = 1, y = 2, name = "default", categoryKey = "other", pinTextureID = 3,
+    mapID = 100, x = 1, y = 2, name = "default", categoryKey = "other", pinTextureID = 999,
 }))
 assert(defaultTextureEntry.pinTextureID == SMK.DefaultPinTextureID,
     "location normalization did not use the default pin texture")

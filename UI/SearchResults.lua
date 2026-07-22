@@ -113,6 +113,7 @@ function SearchResults:Render(source, query, allMaps)
     self.visibleCount, self.selectedIndex = visible, 1
     local y = 4
     local width = math.max(1, self.box:GetWidth() - 8)
+    local contentWidth = width
     for index, match in ipairs(matches) do
         local button = self.widgets[index]
         if not button then
@@ -127,14 +128,18 @@ function SearchResults:Render(source, query, allMaps)
         elseif allMaps then
             display = string.format(SMK.L.SEARCH_RESULT_FORMAT, match.mapName, match.entry.name)
         end
-        SMK.Widgets:SetLocationEntry(button, match.entry, display)
+        SMK.Widgets:SetLocationEntry(button, match.entry, display, true)
         SMK.Widgets:StretchSearchResult(button, width)
+        contentWidth = math.max(contentWidth, button:GetWidth())
         button.isSearchResult, button.resultIndex = true, index
         button:SetPoint("TOPLEFT", 4, -y)
         y = y + button:GetHeight() + SMK.Config.location.verticalGap
     end
+    for index = 1, visible do
+        SMK.Widgets:StretchSearchResult(self.widgets[index], contentWidth)
+    end
     for index = visible + 1, #self.widgets do self.widgets[index]:Hide() end
-    self.frame:SetWidth(self.box:GetWidth())
+    self.frame:SetWidth(contentWidth + 8)
     self.frame:SetHeight(y + 2)
     self.frame:Show()
     self:UpdateSelection()

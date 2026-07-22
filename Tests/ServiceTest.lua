@@ -66,7 +66,8 @@ assert(locationSign.leftAtlas == "housing-dashboard-woodsign-left"
     and locationSign.rightAtlas == "housing-dashboard-woodsign-right"
     and locationSign.leftWidth + locationSign.centerWidth + locationSign.rightWidth == 136
     and locationSign.height == 29 and locationSign.textPadding == 8
-    and locationSign.textOffsetY == 0,
+    and locationSign.textOffsetY == 1 and SMK.Config.location.baseWidth == 136
+    and SMK.Config.location.horizontalGap == 4,
     "location sign art is not configured")
 assert(SMK.DefaultPinTextureID == 1 and SMK.PinTextures[1].atlas == "MonsterEnemy",
     "MonsterEnemy is not the first and default pin texture")
@@ -391,11 +392,16 @@ assert(#fakeMap.pins == 0, "disabled map pins were not cleared")
 
 local layoutButton = {
     iconAspectRatio = 2,
+    showIcon = false,
     SetSize = function(self, width, height) self.width, self.height = width, height end,
+    GetWidth = function(self) return self.width end,
+    SetWidth = function(self, width) self.width = width end,
+    SetClipsChildren = function(self, value) self.clipsChildren = value end,
     iconBox = {
         ClearAllPoints = function() end,
         SetPoint = function() end,
         SetSize = function(self, width, height) self.width, self.height = width, height end,
+        SetShown = function(self, shown) self.shown = shown end,
     },
     background = {
         ClearAllPoints = function() end,
@@ -416,15 +422,25 @@ local layoutButton = {
     },
 }
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
-assert(layoutButton.height == 38 and layoutButton.width == 255
-    and layoutButton.iconBox.width == 76 and layoutButton.label.leftOffset == 8
-    and layoutButton.label.yOffset == 0,
-    "location sign default geometry is incorrect")
+assert(layoutButton.height == 38 and layoutButton.width == 179
+    and layoutButton.iconBox.width == 0 and not layoutButton.iconBox.shown
+    and layoutButton.label.leftOffset == 8 and layoutButton.label.yOffset == 1,
+    "main panel location sign geometry is incorrect")
 local leftWidth, rightWidth = layoutButton.background.left.width, layoutButton.background.right.width
+layoutButton.showIcon = true
+SMK.Widgets:UpdateLocationGeometry(layoutButton)
+assert(layoutButton.width == 255 and layoutButton.iconBox.width == 76
+    and layoutButton.iconBox.shown,
+    "search result location icon geometry is incorrect")
 layoutButton.label.text, layoutButton.label.width = "long", 220
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
 assert(layoutButton.width == 312 and layoutButton.background.left.width == leftWidth
     and layoutButton.background.right.width == rightWidth,
-    "location sign did not stretch only its center segment")
+    "search result location sign did not stretch only its center segment")
+SMK.Widgets:StretchSearchResult(layoutButton, 340)
+assert(layoutButton.width == 340 and layoutButton.clipsChildren
+    and layoutButton.background.left.width == leftWidth
+    and layoutButton.background.right.width == rightWidth,
+    "search result center segment did not fill the result width")
 
 print("SearchMaker service tests passed")

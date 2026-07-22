@@ -37,13 +37,18 @@ function Widgets:UpdateLocationGeometry(button)
     local textPadding = Sign.textPadding
     local textOffsetY = Sign.textOffsetY
     local signWidth = math.max(naturalSignWidth, textWidth + textPadding * 2)
-    local iconWidth = height * (button.iconAspectRatio or 1)
+    local iconWidth = button.showIcon and height * (button.iconAspectRatio or 1) or 0
     button:SetSize(math.ceil(iconWidth + signWidth), height)
     button.iconBox:ClearAllPoints()
     button.iconBox:SetPoint("TOPLEFT")
     button.iconBox:SetSize(iconWidth, height)
+    button.iconBox:SetShown(button.showIcon)
     button.background:ClearAllPoints()
-    button.background:SetPoint("TOPLEFT", button.iconBox, "TOPRIGHT")
+    if button.showIcon then
+        button.background:SetPoint("TOPLEFT", button.iconBox, "TOPRIGHT")
+    else
+        button.background:SetPoint("TOPLEFT")
+    end
     button.background:SetPoint("BOTTOMRIGHT")
     button.background.left:SetWidth(leftWidth)
     button.background.right:SetWidth(rightWidth)
@@ -64,7 +69,8 @@ end
 -- @param button Frame 要填充的按钮。
 -- @param entry table 地点条目（可能带有 isMapPortal 标记）。
 -- @param displayText string|nil 按钮标签的替代文本。
-function Widgets:SetLocationEntry(button, entry, displayText)
+-- @param showIcon boolean|nil 是否在木牌左侧显示图标。
+function Widgets:SetLocationEntry(button, entry, displayText, showIcon)
     local locationScale = GetLocationScale()
     if button.baseFontPath and button.baseFontSize then
         button.label:SetFont(button.baseFontPath, button.baseFontSize * locationScale, button.baseFontFlags or "")
@@ -72,6 +78,7 @@ function Widgets:SetLocationEntry(button, entry, displayText)
     button.entry = entry
     button.hitArea.entry = entry
     button.isSearchSelected = false
+    button.showIcon = showIcon == true
     button.highlight:Hide()
     button.label:SetText(displayText or entry.name)
     local atlas
@@ -182,46 +189,12 @@ function Widgets:CreateLocationButton(parent, callbacks)
     return button
 end
 
---- 调整地点按钮大小，用于搜索结果下拉框。
--- 将左侧图标+背景布局替换为全宽设计。
+--- 将搜索结果木牌扩展到下拉框宽度，额外宽度由中段吸收。
 -- @param button Frame 要重新样式的按钮。
 -- @param targetWidth number 期望宽度。
 function Widgets:StretchSearchResult(button, targetWidth)
-    local locationScale = GetLocationScale()
-    local verticalScale = button:GetHeight() / Art.buttonArtHeight
-    local leftWidth = Art.textLeft * verticalScale
-    button:SetWidth(math.max(targetWidth, leftWidth + 1))
+    button:SetWidth(math.max(targetWidth, button:GetWidth()))
     button:SetClipsChildren(true)
-    button.background:Hide()
-    if not button.searchBackgroundLeft then
-        button.searchBackgroundLeft = button:CreateTexture(nil, "BACKGROUND")
-        button.searchBackgroundLeft:SetTexture(Art.button)
-        button.searchBackgroundLeft:SetTexCoord(0, Art.textLeft / Art.buttonTextureWidth,
-            0, Art.buttonArtHeight / Art.buttonTextureHeight)
-        button.searchBackgroundRight = button:CreateTexture(nil, "BACKGROUND")
-        button.searchBackgroundRight:SetTexture(Art.button)
-        button.searchBackgroundRight:SetTexCoord(Art.textLeft / Art.buttonTextureWidth,
-            Art.buttonArtWidth / Art.buttonTextureWidth, 0, Art.buttonArtHeight / Art.buttonTextureHeight)
-    end
-    button.searchBackgroundLeft:ClearAllPoints()
-    button.searchBackgroundLeft:SetPoint("TOPLEFT")
-    button.searchBackgroundLeft:SetPoint("BOTTOMLEFT")
-    button.searchBackgroundLeft:SetWidth(leftWidth)
-    button.searchBackgroundRight:ClearAllPoints()
-    button.searchBackgroundRight:SetPoint("TOPLEFT", button.searchBackgroundLeft, "TOPRIGHT")
-    button.searchBackgroundRight:SetPoint("BOTTOMRIGHT")
-    button.iconBox:ClearAllPoints()
-    button.iconBox:SetPoint("TOPLEFT", Art.iconLeft * verticalScale, -Art.iconTop * verticalScale)
-    button.iconBox:SetSize(Art.iconWidth * verticalScale, Art.iconHeight * verticalScale)
-    button.hitArea:ClearAllPoints()
-    button.hitArea:SetAllPoints(button)
-    local labelLeft = leftWidth + Art.textLeftPadding * locationScale
-    local labelRight = Art.textRightPadding * locationScale
-    button.label:ClearAllPoints()
-    button.label:SetPoint("LEFT", labelLeft, 0)
-    button.label:SetPoint("RIGHT", -labelRight, 0)
-    button.label:SetPoint("TOP")
-    button.label:SetPoint("BOTTOM")
 end
 
 --- 创建带有图标和大号文字的类别标题栏。

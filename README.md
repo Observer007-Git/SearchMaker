@@ -9,6 +9,7 @@
 - `Alt + 左键（世界地图上）」：在鼠标位置添加地点
 - `右键搜索框`：打开地点主面板
 - `左键单击地图标记`：修改或删除该地点（坐标可编辑）
+- `左键单击地点`：定位成功后在目标坐标显示约 3 秒的高亮提示
 - `鼠标悬停地图标记`：查看地点名称和坐标
 - `Shift + 拖动搜索框」：移动搜索框
 
@@ -81,6 +82,7 @@
 | 地点数据操作（增删改查） | `Core/LocationStore.lua` → `Store:*()` |
 | 导入导出编码 | `Core/ShareCodec.lua` → `Codec:Encode()` / `Decode()` |
 | 地图标记绘制 | `Core/MapPinProvider.lua` |
+| 定位后的临时高亮样式与时长 | `Config.lua` → `mapPins.targetHighlight` |
 | 地图显示/隐藏与 Alt 单击 | `Core/WorldMapController.lua` |
 | 设置读写与刷新 | `Core/SettingsService.lua` |
 | 导入与重复过滤 | `Core/ImportService.lua` |

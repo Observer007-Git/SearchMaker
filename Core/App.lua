@@ -104,6 +104,7 @@ function App:Activate(entry, fromSearchResult)
     if marked then
         PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_SUPER_TRACK_ON)
         SMK.Store:RecordUsage(entry)
+        SMK.MapPins:ShowTargetHighlight(entry)
     else
         PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_BUTTON_CLICK_OFF)
         if message then SMK:Print(message) end

@@ -88,6 +88,10 @@ assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
+assert(SMK.Config.mapPins.targetHighlight.atlas == "XMarksTheSpot"
+    and SMK.Config.mapPins.targetHighlight.size == 48
+    and SMK.Config.mapPins.targetHighlight.duration == 3,
+    "target highlight is not configured")
 local locationSign = SMK.Config.art.locationSign
 assert(locationSign.leftAtlas == "housing-dashboard-woodsign-left"
     and locationSign.centerAtlas == "housing-dashboard-woodsign-center"
@@ -328,6 +332,28 @@ local function NewTexture()
     return {
         SetAllPoints = function() end,
         SetAtlas = function(self, atlas) self.atlas = atlas end,
+        SetPoint = function() end,
+        SetSize = function(self, width, height) self.width, self.height = width, height end,
+        SetTexture = function(self, texture) self.texture = texture end,
+        SetBlendMode = function(self, blendMode) self.blendMode = blendMode end,
+        SetVertexColor = function(self, r, g, b) self.color = { r = r, g = g, b = b } end,
+        CreateAnimationGroup = function(self)
+            local group = {
+                CreateAnimation = function()
+                    return {
+                        SetFromAlpha = function() end,
+                        SetToAlpha = function() end,
+                        SetDuration = function() end,
+                        SetOrder = function() end,
+                    }
+                end,
+                SetLooping = function() end,
+                Play = function(groupSelf) groupSelf.playing = true end,
+                Stop = function(groupSelf) groupSelf.playing = false end,
+            }
+            self.animationGroup = group
+            return group
+        end,
         Show = function(self) self.shown = true end,
         Hide = function(self) self.shown = false end,
     }
@@ -372,15 +398,25 @@ mapInfo[100] = { name = "测试地图", mapType = Enum.UIMapType.Zone }
 local fakeMap = { pinPools = {}, pins = {}, mapID = 100 }
 function fakeMap:GetCanvas() return self end
 function fakeMap:GetMapID() return self.mapID end
+function fakeMap:IsShown() return true end
 function fakeMap:AddDataProvider(provider) provider.map = self end
 function fakeMap:AcquirePin(template, entry)
     local pin = self.pinPools[template].createFunc()
+    pin.pinTemplate = template
     pin:OnAcquired(entry)
     self.pins[#self.pins + 1] = pin
+    return pin
 end
 function fakeMap:RemoveAllPinsByTemplate(template)
-    for _, pin in ipairs(self.pins) do self.pinPools[template].resetFunc(nil, pin) end
-    self.pins = {}
+    local retained = {}
+    for _, pin in ipairs(self.pins) do
+        if pin.pinTemplate == template then
+            self.pinPools[template].resetFunc(nil, pin)
+        else
+            retained[#retained + 1] = pin
+        end
+    end
+    self.pins = retained
 end
 local editedPinEntry
 assert(SMK.MapPins:Initialize(fakeMap, {
@@ -395,6 +431,26 @@ assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown
 assert(fakeMap.pins[1].label.color.r == 0.2 and fakeMap.pins[1].label.color.g == 0.4
     and fakeMap.pins[1].label.color.b == 0.6 and fakeMap.pins[1].label.scale == 1.4,
     "pin text appearance settings were not rendered")
+local highlightTimers = {}
+C_Timer = {
+    After = function(_, callback) highlightTimers[#highlightTimers + 1] = callback end,
+}
+assert(SMK.MapPins:ShowTargetHighlight({ mapID = 100, x = 25, y = 75 })
+    and #fakeMap.pins == 2,
+    "target highlight pin was not acquired")
+local highlightPin = fakeMap.pins[2]
+assert(highlightPin.pinTemplate == "SearchMakerTargetHighlightPinTemplate"
+    and highlightPin.x == 0.25 and highlightPin.y == 0.75
+    and highlightPin.icon.atlas == "XMarksTheSpot"
+    and highlightPin.ring.animationGroup.playing,
+    "target highlight was not positioned or animated")
+assert(SMK.MapPins:ShowTargetHighlight({ mapID = 100, x = 40, y = 60 })
+    and #fakeMap.pins == 2 and fakeMap.pins[2].x == 0.4,
+    "a newer target highlight did not replace the previous one")
+highlightTimers[1]()
+assert(#fakeMap.pins == 2, "an older timer removed the current target highlight")
+highlightTimers[2]()
+assert(#fakeMap.pins == 1, "target highlight was not released after its duration")
 assert(SMK.MapPins:ContainsMouseFocus({ fakeMap.pins[1] }),
     "map pin focus was not identified")
 assert(not fakeMap.pins[1].scripts or (not fakeMap.pins[1].scripts.OnEnter

@@ -70,6 +70,12 @@ local Config = {
         minTextScale = 0.5,
         maxTextScale = 2,
         textScaleStep = 0.1,
+        targetHighlight = {
+            atlas = "XMarksTheSpot",
+            ringTexture = "Interface\\Buttons\\UI-ActionButton-Border",
+            size = 48,
+            duration = 3,
+        },
     },
     mapIndex = {
         roots = { 946, 947, 1, 2, 13, 197, 4080 },

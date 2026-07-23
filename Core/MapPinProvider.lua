@@ -2,6 +2,7 @@ local _, SMK = ...
 
 local MapPins = {}
 local TEMPLATE = "SearchMakerMapPinTemplate"
+local HIGHLIGHT_TEMPLATE = "SearchMakerTargetHighlightPinTemplate"
 
 local function CreatePinMixin()
     local mixin = CreateFromMixins(MapCanvasPinMixin)
@@ -77,14 +78,71 @@ local function CreatePinMixin()
     return mixin
 end
 
-local function CreatePinPool(map, pinMixin)
+local function CreateHighlightPinMixin()
+    local mixin = CreateFromMixins(MapCanvasPinMixin)
+
+    function mixin:OnLoad()
+        self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
+        self:SetScalingLimits(1, SMK.Config.mapPins.minScale, SMK.Config.mapPins.maxScale)
+    end
+
+    function mixin:OnAcquired(entry)
+        if not self.searchMakerLoaded then
+            self.searchMakerLoaded = true
+            self:OnLoad()
+        end
+        local config = SMK.Config.mapPins.targetHighlight
+        self:SetPosition(entry.x / 100, entry.y / 100)
+        self:SetSize(config.size, config.size)
+        if not self.icon then
+            self.icon = self:CreateTexture(nil, "OVERLAY")
+            self.icon:SetAllPoints(self)
+            self.icon:SetAtlas(config.atlas, false)
+
+            self.ring = self:CreateTexture(nil, "OVERLAY")
+            self.ring:SetPoint("CENTER", self, "CENTER")
+            self.ring:SetTexture(config.ringTexture)
+            self.ring:SetBlendMode("ADD")
+            self.ring:SetVertexColor(1, 0.82, 0.2)
+
+            self.pulse = self.ring:CreateAnimationGroup()
+            local fadeOut = self.pulse:CreateAnimation("Alpha")
+            fadeOut:SetFromAlpha(1)
+            fadeOut:SetToAlpha(0.2)
+            fadeOut:SetDuration(0.45)
+            fadeOut:SetOrder(1)
+            local fadeIn = self.pulse:CreateAnimation("Alpha")
+            fadeIn:SetFromAlpha(0.2)
+            fadeIn:SetToAlpha(1)
+            fadeIn:SetDuration(0.45)
+            fadeIn:SetOrder(2)
+            self.pulse:SetLooping("REPEAT")
+        end
+        self.ring:SetSize(config.size * 1.7, config.size * 1.7)
+        self.icon:Show()
+        self.ring:Show()
+        self.pulse:Play()
+        self:Show()
+    end
+
+    function mixin:OnReleased()
+        if self.pulse then self.pulse:Stop() end
+        if self.icon then self.icon:Hide() end
+        if self.ring then self.ring:Hide() end
+    end
+
+    mixin.SetPassThroughButtons = function() end
+    return mixin
+end
+
+local function CreatePinPool(map, template, pinMixin, enableMouse)
     local pool = CreateUnsecuredRegionPoolInstance
-        and CreateUnsecuredRegionPoolInstance(TEMPLATE) or CreateFramePool("FRAME")
+        and CreateUnsecuredRegionPoolInstance(template) or CreateFramePool("FRAME")
     pool.parent = map:GetCanvas()
     pool.createFunc = function()
         local pin = CreateFrame("Frame", nil, map:GetCanvas())
         pin.isSearchMakerMapPin = true
-        pin:EnableMouse(true)
+        pin:EnableMouse(enableMouse == true)
         return Mixin(pin, pinMixin)
     end
     pool.resetFunc = function(_, pin)
@@ -96,7 +154,7 @@ local function CreatePinPool(map, pinMixin)
     end
     pool.creationFunc = pool.createFunc
     pool.resetterFunc = pool.resetFunc
-    map.pinPools[TEMPLATE] = pool
+    map.pinPools[template] = pool
 end
 
 function MapPins:Initialize(map, callbacks)
@@ -110,6 +168,7 @@ function MapPins:Initialize(map, callbacks)
     local provider = CreateFromMixins(MapCanvasDataProviderMixin)
     function provider:RemoveAllData()
         self:GetMap():RemoveAllPinsByTemplate(TEMPLATE)
+        self:GetMap():RemoveAllPinsByTemplate(HIGHLIGHT_TEMPLATE)
     end
     function provider:RefreshAllData()
         self:RemoveAllData()
@@ -123,7 +182,8 @@ function MapPins:Initialize(map, callbacks)
         end
     end
 
-    CreatePinPool(map, CreatePinMixin())
+    CreatePinPool(map, TEMPLATE, CreatePinMixin(), true)
+    CreatePinPool(map, HIGHLIGHT_TEMPLATE, CreateHighlightPinMixin(), false)
     map:AddDataProvider(provider)
     self.provider = provider
     self.available = true
@@ -147,6 +207,27 @@ end
 
 function MapPins:Refresh()
     if self.provider then self.provider:RefreshAllData() end
+end
+
+function MapPins:ClearTargetHighlight()
+    self.highlightToken = (self.highlightToken or 0) + 1
+    if self.provider then
+        self.provider:GetMap():RemoveAllPinsByTemplate(HIGHLIGHT_TEMPLATE)
+    end
+end
+
+function MapPins:ShowTargetHighlight(entry)
+    self:ClearTargetHighlight()
+    if not self.provider or type(entry) ~= "table" then return false end
+    local map = self.provider:GetMap()
+    if not map:IsShown() or map:GetMapID() ~= entry.mapID then return false end
+
+    map:AcquirePin(HIGHLIGHT_TEMPLATE, entry)
+    local token = self.highlightToken
+    C_Timer.After(SMK.Config.mapPins.targetHighlight.duration, function()
+        if self.highlightToken == token then self:ClearTargetHighlight() end
+    end)
+    return true
 end
 
 function MapPins:Clear()

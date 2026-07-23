@@ -2,12 +2,20 @@ local _, SMK = ...
 
 -- 常用尺寸、视觉和限制集中在本文件；修改后 /reload 即可生效。
 local Config = {
-    databaseSchemaVersion = 3,
+    databaseSchemaVersion = 4,
     panel = {
-        width = 823,
         height = 512,
         backgroundAtlas = "catalog-list-preview-bg",
         borderAtlas = "housing-wood-frame",
+        layout = {
+            targetColumns = 5,
+            contentInset = 4,
+            outerInset = 14,
+            dividerInset = 4,
+            scrollLeftOutset = 6,
+            scrollbarReserve = 32,
+            scrollChildInset = 2,
+        },
     },
     search = {
         barWidth = 240,
@@ -96,6 +104,27 @@ local Config = {
         disabled = { 0.55, 0.55, 0.55 },
     },
 }
+
+--- 根据目标列数、木牌尺寸和滚动区域边距计算主面板布局。
+function Config.GetPanelLayout()
+    local layout = Config.panel.layout
+    local headingIconWidth = Config.location.baseHeight * Config.categoryHeadingScale
+        * Config.art.textLeft / Config.art.buttonArtHeight
+    local sidePadding = layout.contentInset + headingIconWidth
+    local columnsWidth = Config.location.baseWidth * layout.targetColumns
+        + Config.location.horizontalGap * math.max(0, layout.targetColumns - 1)
+    local contentWidth = math.ceil(sidePadding * 2 + columnsWidth)
+    local scrollLeftInset = layout.outerInset + layout.dividerInset - layout.scrollLeftOutset
+    return {
+        panelWidth = contentWidth + scrollLeftInset
+            + layout.scrollbarReserve + layout.scrollChildInset,
+        contentWidth = contentWidth,
+        sidePadding = sidePadding,
+        scrollLeftInset = scrollLeftInset,
+    }
+end
+
+Config.panel.width = Config.GetPanelLayout().panelWidth
 
 -- id 是共享格式中的稳定编号；调整显示顺序时不得修改已有 id。
 Config.categories = {

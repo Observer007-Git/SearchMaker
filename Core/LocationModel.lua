@@ -5,7 +5,7 @@ local Config = SMK.Config
 local Util = SMK.Util
 
 Model.persistentKeys = {
-    "mapID", "x", "y", "name", "categoryKey", "showPin", "pinTextureID", "keywords",
+    "mapID", "x", "y", "name", "categoryKey", "showPin", "pinTextureID",
 }
 
 function Model:Normalize(values)
@@ -17,12 +17,10 @@ function Model:Normalize(values)
         name = Util.Trim(values.name),
         categoryKey = Config.GetCategoryKey(values.categoryKey),
         showPin = (values.showPin == true or tonumber(values.showPin) == 1) and 1 or 0,
-        keywords = values.keywords ~= nil and Util.Trim(values.keywords) or nil,
     }
     local pinTextureID = tonumber(values.pinTextureID)
     entry.pinTextureID = pinTextureID and SMK.PinTextureByID[pinTextureID]
         and pinTextureID or SMK.DefaultPinTextureID
-    if entry.keywords == "" then entry.keywords = nil end
     if not entry.mapID or entry.mapID <= 0 or entry.mapID % 1 ~= 0
         or not entry.x or entry.x < 0 or entry.x > 100
         or not entry.y or entry.y < 0 or entry.y > 100

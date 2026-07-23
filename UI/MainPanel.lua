@@ -3,6 +3,7 @@ local _, SMK = ...
 local MainPanel = {}
 local Config = SMK.Config
 local Widgets = SMK.Widgets
+local PanelLayout = Config.GetPanelLayout()
 
 local function CategoryHeadingHeight()
     return Config.location.baseHeight * Config.categoryHeadingScale
@@ -68,10 +69,11 @@ function MainPanel:RenderList()
         if categoryEntries then
             table.sort(categoryEntries, function(a, b) return a.name < b.name end)
             local heading = self:Acquire("heading")
-            heading:SetSize(math.max(1, self.listContent:GetWidth() - 8), headingHeight)
+            heading:SetSize(math.max(1,
+                self.listContent:GetWidth() - Config.panel.layout.contentInset * 2), headingHeight)
             Widgets:SetCategory(heading, SMK.L[categoryInfo.nameKey] or categoryInfo.key, categoryInfo.key)
-            heading:SetPoint("TOPLEFT", self.listContent, "TOPLEFT", 4, -y)
-            local startX = 4 + heading.leftWidth
+            heading:SetPoint("TOPLEFT", self.listContent, "TOPLEFT", Config.panel.layout.contentInset, -y)
+            local startX = PanelLayout.sidePadding
             local rowX = startX
             local rowY = y + headingHeight + Config.location.verticalGap
             local rowHeight = 0
@@ -115,7 +117,7 @@ function MainPanel:RenderFrequent()
     local frequent = self:GetFrequent()
     local visible = math.min(#frequent, Config.location.maxFrequent)
     self.frequentEmpty:SetShown(visible == 0)
-    local startX = 2 + CategoryHeadingHeight() * Config.art.textLeft / Config.art.buttonArtHeight
+    local startX = PanelLayout.sidePadding
     local x, y, rowHeight, firstRowHeight = startX, 0, 0, nil
     local available = self.frequentRow:GetWidth() > 0 and self.frequentRow:GetWidth() or Config.panel.width - 28
     for index = 1, visible do
@@ -364,8 +366,8 @@ function MainPanel:Create(searchBar, callbacks)
     end)
 
     local scaleRow = CreateFrame("Frame", nil, frame)
-    scaleRow:SetPoint("TOPLEFT", 14, -43)
-    scaleRow:SetPoint("TOPRIGHT", -14, -43)
+    scaleRow:SetPoint("TOPLEFT", Config.panel.layout.outerInset, -43)
+    scaleRow:SetPoint("TOPRIGHT", -Config.panel.layout.outerInset, -43)
     scaleRow:SetHeight(24)
     local scaleLabel = scaleRow:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     scaleLabel:SetPoint("LEFT", 4, 0)
@@ -471,8 +473,8 @@ function MainPanel:Create(searchBar, callbacks)
     end
 
     self.frequentRow = CreateFrame("Frame", nil, frame)
-    self.frequentRow:SetPoint("TOPLEFT", 14, -75)
-    self.frequentRow:SetPoint("TOPRIGHT", -14, -75)
+    self.frequentRow:SetPoint("TOPLEFT", Config.panel.layout.outerInset, -75)
+    self.frequentRow:SetPoint("TOPRIGHT", -Config.panel.layout.outerInset, -75)
     self.frequentRow:SetHeight(Config.location.baseHeight)
     self.frequentRow.title = self.frequentRow:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     self.frequentRow.title:SetTextColor(unpack(Config.colors.gold))
@@ -481,15 +483,15 @@ function MainPanel:Create(searchBar, callbacks)
     self.frequentEmpty:SetTextColor(unpack(Config.colors.disabled))
     self.frequentEmpty:SetText(SMK.L.NO_FREQUENT)
     local divider = frame:CreateTexture(nil, "ARTWORK")
-    divider:SetPoint("TOPLEFT", self.frequentRow, "BOTTOMLEFT", 4, -5)
-    divider:SetPoint("TOPRIGHT", self.frequentRow, "BOTTOMRIGHT", -4, -5)
+    divider:SetPoint("TOPLEFT", self.frequentRow, "BOTTOMLEFT", Config.panel.layout.dividerInset, -5)
+    divider:SetPoint("TOPRIGHT", self.frequentRow, "BOTTOMRIGHT", -Config.panel.layout.dividerInset, -5)
     divider:SetHeight(1)
     divider:SetColorTexture(0.72, 0.52, 0.2, 0.45)
     local scroll = CreateFrame("ScrollFrame", SMK.name .. "ScrollFrame", frame, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", divider, "BOTTOMLEFT", -6, -6)
-    scroll:SetPoint("BOTTOMRIGHT", -32, 14)
+    scroll:SetPoint("TOPLEFT", divider, "BOTTOMLEFT", -Config.panel.layout.scrollLeftOutset, -6)
+    scroll:SetPoint("BOTTOMRIGHT", -Config.panel.layout.scrollbarReserve, Config.panel.layout.outerInset)
     self.listContent = CreateFrame("Frame", nil, scroll)
-    self.listContent:SetWidth(Config.panel.width - 46)
+    self.listContent:SetWidth(PanelLayout.contentWidth)
     self.listContent:SetHeight(100)
     scroll:SetScrollChild(self.listContent)
 

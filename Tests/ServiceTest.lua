@@ -57,13 +57,14 @@ for _, path in ipairs({
 end
 
 assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
-assert(SMK.Config.panel.width == 823, "main panel width is not configured for five columns")
-local panelContentWidth = SMK.Config.panel.width - 46
-local panelSidePadding = 4 + SMK.Config.location.baseHeight * SMK.Config.categoryHeadingScale
-    * SMK.Config.art.textLeft / SMK.Config.art.buttonArtHeight
-local fiveColumnsWidth = SMK.Config.location.baseWidth * 5 + SMK.Config.location.horizontalGap * 4
-assert(panelSidePadding + fiveColumnsWidth <= panelContentWidth - panelSidePadding
-    and math.abs(panelSidePadding - (panelContentWidth - panelSidePadding - fiveColumnsWidth)) <= 1,
+local panelLayout = SMK.Config.GetPanelLayout()
+local panelConfig = SMK.Config.panel.layout
+local columnsWidth = SMK.Config.location.baseWidth * panelConfig.targetColumns
+    + SMK.Config.location.horizontalGap * (panelConfig.targetColumns - 1)
+assert(panelConfig.targetColumns == 5 and SMK.Config.panel.width == panelLayout.panelWidth
+    and panelLayout.sidePadding + columnsWidth <= panelLayout.contentWidth - panelLayout.sidePadding
+    and math.abs(panelLayout.sidePadding
+        - (panelLayout.contentWidth - panelLayout.sidePadding - columnsWidth)) <= 1,
     "main panel five-column margins are not symmetric")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\VAS_CharacterTransfer"
@@ -164,7 +165,7 @@ SearchMakerDB = {
     schemaVersion = SMK.Config.databaseSchemaVersion,
     settings = { showMapPins = true, showFullPanel = false, locationScale = 1.2 },
     locations = {
-        { id = "user:4", mapID = "100", x = "12.34", y = "56.78", name = "旧地点", categoryKey = "delves", showPin = true, pinTextureID = "5", keywords = "保留", futureExtension = "keep" },
+        { id = "user:4", mapID = "100", x = "12.34", y = "56.78", name = "旧地点", categoryKey = "delves", showPin = true, pinTextureID = "5", futureExtension = "keep" },
         { id = "user:4", mapID = 100, x = 20, y = 30, name = "重复ID", categoryKey = "npc" },
     },
     usageCounts = {},
@@ -208,7 +209,6 @@ assert(SMK.Store:Update(first, {
 }), "location update failed")
 assert(SearchMakerDB.locations[1].categoryKey == "delves", "editing changed the canonical category")
 assert(SearchMakerDB.locations[1].futureExtension == "keep", "editing discarded an unknown extension field")
-assert(SearchMakerDB.locations[1].keywords == "保留", "editing discarded keywords")
 local sameNameDifferentPosition = {
     mapID = first.mapID, x = first.x + 1, y = first.y, name = first.name,
     categoryKey = first.categoryKey,

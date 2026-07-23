@@ -28,7 +28,7 @@ local function BuildSavedEntry(entry, index)
     display.sourceIndex = index
     display.categoryLabel = GetCategoryLabel(display.categoryKey)
     display.normalizedName = Util.Normalize(display.name)
-    display.normalizedSearchable = Util.Normalize(display.name .. " " .. (display.keywords or ""))
+    display.normalizedSearchable = display.normalizedName
     return display
 end
 
@@ -99,7 +99,6 @@ function Store:Update(entry, values)
     end
     if not target then return false end
     local updateValues = Util.CopyTable(values)
-    if updateValues.keywords == nil then updateValues.keywords = target.keywords end
     local normalized = Model:Normalize(updateValues)
     if not normalized then return false end
     for _, key in ipairs(Model.persistentKeys) do target[key] = normalized[key] end

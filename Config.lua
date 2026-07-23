@@ -121,7 +121,6 @@ local Config = {
         gold = { 1, 0.82, 0 },
         locationNormal = { 1, 0.82, 0 },
         locationHover = { 1, 1, 1 },
-        mapPortalIconBackground = { 0.22, 0.14, 0.03, 1 },
         panelBorder = { 0.82, 0.62, 0.25, 1 },
         dialogBackground = { 0.08, 0.055, 0.025, 1 },
         disabled = { 0.55, 0.55, 0.55 },

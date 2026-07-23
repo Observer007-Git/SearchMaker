@@ -141,7 +141,6 @@ function Widgets:SetLocationEntry(button, entry, displayText, showIcon)
         atlas = catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas
     end
     button.icon:SetAtlas(atlas, false)
-    button.iconBackground:SetShown(button.showIcon and entry.isMapPortal == true)
     self:UpdateLocationGeometry(button)
     button:Show()
 end
@@ -180,10 +179,6 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button.highlight:Hide()
 
     button.iconBox = CreateFrame("Frame", nil, button)
-    button.iconBackground = button.iconBox:CreateTexture(nil, "BACKGROUND")
-    button.iconBackground:SetAllPoints(button.iconBox)
-    button.iconBackground:SetColorTexture(unpack(Config.colors.mapPortalIconBackground))
-    button.iconBackground:Hide()
     button.icon = button.iconBox:CreateTexture(nil, "ARTWORK")
     button.iconFrame = button.iconBox:CreateTexture(nil, "OVERLAY")
     local frameExpand = Art.searchResultIconFrameExpand

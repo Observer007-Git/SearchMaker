@@ -90,11 +90,6 @@ assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
-assert(SMK.Config.colors.mapPortalIconBackground[1] == 0.22
-    and SMK.Config.colors.mapPortalIconBackground[2] == 0.14
-    and SMK.Config.colors.mapPortalIconBackground[3] == 0.03
-    and SMK.Config.colors.mapPortalIconBackground[4] == 1,
-    "map portal icon background color is not configured")
 assert(SMK.Config.search.resultFrameInset == 5
     and SMK.Config.search.resultGap == 2
     and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
@@ -496,7 +491,6 @@ assert(#fakeMap.pins == 0, "disabled map pins were not cleared")
 
 local layoutButton = {
     showIcon = false,
-    Show = function(self) self.shown = true end,
     SetSize = function(self, width, height) self.width, self.height = width, height end,
     GetWidth = function(self) return self.width end,
     SetWidth = function(self, width) self.width = width end,
@@ -507,11 +501,6 @@ local layoutButton = {
         SetSize = function(self, width, height) self.width, self.height = width, height end,
         SetShown = function(self, shown) self.shown = shown end,
     },
-    icon = { SetAtlas = function(self, atlas) self.atlas = atlas end },
-    iconBackground = {
-        SetShown = function(self, shown) self.shown = shown end,
-    },
-    highlight = { Hide = function(self) self.shown = false end },
     background = {
         ClearAllPoints = function() end,
         SetPoint = function() end,
@@ -523,7 +512,6 @@ local layoutButton = {
         text = "short",
         width = 50,
         GetText = function(self) return self.text end,
-        SetText = function(self, text) self.text = text end,
         GetUnboundedStringWidth = function(self) return self.width end,
         ClearAllPoints = function() end,
         SetPoint = function(self, point, _, _, x, y)
@@ -552,16 +540,5 @@ assert(layoutButton.width == 232 and not layoutButton.clipsChildren
     and layoutButton.background.left.width == leftWidth
     and layoutButton.background.right.width == rightWidth,
     "search result did not fit the fixed result width")
-SMK.Widgets:SetLocationEntry(layoutButton, {
-    name = "Map", mapID = 100, isMapPortal = true,
-}, nil, true)
-assert(layoutButton.icon.atlas == "poi-islands-table"
-    and layoutButton.iconBackground.shown,
-    "map portal icon did not show its dark gold background")
-SMK.Widgets:SetLocationEntry(layoutButton, {
-    name = "Location", mapID = 100, categoryKey = "other",
-}, nil, true)
-assert(not layoutButton.iconBackground.shown,
-    "pooled location icon retained the map portal background")
 
 print("SearchMaker service tests passed")

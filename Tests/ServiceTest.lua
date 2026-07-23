@@ -74,6 +74,8 @@ assert(math.abs(firstColumnLeft - fifthColumnRight) <= 1
     and panelLayout.panelWidth - panelLayout.scrollLeftInset - panelLayout.scrollRightInset
         == panelLayout.contentWidth + panelConfig.scrollChildInset,
     "main panel scrollbar reserve is not split symmetrically")
+assert(panelConfig.scrollbarReserve == 48 and panelLayout.scrollRightInset == 29,
+    "main panel scrollbar is not inset from the border")
 assert(panelConfig.headerHeight == 40 and panelConfig.contentTopGap == 8
     and panelControls.buttonAtlas == "housefinder_neighborhood-list-item-highlight"
     and panelControls.buttonHeight == 24 and panelControls.settingsWidth == 330,
@@ -84,13 +86,17 @@ assert(SMK.Config.searchResultBackdrop.insets.left == 3
     and SMK.Config.searchResultBackdrop.insets.bottom == 3,
     "search result background does not fit its rounded border")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
-    and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\VAS_CharacterTransfer"
+    and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\Ability_Paladin_SavedByTheLight"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
-assert(SMK.Config.mapPins.targetHighlight.atlas == "XMarksTheSpot"
-    and SMK.Config.mapPins.targetHighlight.size == 48
-    and SMK.Config.mapPins.targetHighlight.ringSize == 120
+assert(SMK.Config.search.resultFrameInset == 3
+    and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 234,
+    "search result frame is not aligned inside the search box border")
+assert(SMK.Config.mapPins.targetHighlight.atlas == "MonsterEnemy"
+    and SMK.Config.mapPins.targetHighlight.ringTexture == "Interface\\Cooldown\\starburst"
+    and SMK.Config.mapPins.targetHighlight.size == 32
+    and SMK.Config.mapPins.targetHighlight.ringSize == 80
     and SMK.Config.mapPins.targetHighlight.duration == 3,
     "target highlight is not configured")
 local locationSign = SMK.Config.art.locationSign
@@ -445,8 +451,9 @@ local highlightPin = fakeMap.pins[2]
 assert(highlightPin.pinTemplate == "SearchMakerTargetHighlightPinTemplate"
     and highlightPin.frameLevelType == "PIN_FRAME_LEVEL_TOPMOST"
     and highlightPin.x == 0.25 and highlightPin.y == 0.75
-    and highlightPin.icon.atlas == "XMarksTheSpot"
-    and highlightPin.ring.width == 120
+    and highlightPin.icon.atlas == "MonsterEnemy"
+    and highlightPin.ring.texture == "Interface\\Cooldown\\starburst"
+    and highlightPin.ring.width == 80
     and highlightPin.ring.animationGroup.playing,
     "target highlight was not positioned or animated")
 assert(SMK.MapPins:ShowTargetHighlight({ mapID = 100, x = 40, y = 60 })

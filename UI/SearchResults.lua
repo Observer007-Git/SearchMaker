@@ -15,8 +15,9 @@ function SearchResults:New(parent, box, callbacks)
 
     local frame = CreateFrame("Frame", SMK.name .. "SearchResults", parent, "BackdropTemplate")
     view.frame = frame
-    frame:SetWidth(box:GetWidth())
-    frame:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, -4)
+    local frameInset = SMK.Config.search.resultFrameInset
+    frame:SetWidth(math.max(1, box:GetWidth() - frameInset * 2))
+    frame:SetPoint("TOPLEFT", box, "BOTTOMLEFT", frameInset, -4)
     frame:SetFrameLevel(parent:GetFrameLevel() + 20)
     frame:SetBackdrop(SMK.Config.searchResultBackdrop)
     frame:SetBackdropColor(0.02, 0.02, 0.02, 1)
@@ -102,7 +103,8 @@ function SearchResults:Render(source, query, allMaps)
         self.selectedIndex, self.visibleCount = 0, 0
         for _, button in ipairs(self.widgets) do button:Hide() end
         self.empty:Show()
-        self.frame:SetWidth(self.box:GetWidth())
+        local frameInset = SMK.Config.search.resultFrameInset
+        self.frame:SetWidth(math.max(1, self.box:GetWidth() - frameInset * 2))
         self.frame:SetHeight(SMK.Config.location.baseHeight + 8)
         self.frame:Show()
         self:NotifyVisibilityChanged()
@@ -112,7 +114,9 @@ function SearchResults:Render(source, query, allMaps)
     self.empty:Hide()
     self.visibleCount, self.selectedIndex = visible, 1
     local y = 4
-    local width = math.max(1, self.box:GetWidth() - 8)
+    local frameInset = SMK.Config.search.resultFrameInset
+    local frameWidth = math.max(1, self.box:GetWidth() - frameInset * 2)
+    local width = math.max(1, frameWidth - 8)
     for index, match in ipairs(matches) do
         local button = self.widgets[index]
         if not button then
@@ -134,7 +138,7 @@ function SearchResults:Render(source, query, allMaps)
         y = y + button:GetHeight() + SMK.Config.location.verticalGap
     end
     for index = visible + 1, #self.widgets do self.widgets[index]:Hide() end
-    self.frame:SetWidth(self.box:GetWidth())
+    self.frame:SetWidth(frameWidth)
     self.frame:SetHeight(y + 2)
     self.frame:Show()
     self:UpdateSelection()

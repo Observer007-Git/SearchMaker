@@ -22,6 +22,7 @@ local Config = {
         barHeight = 52,
         boxWidth = 240,
         boxHeight = 44,
+        resultBackdropInset = 3,
         maxResults = 20,
         shortcutDefaultOffsetY = 200,
     },
@@ -185,6 +186,15 @@ Config.resultBackdrop = {
     tileSize = 16,
     edgeSize = 12,
     insets = { left = 0, right = 0, top = 0, bottom = 0 },
+}
+
+Config.searchResultBackdrop = SMK.Util.CopyTable(Config.resultBackdrop)
+local searchResultInset = Config.search.resultBackdropInset
+Config.searchResultBackdrop.insets = {
+    left = searchResultInset,
+    right = searchResultInset,
+    top = searchResultInset,
+    bottom = searchResultInset,
 }
 
 SMK.Config = Config

@@ -66,6 +66,11 @@ assert(panelConfig.targetColumns == 5 and SMK.Config.panel.width == panelLayout.
     and math.abs(panelLayout.sidePadding
         - (panelLayout.contentWidth - panelLayout.sidePadding - columnsWidth)) <= 1,
     "main panel five-column margins are not symmetric")
+assert(SMK.Config.searchResultBackdrop.insets.left == 3
+    and SMK.Config.searchResultBackdrop.insets.right == 3
+    and SMK.Config.searchResultBackdrop.insets.top == 3
+    and SMK.Config.searchResultBackdrop.insets.bottom == 3,
+    "search result background does not fit its rounded border")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\VAS_CharacterTransfer"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
@@ -446,10 +451,10 @@ SMK.Widgets:UpdateLocationGeometry(layoutButton)
 assert(layoutButton.width == 274 and layoutButton.background.left.width == leftWidth
     and layoutButton.background.right.width == rightWidth,
     "search result location sign did not stretch only its center segment")
-SMK.Widgets:StretchSearchResult(layoutButton, 340)
-assert(layoutButton.width == 340 and not layoutButton.clipsChildren
+SMK.Widgets:StretchSearchResult(layoutButton, 232)
+assert(layoutButton.width == 232 and not layoutButton.clipsChildren
     and layoutButton.background.left.width == leftWidth
     and layoutButton.background.right.width == rightWidth,
-    "search result center segment did not fill the result width")
+    "search result did not fit the fixed result width")
 
 print("SearchMaker service tests passed")

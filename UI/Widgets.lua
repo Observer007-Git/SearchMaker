@@ -196,7 +196,7 @@ end
 -- @param button Frame 要重新样式的按钮。
 -- @param targetWidth number 期望宽度。
 function Widgets:StretchSearchResult(button, targetWidth)
-    button:SetWidth(math.max(targetWidth, button:GetWidth()))
+    button:SetWidth(targetWidth)
     button:SetClipsChildren(false)
 end
 

@@ -29,6 +29,7 @@
 |---|---|
 | 搜索栏宽度/高度 | `Config.lua` → `search.barWidth` / `search.barHeight` |
 | 搜索输入框宽度/高度 | `Config.lua` → `search.boxWidth` / `search.boxHeight` |
+| 搜索结果圆角背景内缩 | `Config.lua` → `search.resultBackdropInset` |
 | 面板宽度/高度 | `Config.lua` → `panel.layout` / `GetPanelLayout()` / `panel.height` |
 | 地点按钮大小 | `Config.lua` → `location.baseWidth` / `location.baseHeight` |
 | 主面板木牌水平间距 | `Config.lua` → `location.horizontalGap` |

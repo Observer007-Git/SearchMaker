@@ -80,18 +80,19 @@ assert(panelConfig.headerHeight == 40 and panelConfig.contentTopGap == 8
     and panelControls.buttonAtlas == "housefinder_neighborhood-list-item-highlight"
     and panelControls.buttonHeight == 24 and panelControls.settingsWidth == 330,
     "main panel controls are not configured")
-assert(SMK.Config.searchResultBackdrop.insets.left == 3
-    and SMK.Config.searchResultBackdrop.insets.right == 3
-    and SMK.Config.searchResultBackdrop.insets.top == 3
-    and SMK.Config.searchResultBackdrop.insets.bottom == 3,
+assert(SMK.Config.searchResultBackdrop.insets.left == 5
+    and SMK.Config.searchResultBackdrop.insets.right == 5
+    and SMK.Config.searchResultBackdrop.insets.top == 5
+    and SMK.Config.searchResultBackdrop.insets.bottom == 5,
     "search result background does not fit its rounded border")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\Ability_Paladin_SavedByTheLight"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
-assert(SMK.Config.search.resultFrameInset == 3
-    and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 234,
+assert(SMK.Config.search.resultFrameInset == 5
+    and SMK.Config.search.resultGap == 2
+    and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
     "search result frame is not aligned inside the search box border")
 assert(SMK.Config.mapPins.targetHighlight.atlas == "MonsterEnemy"
     and SMK.Config.mapPins.targetHighlight.ringTexture == "Interface\\Cooldown\\starburst"
@@ -454,6 +455,9 @@ assert(highlightPin.pinTemplate == "SearchMakerTargetHighlightPinTemplate"
     and highlightPin.icon.atlas == "MonsterEnemy"
     and highlightPin.ring.texture == "Interface\\Cooldown\\starburst"
     and highlightPin.ring.width == 80
+    and highlightPin.ring.color.r == 1
+    and highlightPin.ring.color.g == 1
+    and highlightPin.ring.color.b == 1
     and highlightPin.ring.animationGroup.playing,
     "target highlight was not positioned or animated")
 assert(SMK.MapPins:ShowTargetHighlight({ mapID = 100, x = 40, y = 60 })

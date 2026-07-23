@@ -37,6 +37,9 @@ for key, value in pairs(english.L) do
 end
 for key in pairs(chinese.L) do assert(english.L[key], "enUS missing locale key: " .. key) end
 assert(english.L.ADD == "Add" and chinese.L.ADD == "新增", "locale selection failed")
+assert(english.L.READ_COORDINATES == "Get Character Coordinates"
+    and chinese.L.READ_COORDINATES == "读取角色坐标",
+    "coordinate button locale was not updated")
 assert(english.Config.GetCategoryKey("delves") == "delves", "canonical category key failed")
 assert(english.Config.GetCategoryKey("地下堡") == "other", "localized category leaked into storage")
 

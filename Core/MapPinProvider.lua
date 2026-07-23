@@ -103,7 +103,7 @@ local function CreateHighlightPinMixin()
             self.ring:SetPoint("CENTER", self, "CENTER")
             self.ring:SetTexture(config.ringTexture)
             self.ring:SetBlendMode("ADD")
-            self.ring:SetVertexColor(1, 0.82, 0.2)
+            self.ring:SetVertexColor(1, 1, 1)
 
             self.pulse = self.ring:CreateAnimationGroup()
             local fadeOut = self.pulse:CreateAnimation("Alpha")

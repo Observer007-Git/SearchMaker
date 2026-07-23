@@ -17,7 +17,7 @@ function SearchResults:New(parent, box, callbacks)
     view.frame = frame
     local frameInset = SMK.Config.search.resultFrameInset
     frame:SetWidth(math.max(1, box:GetWidth() - frameInset * 2))
-    frame:SetPoint("TOPLEFT", box, "BOTTOMLEFT", frameInset, -4)
+    frame:SetPoint("TOPLEFT", box, "BOTTOMLEFT", frameInset, -SMK.Config.search.resultGap)
     frame:SetFrameLevel(parent:GetFrameLevel() + 20)
     frame:SetBackdrop(SMK.Config.searchResultBackdrop)
     frame:SetBackdropColor(0.02, 0.02, 0.02, 1)

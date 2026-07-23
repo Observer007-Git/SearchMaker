@@ -36,7 +36,7 @@ local Config = {
         boxHeight = 44,
         resultBackdropInset = 5,
         resultFrameInset = 5,
-        resultGap = 4,
+        resultGap = 2,
         maxResults = 20,
         shortcutDefaultOffsetY = 200,
     },

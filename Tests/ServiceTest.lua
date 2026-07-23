@@ -91,7 +91,7 @@ assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
 assert(SMK.Config.search.resultFrameInset == 5
-    and SMK.Config.search.resultGap == 4
+    and SMK.Config.search.resultGap == 2
     and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
     "search result frame is not aligned inside the search box border")
 assert(SMK.Config.mapPins.targetHighlight.atlas == "MonsterEnemy"

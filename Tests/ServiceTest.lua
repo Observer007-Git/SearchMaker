@@ -90,6 +90,7 @@ assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     "search scope icon art is not configured")
 assert(SMK.Config.mapPins.targetHighlight.atlas == "XMarksTheSpot"
     and SMK.Config.mapPins.targetHighlight.size == 48
+    and SMK.Config.mapPins.targetHighlight.ringSize == 120
     and SMK.Config.mapPins.targetHighlight.duration == 3,
     "target highlight is not configured")
 local locationSign = SMK.Config.art.locationSign
@@ -323,7 +324,7 @@ end
 function CreateFromMixins(...) return Mixin({}, ...) end
 MapCanvasDataProviderMixin = { GetMap = function(self) return self.map end }
 MapCanvasPinMixin = {
-    UseFrameLevelType = function() end,
+    UseFrameLevelType = function(self, value) self.frameLevelType = value end,
     SetScalingLimits = function() end,
     SetPosition = function(self, x, y) self.x, self.y = x, y end,
 }
@@ -425,6 +426,8 @@ assert(SMK.MapPins:Initialize(fakeMap, {
 SearchMakerDB.settings.showMapPins = true
 SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 1, "enabled map pin was not acquired")
+assert(fakeMap.pins[1].frameLevelType == "PIN_FRAME_LEVEL_AREA_POI",
+    "persistent map pin frame level changed")
 assert(fakeMap.pins[1].icon.atlas == SMK.PinTextureByID[5].atlas, "selected pin texture was ignored")
 assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown,
     "enabled map pin name was not rendered")
@@ -440,8 +443,10 @@ assert(SMK.MapPins:ShowTargetHighlight({ mapID = 100, x = 25, y = 75 })
     "target highlight pin was not acquired")
 local highlightPin = fakeMap.pins[2]
 assert(highlightPin.pinTemplate == "SearchMakerTargetHighlightPinTemplate"
+    and highlightPin.frameLevelType == "PIN_FRAME_LEVEL_TOPMOST"
     and highlightPin.x == 0.25 and highlightPin.y == 0.75
     and highlightPin.icon.atlas == "XMarksTheSpot"
+    and highlightPin.ring.width == 120
     and highlightPin.ring.animationGroup.playing,
     "target highlight was not positioned or animated")
 assert(SMK.MapPins:ShowTargetHighlight({ mapID = 100, x = 40, y = 60 })

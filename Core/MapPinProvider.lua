@@ -82,7 +82,7 @@ local function CreateHighlightPinMixin()
     local mixin = CreateFromMixins(MapCanvasPinMixin)
 
     function mixin:OnLoad()
-        self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
+        self:UseFrameLevelType("PIN_FRAME_LEVEL_TOPMOST")
         self:SetScalingLimits(1, SMK.Config.mapPins.minScale, SMK.Config.mapPins.maxScale)
     end
 
@@ -118,7 +118,7 @@ local function CreateHighlightPinMixin()
             fadeIn:SetOrder(2)
             self.pulse:SetLooping("REPEAT")
         end
-        self.ring:SetSize(config.size * 1.7, config.size * 1.7)
+        self.ring:SetSize(config.ringSize, config.ringSize)
         self.icon:Show()
         self.ring:Show()
         self.pulse:Play()

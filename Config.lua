@@ -74,6 +74,7 @@ local Config = {
             atlas = "XMarksTheSpot",
             ringTexture = "Interface\\Buttons\\UI-ActionButton-Border",
             size = 48,
+            ringSize = 120,
             duration = 3,
         },
     },

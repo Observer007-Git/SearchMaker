@@ -34,6 +34,8 @@
 | 地点按钮大小 | `Config.lua` → `location.baseWidth` / `location.baseHeight` |
 | 主面板木牌水平间距 | `Config.lua` → `location.horizontalGap` |
 | 主面板目标列数/内容边距/滚动条预留 | `Config.lua` → `panel.layout` |
+| 主面板顶部高度与内容间距 | `Config.lua` → `panel.layout.headerHeight` / `contentTopGap` |
+| 主面板功能按钮 Atlas、尺寸和边距 | `Config.lua` → `panel.controls` |
 | 地点木牌背景 Atlas | `Config.lua` → `art.locationSign` |
 | 地点图标（列表中） | `Config.lua` → `categories[*].atlas` |
 | 当前地图搜索图标 | `Config.lua` → `art.searchIcon` |
@@ -57,6 +59,7 @@
 | 新增/修改面板布局 | `UI/LocationEditor.lua` → `Editor:Create()` |
 | 搜索框布局 | `UI/SearchBar.lua` → `SearchBar:Create()` + `ApplyArt()` |
 | 搜索结果列表 | `UI/SearchResults.lua` |
+| 主面板显示设置 | `UI/PanelSettings.lua` |
 | 搜索栏位置 | `UI/SearchBarPosition.lua` |
 | 快捷键录入 | `UI/ShortcutController.lua` |
 

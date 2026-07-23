@@ -59,6 +59,7 @@ end
 assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
 local panelLayout = SMK.Config.GetPanelLayout()
 local panelConfig = SMK.Config.panel.layout
+local panelControls = SMK.Config.panel.controls
 local columnsWidth = SMK.Config.location.baseWidth * panelConfig.targetColumns
     + SMK.Config.location.horizontalGap * (panelConfig.targetColumns - 1)
 assert(panelConfig.targetColumns == 5 and SMK.Config.panel.width == panelLayout.panelWidth
@@ -66,6 +67,10 @@ assert(panelConfig.targetColumns == 5 and SMK.Config.panel.width == panelLayout.
     and math.abs(panelLayout.sidePadding
         - (panelLayout.contentWidth - panelLayout.sidePadding - columnsWidth)) <= 1,
     "main panel five-column margins are not symmetric")
+assert(panelConfig.headerHeight == 40 and panelConfig.contentTopGap == 8
+    and panelControls.buttonAtlas == "housefinder_neighborhood-list-item-highlight"
+    and panelControls.buttonHeight == 24 and panelControls.settingsWidth == 330,
+    "main panel controls are not configured")
 assert(SMK.Config.searchResultBackdrop.insets.left == 3
     and SMK.Config.searchResultBackdrop.insets.right == 3
     and SMK.Config.searchResultBackdrop.insets.top == 3

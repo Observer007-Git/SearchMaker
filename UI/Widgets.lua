@@ -64,6 +64,58 @@ function Widgets:ClearGeometryCache()
     geometryCache = {}
 end
 
+--- 创建主面板使用的 Atlas 文字按钮。
+-- 宽度默认根据当前语言文本自动计算；可通过 options.width 固定宽度。
+function Widgets:CreatePanelButton(parent, text, options)
+    options = options or {}
+    local style = Config.panel.controls
+    local button = CreateFrame("Button", nil, parent)
+    button:SetHeight(options.height or style.buttonHeight)
+    button:RegisterForClicks("LeftButtonUp")
+
+    button.background = button:CreateTexture(nil, "BACKGROUND")
+    button.background:SetAllPoints()
+    button.background:SetAtlas(style.buttonAtlas, false)
+    button.background:SetAlpha(0.72)
+
+    button.hover = button:CreateTexture(nil, "HIGHLIGHT")
+    button.hover:SetAllPoints()
+    button.hover:SetAtlas(style.buttonAtlas, false)
+    button.hover:SetBlendMode("ADD")
+    button.hover:SetAlpha(0.65)
+    button:SetHighlightTexture(button.hover)
+
+    button.label = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    button.label:SetAllPoints()
+    button.label:SetJustifyH("CENTER")
+    button.label:SetJustifyV("MIDDLE")
+    button.label:SetWordWrap(false)
+    button.label:SetTextColor(unpack(Config.colors.gold))
+
+    function button:SetText(value)
+        self.label:SetText(value or "")
+        if options.width then
+            self:SetWidth(options.width)
+            return
+        end
+        local width = self.label.GetUnboundedStringWidth
+            and self.label:GetUnboundedStringWidth() or self.label:GetStringWidth()
+        self:SetWidth(math.max(options.minWidth or style.buttonMinWidth,
+            math.ceil(width) + (options.padding or style.buttonPadding) * 2))
+    end
+
+    button:SetScript("OnEnable", function(self)
+        self.background:SetAlpha(0.72)
+        self.label:SetTextColor(unpack(Config.colors.gold))
+    end)
+    button:SetScript("OnDisable", function(self)
+        self.background:SetAlpha(0.3)
+        self.label:SetTextColor(unpack(Config.colors.disabled))
+    end)
+    button:SetText(text)
+    return button
+end
+
 --- 用条目数据、图标和几何信息填充地点按钮。
 -- 地图传送门条目使用不同的图标（poi-islands-table）。
 -- @param button Frame 要填充的按钮。

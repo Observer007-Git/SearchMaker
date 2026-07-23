@@ -4,7 +4,7 @@
 ## Notes: Search and mark locations on the world map, using in-game tools.
 ## Notes-zhCN: 在世界地图上搜索并标记地点，使用游戏内置功能。
 ## Author: Codex
-## Version: 1.19.0
+## Version: 1.19.1
 ## SavedVariables: SearchMakerDB
 
 Core/Namespace.lua

@@ -341,10 +341,10 @@ function MainPanel:Create(searchBar, callbacks)
     headerDivider:SetColorTexture(0.72, 0.52, 0.2, 0.45)
 
     self.frequentRow = CreateFrame("Frame", nil, frame)
-    self.frequentRow:SetPoint("TOPLEFT", headerDivider, "BOTTOMLEFT", 0,
+    self.frequentRow:SetPoint("TOPLEFT", headerDivider, "BOTTOMLEFT",
+        PanelLayout.scrollLeftInset - Config.panel.layout.outerInset,
         -Config.panel.layout.contentTopGap)
-    self.frequentRow:SetPoint("TOPRIGHT", headerDivider, "BOTTOMRIGHT", 0,
-        -Config.panel.layout.contentTopGap)
+    self.frequentRow:SetWidth(PanelLayout.contentWidth)
     self.frequentRow:SetHeight(Config.location.baseHeight)
     self.frequentRow.title = self.frequentRow:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     self.frequentRow.title:SetTextColor(unpack(Config.colors.gold))
@@ -358,8 +358,9 @@ function MainPanel:Create(searchBar, callbacks)
     divider:SetHeight(1)
     divider:SetColorTexture(0.72, 0.52, 0.2, 0.45)
     local scroll = CreateFrame("ScrollFrame", SMK.name .. "ScrollFrame", frame, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", divider, "BOTTOMLEFT", -Config.panel.layout.scrollLeftOutset, -6)
-    scroll:SetPoint("BOTTOMRIGHT", -Config.panel.layout.scrollbarReserve, Config.panel.layout.outerInset)
+    scroll:SetPoint("TOPLEFT", divider, "BOTTOMLEFT",
+        -Config.panel.layout.dividerInset, -6)
+    scroll:SetPoint("BOTTOMRIGHT", -PanelLayout.scrollRightInset, Config.panel.layout.outerInset)
     self.listContent = CreateFrame("Frame", nil, scroll)
     self.listContent:SetWidth(PanelLayout.contentWidth)
     self.listContent:SetHeight(100)

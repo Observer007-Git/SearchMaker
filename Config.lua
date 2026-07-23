@@ -127,13 +127,16 @@ function Config.GetPanelLayout()
     local columnsWidth = Config.location.baseWidth * layout.targetColumns
         + Config.location.horizontalGap * math.max(0, layout.targetColumns - 1)
     local contentWidth = math.ceil(sidePadding * 2 + columnsWidth)
-    local scrollLeftInset = layout.outerInset + layout.dividerInset - layout.scrollLeftOutset
+    local originalLeftInset = layout.outerInset + layout.dividerInset - layout.scrollLeftOutset
+    local horizontalReserve = originalLeftInset
+        + layout.scrollbarReserve + layout.scrollChildInset
+    local contentOuterInset = math.ceil(horizontalReserve / 2)
     return {
-        panelWidth = contentWidth + scrollLeftInset
-            + layout.scrollbarReserve + layout.scrollChildInset,
+        panelWidth = contentWidth + contentOuterInset * 2,
         contentWidth = contentWidth,
         sidePadding = sidePadding,
-        scrollLeftInset = scrollLeftInset,
+        scrollLeftInset = contentOuterInset,
+        scrollRightInset = contentOuterInset - layout.scrollChildInset,
     }
 end
 

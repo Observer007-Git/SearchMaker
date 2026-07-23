@@ -67,6 +67,13 @@ assert(panelConfig.targetColumns == 5 and SMK.Config.panel.width == panelLayout.
     and math.abs(panelLayout.sidePadding
         - (panelLayout.contentWidth - panelLayout.sidePadding - columnsWidth)) <= 1,
     "main panel five-column margins are not symmetric")
+local firstColumnLeft = panelLayout.scrollLeftInset + panelLayout.sidePadding
+local fifthColumnRight = panelLayout.panelWidth
+    - (panelLayout.scrollLeftInset + panelLayout.sidePadding + columnsWidth)
+assert(math.abs(firstColumnLeft - fifthColumnRight) <= 1
+    and panelLayout.panelWidth - panelLayout.scrollLeftInset - panelLayout.scrollRightInset
+        == panelLayout.contentWidth + panelConfig.scrollChildInset,
+    "main panel scrollbar reserve is not split symmetrically")
 assert(panelConfig.headerHeight == 40 and panelConfig.contentTopGap == 8
     and panelControls.buttonAtlas == "housefinder_neighborhood-list-item-highlight"
     and panelControls.buttonHeight == 24 and panelControls.settingsWidth == 330,

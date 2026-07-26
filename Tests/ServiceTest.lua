@@ -94,7 +94,7 @@ assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
 local widgetsFile = assert(io.open(root .. "/UI/Widgets.lua", "r"))
 local widgetsSource = widgetsFile:read("*a")
 widgetsFile:close()
-assert(widgetsSource:find('atlas = "poi-islands-table"', 1, true)
+assert(widgetsSource:find('texture:SetAtlas("poi-islands-table"', 1, true)
     and widgetsSource:find("button.icon:SetAllPoints(button.iconBox)", 1, true),
     "map portal icon is not contained by the search result icon frame")
 assert(SMK.Config.search.resultFrameInset == 5
@@ -327,14 +327,27 @@ assert(cursorScreenX == 200 and cursorScreenY == 150
 
 WorldMapFrame = { GetMapID = function() return 100 end }
 local externalNodes = {
-    [12345678] = { name = "External Portal" },
+    [12345678] = { name = "English Internal Name", npcID = 9876 },
+    [22334455] = { name = "English Only" },
+}
+local externalIcons = {
+    [12345678] = "Interface\\AddOns\\HandyNotes_MapNotes\\Images\\FirstAid",
+}
+HandyNotes_MapNotesRetailNpcCacheDB = {
+    names = {
+        zhCN = {
+            [9876] = "卡娜莉亚\031绷带训练师",
+        },
+    },
 }
 HandyNotes = {
     plugins = {
         MapNotes = {
             GetNodes2 = function()
-                return function(state, previous) return next(state.data, previous) end,
-                    { data = externalNodes }, nil
+                return function(state, previous)
+                    local coord = next(state.data, previous)
+                    if coord then return coord, nil, state.icons[coord] end
+                end, { data = externalNodes, icons = externalIcons }, nil
             end,
         },
     },
@@ -345,8 +358,28 @@ assert(#handyNotesEntries == 1
     and handyNotesEntries[1].mapID == 100
     and handyNotesEntries[1].x == 12.34
     and handyNotesEntries[1].y == 56.78
-    and handyNotesEntries[1].normalizedName == "externalportal",
-    "HandyNotes cache was not normalized for the current map")
+    and handyNotesEntries[1].name == "卡娜莉亚"
+    and handyNotesEntries[1].normalizedSearchable:find("绷带", 1, true)
+    and handyNotesEntries[1].iconTexture == externalIcons[12345678],
+    "HandyNotes icon or localized NPC text was not cached")
+local bandageMatches = SMK.Search:Find({}, "绷带", false, 100)
+assert(#bandageMatches == 1 and bandageMatches[1].entry == handyNotesEntries[1],
+    "localized HandyNotes NPC title was not searchable")
+assert(#SMK.Search:Find({}, "English", false, 100) == 0
+    and #SMK.Search:Find({}, "9876", false, 100) == 0,
+    "non-Chinese HandyNotes fields were searchable in a Chinese locale")
+local fakeIcon = {
+    SetTexture = function(self, value) self.texture = value end,
+    SetTexCoord = function(self, ...) self.texCoord = { ... } end,
+    SetAtlas = function(self, value) self.atlas = value end,
+}
+SMK.Widgets:SetLocationIcon(fakeIcon, handyNotesEntries[1])
+assert(fakeIcon.texture == externalIcons[12345678],
+    "HandyNotes search result did not use its source icon")
+fakeIcon.texture = nil
+SMK.Widgets:SetLocationIcon(fakeIcon, { isExternal = true })
+assert(fakeIcon.texture == SMK.Config.art.handyNotesFallbackIcon,
+    "HandyNotes search result did not use the MNL4 fallback icon")
 HandyNotes = nil
 
 local encoded = SMK.ShareCodec:Encode({ SMK.Store:GetAll()[1] })

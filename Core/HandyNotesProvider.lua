@@ -3,11 +3,139 @@ local _, SMK = ...
 local HandyNotesProvider = {}
 local pluginName = "MapNotes"
 local cache = {}
+local npcInfoCache = {}
 
 local function ParseCoord(coord)
     local x = math.floor(coord / 10000) / 10000 * 100
     local y = (coord % 10000) / 10000 * 100
     return x, y
+end
+
+local function ContainsHan(text)
+    return tostring(text or ""):find("[\228-\233][\128-\191][\128-\191]") ~= nil
+end
+
+local function CleanText(text)
+    if type(text) ~= "string" then return nil end
+    local value = text
+        :gsub("|T.-|t", "")
+        :gsub("|A.-|a", "")
+        :gsub("|c%x%x%x%x%x%x%x%x", "")
+        :gsub("|r", "")
+    value = SMK.Util.Trim(value)
+    return value ~= "" and value or nil
+end
+
+local function IsLocalizedText(text)
+    if SMK.locale == "zhCN" or SMK.locale == "zhTW" then
+        return ContainsHan(text)
+    end
+    return text ~= nil and text ~= ""
+end
+
+local function ReadMapNotesNpcCache(npcID)
+    local db = HandyNotes_MapNotesRetailNpcCacheDB
+    local localeNames = db and db.names and db.names[SMK.locale]
+    local packed = localeNames and (localeNames[tonumber(npcID)] or localeNames[npcID])
+    if type(packed) ~= "string" then return nil, nil end
+    local name, title = packed:match("^(.-)\031(.*)$")
+    return CleanText(name), CleanText(title)
+end
+
+local function ReadNpcTooltip(npcID)
+    if not C_TooltipInfo or not C_TooltipInfo.GetHyperlink then return nil, nil end
+    local ok, tooltipData = pcall(C_TooltipInfo.GetHyperlink,
+        "unit:Creature-0-0-0-0-" .. tostring(npcID) .. "-0000000000")
+    if not ok or not tooltipData then return nil, nil end
+    if TooltipUtil and TooltipUtil.SurfaceArgs then
+        TooltipUtil.SurfaceArgs(tooltipData)
+        for index = 1, math.min(2, #(tooltipData.lines or {})) do
+            TooltipUtil.SurfaceArgs(tooltipData.lines[index])
+        end
+    end
+    local lines = tooltipData.lines or {}
+    return CleanText(lines[1] and lines[1].leftText),
+        CleanText(lines[2] and lines[2].leftText)
+end
+
+local function GetNpcInfo(npcID)
+    local key = tostring(SMK.locale) .. ":" .. tostring(npcID)
+    local cached = npcInfoCache[key]
+    if cached then return cached.name, cached.title end
+
+    local name, title = ReadMapNotesNpcCache(npcID)
+    if not name or not title then
+        local tooltipName, tooltipTitle = ReadNpcTooltip(npcID)
+        name = name or tooltipName
+        title = title or tooltipTitle
+    end
+    if not name and C_CreatureInfo and C_CreatureInfo.GetCreatureName then
+        name = CleanText(C_CreatureInfo.GetCreatureName(npcID))
+    end
+    if name == _G.RETRIEVING_DATA or name == _G.UNKNOWNOBJECT then
+        name, title = nil, nil
+    end
+    if name then
+        npcInfoCache[key] = { name = name, title = title }
+    end
+    return name, title
+end
+
+local function AddSearchText(parts, seen, text)
+    local value = CleanText(text)
+    if not value or not IsLocalizedText(value) or seen[value] then return end
+    seen[value] = true
+    parts[#parts + 1] = value
+end
+
+local function BuildNodeText(nodeData)
+    local parts, seen = {}, {}
+    local directNames = {
+        CleanText(nodeData.name) or false,
+        CleanText(nodeData.label) or false,
+        CleanText(nodeData.dnID) or false,
+    }
+    for _, value in ipairs(directNames) do
+        AddSearchText(parts, seen, value)
+    end
+
+    if SMK.locale == "zhCN" or SMK.locale == "zhTW" then
+        for _, value in pairs(nodeData) do
+            if type(value) == "string" then
+                AddSearchText(parts, seen, value)
+            end
+        end
+    end
+
+    local npcNames = {}
+    local function AddNpc(npcID)
+        if not npcID then return end
+        local name, title = GetNpcInfo(npcID)
+        AddSearchText(parts, seen, name)
+        AddSearchText(parts, seen, title)
+        if name and IsLocalizedText(name) then
+            npcNames[#npcNames + 1] = name
+        end
+    end
+    AddNpc(nodeData.npcID)
+    for index = 1, 10 do
+        AddNpc(nodeData["npcIDs" .. index])
+    end
+
+    local displayName
+    for _, value in ipairs(directNames) do
+        if value and IsLocalizedText(value) then
+            displayName = value:gsub("\n.*", "")
+            break
+        end
+    end
+    displayName = displayName or npcNames[1]
+    if not displayName and SMK.locale ~= "zhCN" and SMK.locale ~= "zhTW" then
+        displayName = CleanText(nodeData.type)
+            or (nodeData.npcID and "NPC:" .. tostring(nodeData.npcID))
+    end
+    AddSearchText(parts, seen, displayName)
+    return displayName, table.concat(parts, " ")
 end
 
 function HandyNotesProvider:RebuildCache()
@@ -24,24 +152,12 @@ function HandyNotesProvider:RebuildCache()
     if not iterFunc or not tbl or not tbl.data then return end
 
     local nodes = {}
-    local coord = iterFunc(tbl, nil)
+    local coord, _, iconTexture = iterFunc(tbl, nil)
     while coord do
         local nodeData = tbl.data[coord]
         if nodeData then
-            local displayName = nodeData.name or nodeData.label or ""
-            local desc = nodeData.dnID or ""
-            if displayName == "" and desc ~= "" then
-                displayName = desc:gsub("\n.*", "")
-            end
-            if displayName == "" and nodeData.npcID then
-                local npcName = C_CreatureInfo and C_CreatureInfo.GetCreatureName and C_CreatureInfo.GetCreatureName(nodeData.npcID)
-                if npcName and npcName ~= "" then
-                    displayName = npcName
-                end
-            end
-            if displayName == "" and nodeData.type then displayName = nodeData.type end
-            if displayName == "" and nodeData.npcID then displayName = "NPC:" .. tostring(nodeData.npcID) end
-            if displayName ~= "" then
+            local displayName, searchable = BuildNodeText(nodeData)
+            if displayName and searchable ~= "" then
                 local x, y = ParseCoord(coord)
                 if x and y and x >= 0 and x <= 100 and y >= 0 and y <= 100 then
                     displayName = SMK.Util.Trim(displayName)
@@ -53,13 +169,16 @@ function HandyNotesProvider:RebuildCache()
                         categoryKey = "other",
                         isExternal = true,
                         externalSource = "HandyNotes",
+                        iconTexture = (type(iconTexture) == "number"
+                            or (type(iconTexture) == "string" and iconTexture ~= ""))
+                            and iconTexture or nil,
                         normalizedName = SMK.Util.Normalize(displayName),
-                        normalizedSearchable = SMK.Util.Normalize(displayName),
+                        normalizedSearchable = SMK.Util.Normalize(searchable),
                     }
                 end
             end
         end
-        coord = iterFunc(tbl, coord)
+        coord, _, iconTexture = iterFunc(tbl, coord)
     end
     cache[mapID] = nodes
 end

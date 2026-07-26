@@ -123,6 +123,20 @@ function Widgets:CreatePanelButton(parent, text, options)
     return button
 end
 
+--- 设置地点条目的图标。
+-- HandyNotes 条目使用来源插件迭代器返回的纹理；缺失时回退到内置 MNL4。
+function Widgets:SetLocationIcon(texture, entry)
+    if entry.isMapPortal then
+        texture:SetAtlas("poi-islands-table", false)
+    elseif entry.isExternal then
+        texture:SetTexture(entry.iconTexture or Art.handyNotesFallbackIcon)
+        texture:SetTexCoord(0, 1, 0, 1)
+    else
+        local catInfo = Config.categoryByKey[entry.categoryKey]
+        texture:SetAtlas(catInfo and catInfo.atlas or Art.fallbackLocationAtlas, false)
+    end
+end
+
 --- 用条目数据、图标和几何信息填充地点按钮。
 -- 地图传送门条目使用不同的图标（poi-islands-table）。
 -- @param button Frame 要填充的按钮。
@@ -143,16 +157,7 @@ function Widgets:SetLocationEntry(button, entry, displayText, showIcon)
     button.isPinned = isPinned
     button.label:SetTextColor(unpack(isPinned and Config.colors.locationPinned or Config.colors.locationNormal))
     button.label:SetText(displayText or entry.name)
-    local atlas
-    if entry.isMapPortal then
-        atlas = "poi-islands-table"
-    elseif entry.isExternal then
-        atlas = "VignetteEvent-SuperTracked"
-    else
-        local catInfo = Config.categoryByKey[entry.categoryKey]
-        atlas = catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas
-    end
-    button.icon:SetAtlas(atlas, false)
+    self:SetLocationIcon(button.icon, entry)
     self:UpdateLocationGeometry(button)
     button.background:Show()
     button:Show()

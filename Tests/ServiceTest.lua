@@ -435,9 +435,10 @@ SMK.Widgets:SetLocationIcon(fakeIcon, trainerEntry)
 assert(fakeIcon.texture == externalIcons[12345678],
     "HandyNotes search result did not use its source icon")
 fakeIcon.texture = nil
+fakeIcon.atlas = nil
 SMK.Widgets:SetLocationIcon(fakeIcon, { isExternal = true })
-assert(fakeIcon.texture == SMK.Config.art.handyNotesFallbackIcon,
-    "HandyNotes search result did not use the MNL4 fallback icon")
+assert(fakeIcon.atlas == SMK.Config.categoryByKey.other.atlas,
+    "HandyNotes search result did not use the other-category fallback icon")
 HandyNotes = nil
 
 local encoded = SMK.ShareCodec:Encode({ SMK.Store:GetAll()[1] })

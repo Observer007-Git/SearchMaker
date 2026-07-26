@@ -131,7 +131,6 @@ local Config = {
         searchAllMapsIcon = "Interface\\ICONS\\Ability_Paladin_SavedByTheLight",
         searchResultIconFrame = "Interface\\SPELLBOOK\\RotationIconFrame",
         searchResultIconFrameExpand = 4,
-        handyNotesFallbackIcon = "Interface\\AddOns\\SearchMaker\\Textures\\MNL4.blp",
         button = "Interface\\ENCOUNTERJOURNAL\\loottab-item-background",
         highlight = "Interface\\QuestFrame\\UI-QuestTitleHighlight",
         fallbackLocationAtlas = "Waypoint-MapPin-Tracked",

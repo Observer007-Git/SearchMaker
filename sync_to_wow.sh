@@ -8,7 +8,6 @@ rsync -a --delete --delete-excluded \
     --exclude '.github/' \
     --exclude '.gitignore' \
     --exclude 'Tests/' \
-    --exclude 'README.md' \
     --exclude 'sync_to_wow.sh' \
     "$SRC/" "$DST/"
 echo "SYNC OK"

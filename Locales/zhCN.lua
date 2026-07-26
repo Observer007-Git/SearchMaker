@@ -132,6 +132,7 @@ local translations = {
     COORDINATE_RESULT_FORMAT = "坐标：%s，%s",
     MAP_PORTAL_SUFFIX = " [地图]",
     HANDYNOTES_SOURCE_SUFFIX = "[来自HandyNotes_MapNotes]",
+    HANDYNOTES_PORTAL = "传送门",
     OPEN_MAP = "点击打开地图",
     NO_KEY_BOUND = "未设置",
 

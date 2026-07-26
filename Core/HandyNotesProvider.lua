@@ -88,6 +88,15 @@ local function AddSearchText(parts, seen, text)
     parts[#parts + 1] = value
 end
 
+local function GetTypeDisplay(nodeData)
+    local nodeType = type(nodeData.type) == "string" and nodeData.type or ""
+    if not nodeType:find("Portal", 1, true) then return nil end
+    local label = SMK.L.HANDYNOTES_PORTAL
+    local mapInfo = nodeData.mnID and SMK.Map:GetMapInfo(nodeData.mnID)
+    local destination = CleanText(mapInfo and mapInfo.name)
+    return label, destination and string.format(SMK.L.SEARCH_RESULT_FORMAT, label, destination) or label
+end
+
 local function BuildNodeText(nodeData)
     local parts, seen = {}, {}
     local directNames = {
@@ -107,12 +116,16 @@ local function BuildNodeText(nodeData)
         end
     end
 
-    local npcNames = {}
+    local npcNames, npcTitles = {}, {}
     local function AddNpc(npcID)
         if not npcID then return end
         local name, title = GetNpcInfo(npcID)
+        title = title and (title:match("^<(.+)>$") or title)
         AddSearchText(parts, seen, name)
         AddSearchText(parts, seen, title)
+        if title and IsLocalizedText(title) then
+            npcTitles[#npcTitles + 1] = title
+        end
         if name and IsLocalizedText(name) then
             npcNames[#npcNames + 1] = name
         end
@@ -122,14 +135,18 @@ local function BuildNodeText(nodeData)
         AddNpc(nodeData["npcIDs" .. index])
     end
 
-    local displayName
+    local typeLabel, typeDisplay = GetTypeDisplay(nodeData)
+    AddSearchText(parts, seen, typeLabel)
+    AddSearchText(parts, seen, typeDisplay)
+
+    local displayName = npcTitles[1]
     for _, value in ipairs(directNames) do
-        if value and IsLocalizedText(value) then
+        if not displayName and value and IsLocalizedText(value) then
             displayName = value:gsub("\n.*", "")
             break
         end
     end
-    displayName = displayName or npcNames[1]
+    displayName = displayName or typeDisplay or npcNames[1]
     if not displayName and SMK.locale ~= "zhCN" and SMK.locale ~= "zhTW" then
         displayName = CleanText(nodeData.type)
             or (nodeData.npcID and "NPC:" .. tostring(nodeData.npcID))

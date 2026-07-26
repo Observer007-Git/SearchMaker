@@ -326,9 +326,10 @@ assert(cursorScreenX == 200 and cursorScreenY == 150
     "cursor coordinates were not normalized for UI scale")
 
 WorldMapFrame = { GetMapID = function() return 100 end }
+mapInfo[85] = { mapID = 85, name = "奥格瑞玛" }
 local externalNodes = {
     [12345678] = { name = "English Internal Name", npcID = 9876 },
-    [22334455] = { name = "English Only" },
+    [22334455] = { name = "", type = "Portal", mnID = 85 },
 }
 local externalIcons = {
     [12345678] = "Interface\\AddOns\\HandyNotes_MapNotes\\Images\\FirstAid",
@@ -336,7 +337,7 @@ local externalIcons = {
 HandyNotes_MapNotesRetailNpcCacheDB = {
     names = {
         zhCN = {
-            [9876] = "卡娜莉亚\031绷带训练师",
+            [9876] = "卡娜莉亚\031<绷带训练师>",
         },
     },
 }
@@ -354,17 +355,24 @@ HandyNotes = {
 }
 SMK.HandyNotesProvider:RebuildCache()
 local handyNotesEntries = SMK.HandyNotesProvider:GetAll()
-assert(#handyNotesEntries == 1
-    and handyNotesEntries[1].mapID == 100
-    and handyNotesEntries[1].x == 12.34
-    and handyNotesEntries[1].y == 56.78
-    and handyNotesEntries[1].name == "卡娜莉亚"
-    and handyNotesEntries[1].normalizedSearchable:find("绷带", 1, true)
-    and handyNotesEntries[1].iconTexture == externalIcons[12345678],
+local trainerEntry, portalEntry
+for _, entry in ipairs(handyNotesEntries) do
+    if entry.x == 12.34 then trainerEntry = entry end
+    if entry.x == 22.33 then portalEntry = entry end
+end
+assert(#handyNotesEntries == 2 and trainerEntry
+    and trainerEntry.mapID == 100 and trainerEntry.y == 56.78
+    and trainerEntry.name == "绷带训练师"
+    and trainerEntry.normalizedSearchable:find("绷带", 1, true)
+    and trainerEntry.iconTexture == externalIcons[12345678],
     "HandyNotes icon or localized NPC text was not cached")
 local bandageMatches = SMK.Search:Find({}, "绷带", false, 100)
-assert(#bandageMatches == 1 and bandageMatches[1].entry == handyNotesEntries[1],
+assert(#bandageMatches == 1 and bandageMatches[1].entry == trainerEntry,
     "localized HandyNotes NPC title was not searchable")
+local portalMatches = SMK.Search:Find({}, "传送", false, 100)
+assert(portalEntry and portalEntry.name == "传送门：奥格瑞玛"
+    and #portalMatches == 1 and portalMatches[1].entry == portalEntry,
+    "localized HandyNotes portal type was not searchable")
 assert(#SMK.Search:Find({}, "English", false, 100) == 0
     and #SMK.Search:Find({}, "9876", false, 100) == 0,
     "non-Chinese HandyNotes fields were searchable in a Chinese locale")
@@ -373,7 +381,7 @@ local fakeIcon = {
     SetTexCoord = function(self, ...) self.texCoord = { ... } end,
     SetAtlas = function(self, value) self.atlas = value end,
 }
-SMK.Widgets:SetLocationIcon(fakeIcon, handyNotesEntries[1])
+SMK.Widgets:SetLocationIcon(fakeIcon, trainerEntry)
 assert(fakeIcon.texture == externalIcons[12345678],
     "HandyNotes search result did not use its source icon")
 fakeIcon.texture = nil

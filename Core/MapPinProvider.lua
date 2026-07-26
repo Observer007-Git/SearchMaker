@@ -100,7 +100,7 @@ local function CreateHighlightPinMixin()
         self:SetScalingLimits(1, SMK.Config.mapPins.minScale, SMK.Config.mapPins.maxScale)
     end
 
-    function mixin:OnAcquired(entry)
+    function mixin:OnAcquired(entry, hideIcon)
         if not self.searchMakerLoaded then
             self.searchMakerLoaded = true
             self:OnLoad()
@@ -133,7 +133,7 @@ local function CreateHighlightPinMixin()
             self.pulse:SetLooping("REPEAT")
         end
         self.ring:SetSize(config.ringSize, config.ringSize)
-        self.icon:Show()
+        self.icon:SetShown(not hideIcon)
         self.ring:Show()
         self.pulse:Play()
         self:Show()
@@ -257,7 +257,7 @@ function MapPins:ShowHoverHighlight(entry)
     if not map:IsShown() or map:GetMapID() ~= entry.mapID then return false end
 
     self:ClearTargetHighlight()
-    map:AcquirePin(HIGHLIGHT_TEMPLATE, entry)
+    map:AcquirePin(HIGHLIGHT_TEMPLATE, entry, true)
     self.highlightMode = "hover"
     return true
 end

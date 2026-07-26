@@ -567,10 +567,10 @@ function fakeMap:GetCanvas() return self end
 function fakeMap:GetMapID() return self.mapID end
 function fakeMap:IsShown() return true end
 function fakeMap:AddDataProvider(provider) provider.map = self end
-function fakeMap:AcquirePin(template, entry)
+function fakeMap:AcquirePin(template, ...)
     local pin = self.pinPools[template].createFunc()
     pin.pinTemplate = template
-    pin:OnAcquired(entry)
+    pin:OnAcquired(...)
     self.pins[#self.pins + 1] = pin
     return pin
 end
@@ -616,6 +616,7 @@ assert(highlightPin.pinTemplate == "SearchMakerTargetHighlightPinTemplate"
     and highlightPin.ring.color.r == 1
     and highlightPin.ring.color.g == 1
     and highlightPin.ring.color.b == 1
+    and highlightPin.icon.shown
     and highlightPin.ring.animationGroup.playing,
     "target highlight was not positioned or animated")
 assert(SMK.MapPins:ShowTargetHighlight({ mapID = 100, x = 40, y = 60 })
@@ -628,6 +629,10 @@ assert(#fakeMap.pins == 1, "target highlight was not released after its duration
 assert(SMK.MapPins:ShowHoverHighlight({ mapID = 100, x = 30, y = 70 })
     and #fakeMap.pins == 2 and fakeMap.pins[2].x == 0.3,
     "hover highlight pin was not acquired")
+assert(not fakeMap.pins[2].icon.shown
+    and fakeMap.pins[2].ring.shown
+    and fakeMap.pins[2].ring.animationGroup.playing,
+    "hover highlight did not hide the marker while keeping the animation")
 assert(SMK.MapPins:ShowHoverHighlight({ mapID = 100, x = 45, y = 55 })
     and #fakeMap.pins == 2 and fakeMap.pins[2].x == 0.45,
     "a newer hover highlight did not replace the previous one")

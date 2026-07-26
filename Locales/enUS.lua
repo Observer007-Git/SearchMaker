@@ -9,6 +9,7 @@ SMK.L = {
     SEARCH_CURRENT_MAP = "Search %s",
     SEARCH_ALL_MAPS = "Search All Maps",
     SHARE = "Share",
+    FAVORITE = "Favorite",
     ADD = "Add Coordinate",
     SETTINGS = "Pin Settings",
     DISPLAY_SETTINGS = "Display Settings",

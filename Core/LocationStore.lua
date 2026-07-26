@@ -83,6 +83,23 @@ function Store:Add(values)
     return display
 end
 
+function Store:AddExternal(entry)
+    if type(entry) ~= "table" or not entry.isExternal
+        or entry.externalSource ~= "HandyNotes_MapNotes" then
+        return nil, "INVALID_LOCATION"
+    end
+    local values = {
+        mapID = entry.mapID,
+        x = entry.x,
+        y = entry.y,
+        name = entry.name,
+        categoryKey = Config.defaultCategoryKey,
+    }
+    local duplicate, duplicateMessage = self:FindDuplicate(values)
+    if duplicate then return nil, duplicateMessage end
+    return self:Add(values)
+end
+
 function Store:Update(entry, values)
     if SMK.DB:IsReadOnly() then return false, "READ_ONLY" end
     if type(entry) ~= "table" or not entry.id then return false end

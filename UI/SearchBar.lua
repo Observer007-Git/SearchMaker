@@ -342,6 +342,7 @@ function SearchBar:Create(callbacks)
         onActivate = self.callbacks.onActivate,
         onEdit = self.callbacks.onEdit,
         onDelete = self.callbacks.onDelete,
+        onFavorite = self.callbacks.onFavorite,
         onVisibilityChanged = function() self:UpdateOutsideListener() end,
     })
     self.results = self.searchResults.frame
@@ -385,7 +386,7 @@ function SearchBar:Create(callbacks)
 
     self.outsideListener = CreateFrame("Frame")
     self.outsideListener:SetScript("OnEvent", function(_, _, button)
-        if SMK.ModalManager:IsMenuOpen() then return end
+        if self.searchResults:IsContextMenuOpen() or SMK.ModalManager:IsMenuOpen() then return end
         local panelExpanded = self.panel and self.panel:IsExpanded()
         if not panelExpanded and not self.searchResults:IsShown() then return end
         local foci = GetMouseFoci()

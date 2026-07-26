@@ -166,7 +166,7 @@ end
 --- 创建带有点击处理、工具提示和高亮的新地点按钮框架。
 -- 使用部件池模式：按钮创建一次，通过 Acquire/Release 复用。
 -- @param parent Frame 父框架。
--- @param callbacks table { onActivate, onEdit, onDelete, onEnter }。
+-- @param callbacks table { onActivate, onEdit, onDelete, onExternalMenu, onEnter }。
 -- @return Frame 新按钮。
 function Widgets:CreateLocationButton(parent, callbacks)
     local button = CreateFrame("Frame", nil, parent)
@@ -212,7 +212,13 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button.hitArea:SetScript("OnClick", function(self, mouseButton)
         local owner = self.owner
         if mouseButton == "RightButton" then
-            if owner.entry.isCoordinateResult or owner.entry.isExternal then return end
+            if owner.entry.isCoordinateResult then return end
+            if owner.entry.isExternal then
+                if owner.callbacks.onExternalMenu then
+                    owner.callbacks.onExternalMenu(owner.entry, self)
+                end
+                return
+            end
             if IsShiftKeyDown() and owner.callbacks.onDelete then
                 owner.callbacks.onDelete(owner.entry)
             elseif owner.callbacks.onEdit then

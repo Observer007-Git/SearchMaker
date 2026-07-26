@@ -39,9 +39,24 @@ function SearchResults:New(parent, box, callbacks)
         onActivate = view.callbacks.onActivate,
         onEdit = view.callbacks.onEdit,
         onDelete = view.callbacks.onDelete,
+        onExternalMenu = function(entry, owner) view:OpenExternalMenu(entry, owner) end,
         onEnter = function(button) view:Select(button) end,
     }
     return view
+end
+
+function SearchResults:IsContextMenuOpen()
+    return self.contextMenu and self.contextMenu:IsShown()
+end
+
+function SearchResults:OpenExternalMenu(entry, owner)
+    if entry.externalSource ~= "HandyNotes_MapNotes" or not self.callbacks.onFavorite then return end
+    GameTooltip_Hide()
+    self.contextMenu = MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
+        rootDescription:CreateButton(SMK.L.FAVORITE, function()
+            self.callbacks.onFavorite(entry)
+        end)
+    end)
 end
 
 function SearchResults:NotifyVisibilityChanged()

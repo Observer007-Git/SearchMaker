@@ -185,7 +185,7 @@ function HandyNotesProvider:RebuildCache()
                         name = displayName,
                         categoryKey = "other",
                         isExternal = true,
-                        externalSource = "HandyNotes",
+                        externalSource = "HandyNotes_MapNotes",
                         iconTexture = (type(iconTexture) == "number"
                             or (type(iconTexture) == "string" and iconTexture ~= ""))
                             and iconTexture or nil,

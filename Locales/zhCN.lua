@@ -11,6 +11,7 @@ local translations = {
     SEARCH_CURRENT_MAP = "搜索 %s",
     SEARCH_ALL_MAPS = "搜索 宇宙",
     SHARE = "导出/导入",
+    FAVORITE = "收藏",
     ADD = "新增坐标",
     SETTINGS = "标记设置",
     DISPLAY_SETTINGS = "显示设置",

@@ -162,6 +162,21 @@ function App:DeleteLocation(entry)
     return true
 end
 
+function App:FavoriteExternal(entry)
+    local added, errorMessage = SMK.Store:AddExternal(entry)
+    if not added then
+        if errorMessage == "READ_ONLY" then
+            errorMessage = SMK.DB:GetReadOnlyMessage()
+        elseif errorMessage == "INVALID_LOCATION" then
+            errorMessage = SMK.L.SAVE_FAILED
+        end
+        SMK:Print(errorMessage or SMK.L.SAVE_FAILED)
+        return false
+    end
+    SMK:Print(string.format(SMK.L.ADD_SUCCESS, added.name, added.x, added.y))
+    return true
+end
+
 --- 响应数据变更：重新加载上下文，清除缓存，更新界面。
 function App:DataChanged()
     self:RequestRefresh("data")
@@ -192,6 +207,7 @@ function App:CreateUI()
         onActivate = function(entry, result) self:Activate(entry, result) end,
         onEdit = function(entry) SMK.MainPanel:OpenEditor("edit", entry) end,
         onDelete = function(entry) self:DeleteLocation(entry) end,
+        onFavorite = function(entry) self:FavoriteExternal(entry) end,
     })
     SMK.MainPanel:Create(bar, {
         onActivate = function(entry, result) self:Activate(entry, result) end,

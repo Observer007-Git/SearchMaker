@@ -271,6 +271,24 @@ assert(not SMK.Store:FindDuplicate(sameNameDifferentPosition),
     "duplicate detection ignored coordinates")
 assert(SMK.Store:FindDuplicate(first), "duplicate detection missed the same location")
 
+local externalFavorite = {
+    isExternal = true,
+    externalSource = "HandyNotes_MapNotes",
+    mapID = 100,
+    x = 42.25,
+    y = 63.5,
+    name = "绷带训练师",
+}
+local favorite = assert(SMK.Store:AddExternal(externalFavorite))
+assert(favorite.source == "saved" and favorite.categoryKey == "other"
+    and favorite.showPinName == 0 and favorite.showPinTexture == 0,
+    "external favorite was not converted to a saved location")
+local duplicateFavorite, duplicateFavoriteError = SMK.Store:AddExternal(externalFavorite)
+assert(not duplicateFavorite
+    and duplicateFavoriteError == string.format(SMK.L.DUPLICATE_NAME, externalFavorite.name),
+    "duplicate external favorite was accepted")
+assert(SMK.Store:Delete(favorite) == 1, "external favorite could not be deleted")
+
 local storeChangeReason
 SMK.Store:SetChangeHandler(function(reason) storeChangeReason = reason end)
 for index = 1, 25 do
@@ -369,6 +387,7 @@ end
 assert(#handyNotesEntries == 2 and trainerEntry
     and trainerEntry.mapID == 100 and trainerEntry.y == 56.78
     and trainerEntry.name == "绷带训练师"
+    and trainerEntry.externalSource == "HandyNotes_MapNotes"
     and trainerEntry.normalizedSearchable:find("绷带", 1, true)
     and trainerEntry.iconTexture == externalIcons[12345678],
     "HandyNotes did not cache the player's map while WorldMapFrame was unopened")

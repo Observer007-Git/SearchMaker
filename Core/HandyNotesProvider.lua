@@ -161,7 +161,7 @@ function HandyNotesProvider:RebuildCache()
     local plugin = HandyNotes.plugins[pluginName]
     if not plugin.GetNodes2 then return end
 
-    local mapID = WorldMapFrame and WorldMapFrame:GetMapID() or nil
+    local mapID = SMK.Map:GetContextMapID()
     if not mapID then return end
 
     local ok, iterFunc, tbl = pcall(plugin.GetNodes2, plugin, mapID, false)

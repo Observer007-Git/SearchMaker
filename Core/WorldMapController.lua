@@ -44,7 +44,14 @@ function Controller:Initialize(callbacks)
     local mouseFrame = CreateFrame("Frame")
     self.mouseFrame = mouseFrame
     mouseFrame:RegisterEvent("GLOBAL_MOUSE_DOWN")
-    mouseFrame:SetScript("OnEvent", function(_, _, button)
+    mouseFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    mouseFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    mouseFrame:SetScript("OnEvent", function(_, event, button)
+        if event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
+            SMK.HandyNotesProvider:RebuildCache()
+            if self.callbacks.onMapChanged then self.callbacks.onMapChanged() end
+            return
+        end
         if button ~= "LeftButton" or not IsAltKeyDown()
             or not WorldMapFrame:IsShown() or not IsCursorOverCanvas() then return end
         local x, y = SMK.Map:GetCursorMapCoordinates()

@@ -21,9 +21,11 @@ local waypoint
 local superTracked = false
 local mapChildren = {}
 local mapInfo = {}
+local playerMapID
 C_Map = {
     GetMapInfo = function(mapID) return mapInfo[mapID] end,
     GetMapChildrenInfo = function(mapID) return mapChildren[mapID] or {} end,
+    GetBestMapForUnit = function() return playerMapID end,
     CanSetUserWaypointOnMap = function() return true end,
     SetUserWaypoint = function(point) waypoint = point end,
     GetUserWaypoint = function() return waypoint end,
@@ -325,7 +327,11 @@ assert(cursorScreenX == 200 and cursorScreenY == 150
     and cursorMapX == 50 and cursorMapY == 50,
     "cursor coordinates were not normalized for UI scale")
 
-WorldMapFrame = { GetMapID = function() return 100 end }
+playerMapID = 100
+WorldMapFrame = {
+    IsShown = function() return false end,
+    GetMapID = function() return nil end,
+}
 mapInfo[85] = { mapID = 85, name = "奥格瑞玛" }
 local externalNodes = {
     [12345678] = { name = "English Internal Name", npcID = 9876 },
@@ -365,7 +371,7 @@ assert(#handyNotesEntries == 2 and trainerEntry
     and trainerEntry.name == "绷带训练师"
     and trainerEntry.normalizedSearchable:find("绷带", 1, true)
     and trainerEntry.iconTexture == externalIcons[12345678],
-    "HandyNotes icon or localized NPC text was not cached")
+    "HandyNotes did not cache the player's map while WorldMapFrame was unopened")
 local bandageMatches = SMK.Search:Find({}, "绷带", false, 100)
 assert(#bandageMatches == 1 and bandageMatches[1].entry == trainerEntry,
     "localized HandyNotes NPC title was not searchable")

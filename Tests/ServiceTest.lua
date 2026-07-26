@@ -86,10 +86,10 @@ assert(panelConfig.headerHeight == 40 and panelConfig.contentTopGap == 8
     and panelControls.buttonAtlas == "housefinder_neighborhood-list-item-highlight"
     and panelControls.buttonHeight == 24 and panelControls.settingsWidth == 330,
     "main panel controls are not configured")
-assert(SMK.Config.searchResultBackdrop.insets.left == 5
-    and SMK.Config.searchResultBackdrop.insets.right == 5
-    and SMK.Config.searchResultBackdrop.insets.top == 5
-    and SMK.Config.searchResultBackdrop.insets.bottom == 5,
+assert(SMK.Config.searchResultBackdrop.insets.left == 1
+    and SMK.Config.searchResultBackdrop.insets.right == 1
+    and SMK.Config.searchResultBackdrop.insets.top == 1
+    and SMK.Config.searchResultBackdrop.insets.bottom == 1,
     "search result background does not fit its rounded border")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\Ability_Paladin_SavedByTheLight"

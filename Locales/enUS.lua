@@ -1,11 +1,16 @@
 local _, SMK = ...
 
 SMK.L = {
+    SEARCH_BAR_SETTINGS = "Search Settings",
+    SEARCH_BAR_SCALE = "Search Bar Scale",
+    SEARCH_BAR_OPACITY = "Search Bar Opacity",
+    SHORTCUT_KEY = "Shortcut Key",
+    EXTERNAL_SOURCE = "External Source",
     SEARCH_CURRENT_MAP = "Search %s",
     SEARCH_ALL_MAPS = "Search All Maps",
     SHARE = "Share",
-    ADD = "Add",
-    SETTINGS = "Settings",
+    ADD = "Add Coordinate",
+    SETTINGS = "Pin Settings",
     DISPLAY_SETTINGS = "Display Settings",
     MORE = "More",
     BULK_DELETE = "Bulk Delete",
@@ -22,10 +27,15 @@ SMK.L = {
     BINDING_HEADER = "SearchMaker",
     BINDING_NAME = "Toggle Search",
     SHOW_MAP_PINS = "Show Map Pins",
+    SHOW_PIN_TEXTURES = "Show Pin Textures",
     SHOW_MAP_PIN_NAMES = "Show Pin Names",
-    PIN_TEXT_COLOR = "Pin Text Color",
+    PIN_TEXT_COLOR = "Show Pin Text",
     PIN_TEXT_SIZE = "Pin Text Size",
     PIN_TEXTURE_LABEL = "Pin Texture",
+    PIN_COLOR_LABEL = "Pin Color",
+    PIN_NAME_OFFSET_X = "Name Offset X",
+    PIN_NAME_OFFSET_Y = "Name Offset Y",
+    PIN_TEXTURE_SIZE = "Pin Texture Size",
     LOCATION_SCALE = "Icon Scale",
 
     -- Namespace
@@ -77,7 +87,6 @@ SMK.L = {
     DELETE_MAP_DESC = "all locations on map %d",
 
     -- ShareDialog
-    
     CHAT_IMPORT = "Scan Chat",
     CHAT_IMPORT_NONE = "No SMK codes found in chat history.",
     CHAT_IMPORT_ALL_DUPLICATES = "Found SMK codes in chat, but all were duplicates.",
@@ -85,7 +94,7 @@ SMK.L = {
     CHAT_IMPORT_SUCCESS = "Imported %d locations from chat.",
     SHARE_TITLE = "Import / Export",
     EXPORT_CURRENT_ONLY = "Current map only",
-        EXPORT_RANGE = "Export range",
+    EXPORT_RANGE = "Export range",
     EXPORT_RANGE_SUCCESS = "Generated %d locations (range %d-%d). Press Ctrl+C to copy.",
     EXPORT_SUCCESS = "Generated %d locations. Press Ctrl+C to copy.",
     EXPORT_BUTTON = "Export",
@@ -95,7 +104,6 @@ SMK.L = {
     EXPORT_NO_LOCATIONS = "No locations to export on this map.",
     EXPORT_NO_LOCATIONS_ALL = "No locations to export.",
     IMPORT_INVALID_FORMAT = "Invalid format: missing SMK prefix.",
-    IMPORT_NEWER_FORMAT = "This share text uses unsupported format version %d.",
     IMPORT_EMPTY = "No locations found in text.",
     DATABASE_READ_ONLY = "Saved data schema %d is newer than supported schema %d. SearchMaker is running read-only to protect it.",
 
@@ -119,7 +127,8 @@ SMK.L = {
     SHORTCUT_TOOLTIP_CURRENT = "Current: %s",
     SHORTCUT_TOOLTIP_HINT = "Click, then press the new key.",
     SEARCH_RESULT_FORMAT = "%s: %s",
-            MAP_PORTAL_SUFFIX = " [Map]",
+    COORDINATE_RESULT_FORMAT = "Coordinates: %s, %s",
+    MAP_PORTAL_SUFFIX = " [Map]",
     OPEN_MAP = "Click to open map",
     NO_KEY_BOUND = "Not set",
 

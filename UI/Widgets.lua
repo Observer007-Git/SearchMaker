@@ -13,6 +13,8 @@ end
 --- 缓存映射："文本|缩放比例" → 像素宽度。
 -- 避免重复渲染时多次调用 GetUnboundedStringWidth()。
 local geometryCache = {}
+local geometryCacheSize = 0
+local geometryCacheMaxSize = 500
 
 --- 根据文本宽度和缩放比例计算并设置地点按钮的正确尺寸。
 -- 使用 geometryCache 避免重复调用时的字体测量。
@@ -26,19 +28,21 @@ function Widgets:UpdateLocationGeometry(button)
         textWidth = button.label.GetUnboundedStringWidth
             and button.label:GetUnboundedStringWidth() or button.label:GetStringWidth()
         textWidth = math.max(1, math.ceil(textWidth))
+        if geometryCacheSize >= geometryCacheMaxSize then
+            self:ClearGeometryCache()
+        end
         geometryCache[cacheKey] = textWidth
+        geometryCacheSize = geometryCacheSize + 1
     end
 
-    local height = math.ceil(Sign.height * locationScale)
+    local height = math.max(1, math.ceil(Sign.height * locationScale))
     local signScale = height / Sign.height
-    local leftWidth = Sign.leftWidth * signScale
-    local rightWidth = Sign.rightWidth * signScale
-    local naturalSignWidth = (Sign.leftWidth + Sign.centerWidth + Sign.rightWidth) * signScale
+    local signWidth = math.max(1, math.ceil(Sign.width * signScale))
     local textPadding = Sign.textPadding
     local textOffsetY = Sign.textOffsetY
-    local signWidth = math.max(naturalSignWidth, textWidth + textPadding * 2)
+    local totalWidth = math.max(signWidth, textWidth + textPadding * 2)
     local iconWidth = button.showIcon and height or 0
-    button:SetSize(math.ceil(iconWidth + signWidth), height)
+    button:SetSize(math.ceil(iconWidth + totalWidth), height)
     button.iconBox:ClearAllPoints()
     button.iconBox:SetPoint("TOPLEFT")
     button.iconBox:SetSize(iconWidth, height)
@@ -50,8 +54,10 @@ function Widgets:UpdateLocationGeometry(button)
         button.background:SetPoint("TOPLEFT")
     end
     button.background:SetPoint("BOTTOMRIGHT")
-    button.background.left:SetWidth(leftWidth)
-    button.background.right:SetWidth(rightWidth)
+    button.background.texture:SetAllPoints(button.background)
+    button.background.texture:SetAtlas(Sign.atlas, false)
+    button.background.texture:Show()
+    button.background:Show()
     button.hitArea:ClearAllPoints()
     button.hitArea:SetAllPoints(button)
     button.label:ClearAllPoints()
@@ -62,6 +68,7 @@ end
 --- 清除字体测量缓存（数据变更时调用）。
 function Widgets:ClearGeometryCache()
     geometryCache = {}
+    geometryCacheSize = 0
 end
 
 --- 创建主面板使用的 Atlas 文字按钮。
@@ -132,16 +139,22 @@ function Widgets:SetLocationEntry(button, entry, displayText, showIcon)
     button.isSearchSelected = false
     button.showIcon = showIcon == true
     button.highlight:Hide()
+    local isPinned = entry.showPinName == 1 or entry.showPinTexture == 1
+    button.isPinned = isPinned
+    button.label:SetTextColor(unpack(isPinned and Config.colors.locationPinned or Config.colors.locationNormal))
     button.label:SetText(displayText or entry.name)
     local atlas
     if entry.isMapPortal then
         atlas = "poi-islands-table"
+    elseif entry.isExternal then
+        atlas = "VignetteEvent-SuperTracked"
     else
         local catInfo = Config.categoryByKey[entry.categoryKey]
         atlas = catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas
     end
     button.icon:SetAtlas(atlas, false)
     self:UpdateLocationGeometry(button)
+    button.background:Show()
     button:Show()
 end
 
@@ -158,18 +171,9 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button.background = CreateFrame("Frame", nil, button)
     button.background:SetFrameLevel(math.max(0, button:GetFrameLevel() - 1))
     button.background:SetAllPoints(button)
-    button.background.left = button.background:CreateTexture(nil, "BACKGROUND")
-    button.background.left:SetPoint("TOPLEFT")
-    button.background.left:SetPoint("BOTTOMLEFT")
-    button.background.left:SetAtlas(Sign.leftAtlas, false)
-    button.background.right = button.background:CreateTexture(nil, "BACKGROUND")
-    button.background.right:SetPoint("TOPRIGHT")
-    button.background.right:SetPoint("BOTTOMRIGHT")
-    button.background.right:SetAtlas(Sign.rightAtlas, false)
-    button.background.center = button.background:CreateTexture(nil, "BACKGROUND")
-    button.background.center:SetPoint("TOPLEFT", button.background.left, "TOPRIGHT")
-    button.background.center:SetPoint("BOTTOMRIGHT", button.background.right, "BOTTOMLEFT")
-    button.background.center:SetAtlas(Sign.centerAtlas, false)
+    button.background.texture = button.background:CreateTexture(nil, "BACKGROUND")
+    button.background.texture:SetAllPoints(button.background)
+    button.background.texture:SetAtlas(Sign.atlas, false)
 
     button.highlight = button:CreateTexture(nil, "ARTWORK")
     button.highlight:SetAllPoints(button)
@@ -182,8 +186,7 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button.icon = button.iconBox:CreateTexture(nil, "ARTWORK")
     button.iconFrame = button.iconBox:CreateTexture(nil, "OVERLAY")
     local frameExpand = Art.searchResultIconFrameExpand
-    button.icon:SetPoint("TOPLEFT", button.iconBox, "TOPLEFT", -frameExpand, frameExpand)
-    button.icon:SetPoint("BOTTOMRIGHT", button.iconBox, "BOTTOMRIGHT", frameExpand, -frameExpand)
+    button.icon:SetAllPoints(button.iconBox)
     button.iconFrame:SetPoint("TOPLEFT", button.iconBox, "TOPLEFT", -frameExpand, frameExpand)
     button.iconFrame:SetPoint("BOTTOMRIGHT", button.iconBox, "BOTTOMRIGHT", frameExpand, -frameExpand)
     button.iconFrame:SetTexture(Art.searchResultIconFrame)
@@ -204,6 +207,7 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button.hitArea:SetScript("OnClick", function(self, mouseButton)
         local owner = self.owner
         if mouseButton == "RightButton" then
+            if owner.entry.isCoordinateResult or owner.entry.isExternal then return end
             if IsShiftKeyDown() and owner.callbacks.onDelete then
                 owner.callbacks.onDelete(owner.entry)
             elseif owner.callbacks.onEdit then
@@ -224,21 +228,31 @@ function Widgets:CreateLocationButton(parent, callbacks)
         GameTooltip:SetText(owner.entry.name)
         if owner.entry.isMapPortal then
             GameTooltip:AddLine(SMK.L.OPEN_MAP, 0.35, 0.85, 1)
+        elseif owner.entry.isExternal then
+            GameTooltip:AddLine(SMK.L.EXTERNAL_SOURCE .. ": " .. owner.entry.externalSource, 0.35, 0.85, 1)
+            GameTooltip:AddLine(string.format(SMK.L.MAP_FORMAT,
+                SMK.Map:GetMapName(owner.entry.mapID), owner.entry.mapID), 1, 1, 1)
+            GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_XY,
+                owner.entry.x, owner.entry.y), 1, 1, 1)
         else
             GameTooltip:AddLine(string.format(SMK.L.MAP_FORMAT,
                 SMK.Map:GetMapName(owner.entry.mapID), owner.entry.mapID), 1, 1, 1)
             GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_XY,
                 owner.entry.x, owner.entry.y), 1, 1, 1)
-            GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_USAGE_COUNT, SMK.Store:GetUsage(owner.entry)), 0.75, 0.75, 0.75)
-            GameTooltip:AddLine(SMK.L.TOOLTIP_INSTRUCTIONS, 0.35, 0.85, 1)
+            if not owner.entry.isCoordinateResult then
+                GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_USAGE_COUNT,
+                    SMK.Store:GetUsage(owner.entry)), 0.75, 0.75, 0.75)
+                GameTooltip:AddLine(SMK.L.TOOLTIP_INSTRUCTIONS, 0.35, 0.85, 1)
+            end
         end
         GameTooltip:Show()
     end)
     button.hitArea:SetScript("OnLeave", function(self)
         local owner = self.owner
         owner.highlight:SetShown(owner.isSearchSelected)
-        owner.label:SetTextColor(unpack(owner.isSearchSelected
-            and Config.colors.locationHover or Config.colors.locationNormal))
+        local color = owner.isSearchSelected and Config.colors.locationHover
+            or (owner.isPinned and Config.colors.locationPinned or Config.colors.locationNormal)
+        owner.label:SetTextColor(unpack(color))
         GameTooltip_Hide()
     end)
     return button
@@ -248,8 +262,10 @@ end
 -- @param button Frame 要重新样式的按钮。
 -- @param targetWidth number 期望宽度。
 function Widgets:StretchSearchResult(button, targetWidth)
-    button:SetWidth(targetWidth)
     button:SetClipsChildren(false)
+    self:UpdateLocationGeometry(button)
+    button:SetWidth(math.max(targetWidth, button:GetWidth()))
+    button.background:Show()
 end
 
 --- 创建带有图标和大号文字的类别标题栏。

@@ -59,10 +59,10 @@ end
 function App:SettingChanged(key)
     if key == "locationScale" then
         self:RequestRefresh("scale")
-    elseif key == "showMapPins" then
-        self:RequestRefresh("pins")
     elseif key == "showMapPinNames" or key == "mapPinTextColor"
-        or key == "mapPinTextScale" then
+        or key == "mapPinTextScale" or key == "mapPinNameOffsetX"
+        or key == "mapPinNameOffsetY" or key == "showPinTextures"
+        or key == "pinTextureScale" then
         self:RequestRefresh("pins")
     elseif key == "searchAllMaps" then
         self:RequestRefresh("scope")
@@ -88,7 +88,7 @@ function App:Activate(entry, fromSearchResult)
     if entry.isMapPortal then
         if SMK.Map:OpenMap(entry.mapID) then
             -- 播放传送门音效
-            PlaySound(875)
+            PlaySound(SMK.Config.share.portalSoundID)
             SMK.SearchBar:ClosePanel()
             if SMK.SearchBar:IsVisible() then SMK.SearchBar:Focus() end
         end
@@ -180,7 +180,9 @@ function App:CreateUI()
         SMK:Print(readOnlyMessage)
     end
     local initializedPins, pinsReady = pcall(SMK.MapPins.Initialize, SMK.MapPins, WorldMapFrame, {
-        onEdit = function(entry) SMK.MainPanel:OpenEditor("edit", entry) end,
+        onEdit = function(entry, screenX, screenY)
+            SMK.MainPanel:OpenEditor("edit", entry, { x = screenX, y = screenY })
+        end,
     })
     if not initializedPins or not pinsReady then
         SMK:Print(SMK.L.ERROR_MAP_PINS_UNAVAILABLE)
@@ -213,13 +215,13 @@ function App:CreateUI()
         end,
         onMapChanged = function() self:RequestRefresh("map") end,
         onReady = function() SMK.SearchBar:RestoreVisibility() end,
-        onAltClick = function(mapID, x, y)
+        onAltClick = function(mapID, x, y, screenX, screenY)
             local marked, message = SMK.Map:BeginTemporaryWaypoint({ mapID = mapID, x = x, y = y })
             if not marked then
                 if message then SMK:Print(message) end
                 return
             end
-            SMK.MainPanel:OpenEditor("add", { mapID = mapID, x = x, y = y })
+            SMK.MainPanel:OpenEditor("add", { mapID = mapID, x = x, y = y }, { x = screenX, y = screenY })
         end,
     })
 end
@@ -252,7 +254,7 @@ function App:ScanChatForImports()
         local cf = _G["ChatFrame" .. i]
         if cf then
             local num = cf:GetNumMessages()
-            local start = math.max(1, num - 49)
+            local start = math.max(1, num - SMK.Config.share.chatScanMessageCount + 1)
             for j = start, num do
                 -- cf:GetMessageInfo returns different formats across WoW versions:
                 -- old: first return = string message; new: returns include a table with message data

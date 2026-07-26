@@ -47,5 +47,6 @@ end
 --- 向默认聊天框输出一条带颜色的消息。
 -- @param message string 要显示的文字。
 function SMK:Print(message)
-    DEFAULT_CHAT_FRAME:AddMessage("|cffd9a441" .. SMK.L.PREFIX .. "|r" .. tostring(message or ""))
+    local prefix = SMK.L and SMK.L.PREFIX or "[SearchMaker] "
+    DEFAULT_CHAT_FRAME:AddMessage("|cffd9a441" .. prefix .. "|r" .. tostring(message or ""))
 end

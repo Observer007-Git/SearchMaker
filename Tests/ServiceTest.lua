@@ -49,7 +49,8 @@ for _, path in ipairs({
     "Core/Namespace.lua", "Config.lua", "Locales/init.lua", "Locales/enUS.lua", "Locales/zhCN.lua",
     "Core/PinTextures.lua", "Core/LocationModel.lua", "Core/Database.lua", "Core/SettingsService.lua",
     "Core/LocationStore.lua", "Core/MapService.lua",
-    "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/ImportService.lua", "Core/MapPinProvider.lua",
+    "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/HandyNotesProvider.lua",
+    "Core/ImportService.lua", "Core/MapPinProvider.lua",
     "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua", "UI/ModalManager.lua", "UI/BulkDeleteDialog.lua",
     "UI/Widgets.lua",
 }) do
@@ -90,6 +91,12 @@ assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
+local widgetsFile = assert(io.open(root .. "/UI/Widgets.lua", "r"))
+local widgetsSource = widgetsFile:read("*a")
+widgetsFile:close()
+assert(widgetsSource:find('atlas = "poi-islands-table"', 1, true)
+    and widgetsSource:find("button.icon:SetAllPoints(button.iconBox)", 1, true),
+    "map portal icon is not contained by the search result icon frame")
 assert(SMK.Config.search.resultFrameInset == 5
     and SMK.Config.search.resultGap == 2
     and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
@@ -101,10 +108,7 @@ assert(SMK.Config.mapPins.targetHighlight.atlas == "MonsterEnemy"
     and SMK.Config.mapPins.targetHighlight.duration == 3,
     "target highlight is not configured")
 local locationSign = SMK.Config.art.locationSign
-assert(locationSign.leftAtlas == "housing-dashboard-woodsign-left"
-    and locationSign.centerAtlas == "housing-dashboard-woodsign-center"
-    and locationSign.rightAtlas == "housing-dashboard-woodsign-right"
-    and locationSign.leftWidth + locationSign.centerWidth + locationSign.rightWidth == 136
+assert(locationSign.atlas == "housing-woodsign" and locationSign.width == 136
     and locationSign.height == 29 and locationSign.textPadding == 8
     and locationSign.textOffsetY == 1 and SMK.Config.location.baseWidth == 136
     and SMK.Config.location.horizontalGap == 4,
@@ -185,14 +189,23 @@ assert(SMK.DB:GetReadOnlyMessage() == string.format(SMK.L.DATABASE_READ_ONLY,
     "future database read-only message is missing")
 assert(not futureDatabase.locationScale and futureDatabase.futureField.preserved,
     "future database was modified during initialization")
-assert(not SMK.Settings:Set("showMapPins", true), "future database setting write was accepted")
+assert(not SMK.Settings:Set("showPinTextures", true), "future database setting write was accepted")
 assert(futureDatabase.settings == nil, "future database settings were written through runtime data")
 assert(not SMK.Store:Add({ mapID = 100, x = 1, y = 2, name = "blocked", categoryKey = "other" }),
     "future database accepted a write")
 
 SearchMakerDB = {
     schemaVersion = SMK.Config.databaseSchemaVersion,
-    settings = { showMapPins = true, showFullPanel = false, locationScale = 1.2 },
+    settings = {
+        showPinTextures = true,
+        showFullPanel = false,
+        locationScale = 1.2,
+        searchBarScale = 1.4,
+        searchBarOpacity = 0.6,
+        pinTextureScale = 9,
+        mapPinNameOffsetX = -80,
+        mapPinNameOffsetY = 80,
+    },
     locations = {
         { id = "user:4", mapID = "100", x = "12.34", y = "56.78", name = "旧地点", categoryKey = "delves", showPin = true, pinTextureID = "5", futureExtension = "keep" },
         { id = "user:4", mapID = 100, x = 20, y = 30, name = "重复ID", categoryKey = "npc" },
@@ -204,15 +217,25 @@ assert(SearchMakerDB.schemaVersion == SMK.Config.databaseSchemaVersion, "databas
 assert(SearchMakerDB.locations[1].categoryKey == "delves", "category normalization failed")
 assert(SearchMakerDB.locations[1].pinTextureID == 5, "pin texture normalization failed")
 assert(SearchMakerDB.locations[2].id ~= "user:4", "duplicate ID was not repaired")
-assert(SMK.Settings:Get("showMapPins") and SMK.Settings:Get("locationScale") == 1.2,
+assert(SMK.Settings:Get("showPinTextures") and SMK.Settings:Get("locationScale") == 1.2,
     "nested settings were not initialized")
+assert(SMK.Settings:Get("searchBarScale") == 1.4
+    and SMK.Settings:Get("searchBarOpacity") == 0.6,
+    "search bar appearance settings were not persisted")
+assert(SMK.Settings:Get("pinTextureScale") == SMK.Config.mapPins.maxTextureScale
+    and SMK.Settings:Get("mapPinNameOffsetX") == SMK.Config.mapPins.nameOffsetXMin
+    and SMK.Settings:Get("mapPinNameOffsetY") == SMK.Config.mapPins.nameOffsetYMax,
+    "map pin appearance settings were not clamped")
+assert(SearchMakerDB.locations[1].showPinName == 1
+    and SearchMakerDB.locations[1].showPinTexture == 1,
+    "legacy map pin visibility was not split into name and texture flags")
 assert(SearchMakerDB.settings.showFullPanel == nil, "removed panel setting was retained")
 assert(SMK.Settings:Get("showMapPinNames") == false, "pin name setting default was not initialized")
 local defaultTextColor = SMK.Settings:Get("mapPinTextColor")
 assert(defaultTextColor.r == 1 and defaultTextColor.g == 0.82 and defaultTextColor.b == 0
     and SMK.Settings:Get("mapPinTextScale") == 1,
     "pin text appearance defaults were not initialized")
-assert(SearchMakerDB.locationScale == nil and SearchMakerDB.showMapPins == nil,
+assert(SearchMakerDB.locationScale == nil and SearchMakerDB.showPinTextures == nil,
     "obsolete root settings were not removed")
 local changedSetting
 SMK.Settings:SetChangeHandler(function(key) changedSetting = key end)
@@ -258,19 +281,82 @@ local matches = SMK.Search:Find(SMK.Store:GetAll(), "精确", true)
 assert(#matches == SMK.Config.search.maxResults, "search result limit failed")
 assert(matches[1].entry.name == "精确" and matches[1].score == 0, "late exact match was not ranked first")
 
+for _, query in ipairs({
+    "12 34", "12,34", "12，34", "12.3 34.56", "00.0, 99.99",
+    "1 34", "5 10", "8.5 30", "3.14 59", "0 0", "12 100", "100 50",
+}) do
+    local coordinateMatches = SMK.Search:Find({}, query, false, 100)
+    assert(#coordinateMatches == 1 and coordinateMatches[1].isCoordinateResult
+        and coordinateMatches[1].entry.mapID == 100
+        and coordinateMatches[1].entry.categoryKey == SMK.Config.defaultCategoryKey,
+        "valid coordinate query was not recognized: " .. query)
+end
+for _, query in ipairs({ "123 45", "12. 34", "12.345 34", "-12 34", "0 -1", "101 50" }) do
+    assert(#SMK.Search:Find({}, query, false, 100) == 0,
+        "invalid coordinate query was accepted: " .. query)
+end
+local coordinateResult = SMK.Search:Find({}, "12.3,45.67", false, 100)[1]
+assert(coordinateResult.entry.x == 12.3 and coordinateResult.entry.y == 45.67
+    and coordinateResult.entry.name == "坐标：12.3，45.67",
+    "coordinate result values or display text are incorrect")
+assert(not SMK.Store:RecordUsage(coordinateResult.entry)
+    and SearchMakerDB.usageCounts["id:nil"] == nil,
+    "temporary coordinate result was written to usage storage")
+assert(SMK.Map:SetWaypoint(coordinateResult.entry)
+    and waypoint.uiMapID == 100
+    and math.abs(waypoint.position.x - 0.123) < 0.000001
+    and math.abs(waypoint.position.y - 0.4567) < 0.000001,
+    "coordinate result did not use the native waypoint service")
+
+UIParent = { GetEffectiveScale = function() return 2 end }
+GetCursorPosition = function() return 400, 300 end
+WorldMapFrame = {
+    IsShown = function() return true end,
+    ScrollContainer = {
+        GetLeft = function() return 100 end,
+        GetRight = function() return 300 end,
+        GetTop = function() return 250 end,
+        GetBottom = function() return 50 end,
+    },
+}
+local cursorScreenX, cursorScreenY = SMK.Map:GetCursorScreenPosition()
+local cursorMapX, cursorMapY = SMK.Map:GetCursorMapCoordinates()
+assert(cursorScreenX == 200 and cursorScreenY == 150
+    and cursorMapX == 50 and cursorMapY == 50,
+    "cursor coordinates were not normalized for UI scale")
+
+WorldMapFrame = { GetMapID = function() return 100 end }
+local externalNodes = {
+    [12345678] = { name = "External Portal" },
+}
+HandyNotes = {
+    plugins = {
+        MapNotes = {
+            GetNodes2 = function()
+                return function(state, previous) return next(state.data, previous) end,
+                    { data = externalNodes }, nil
+            end,
+        },
+    },
+}
+SMK.HandyNotesProvider:RebuildCache()
+local handyNotesEntries = SMK.HandyNotesProvider:GetAll()
+assert(#handyNotesEntries == 1
+    and handyNotesEntries[1].mapID == 100
+    and handyNotesEntries[1].x == 12.34
+    and handyNotesEntries[1].y == 56.78
+    and handyNotesEntries[1].normalizedName == "externalportal",
+    "HandyNotes cache was not normalized for the current map")
+HandyNotes = nil
+
 local encoded = SMK.ShareCodec:Encode({ SMK.Store:GetAll()[1] })
-assert(encoded:sub(1, 6) == "SMK|2|", "current share format is not explicitly versioned")
+assert(encoded:sub(1, 4) == "SMK|" and encoded:sub(1, 6) ~= "SMK|2|",
+    "current share format does not use the unified SMK prefix")
 assert(SMK.ShareCodec:FindShareText("chat " .. encoded) == encoded,
-    "versioned share text was not found in chat")
+    "share text was not found in chat")
 local decoded, decodeError, invalid = SMK.ShareCodec:Decode(encoded)
 assert(not decodeError and invalid == 0 and #decoded == 1, "current share round trip failed")
 assert(decoded[1].categoryKey == "delves" and decoded[1].pinTextureID == 5, "share fields were not preserved")
-local oldEntries, oldError = SMK.ShareCodec:Decode("SMK|100,1234,5678,1,x,1,5")
-assert(not oldEntries and oldError == SMK.L.IMPORT_INVALID_FORMAT,
-    "unversioned SMK share text was accepted")
-local futureEntries, futureError = SMK.ShareCodec:Decode("SMK|99|100,1,2,1,x")
-assert(not futureEntries and futureError == string.format(SMK.L.IMPORT_NEWER_FORMAT, 99),
-    "future share format was not rejected explicitly")
 local importResult = assert(SMK.Import:ImportText(encoded))
 assert(importResult.imported == 0 and importResult.duplicates == 1,
     "shared import service did not filter duplicates")
@@ -363,11 +449,13 @@ local function NewTexture()
             return group
         end,
         Show = function(self) self.shown = true end,
+        SetShown = function(self, value) self.shown = value end,
         Hide = function(self) self.shown = false end,
     }
 end
 local function NewFontString()
     return {
+        ClearAllPoints = function() end,
         SetPoint = function() end,
         SetTextColor = function(self, r, g, b) self.color = { r = r, g = g, b = b } end,
         SetScale = function(self, value) self.scale = value end,
@@ -389,6 +477,10 @@ function CreateFrame()
         Show = function(self) self.shown = true end,
         Hide = function(self) self.shown = false end,
         ClearAllPoints = function() end,
+        GetLeft = function() return 10 end,
+        GetRight = function() return 30 end,
+        GetBottom = function() return 20 end,
+        GetTop = function() return 40 end,
     }
 end
 GameTooltip = {
@@ -430,7 +522,6 @@ local editedPinEntry
 assert(SMK.MapPins:Initialize(fakeMap, {
     onEdit = function(entry) editedPinEntry = entry end,
 }), "map pin provider initialization failed")
-SearchMakerDB.settings.showMapPins = true
 SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 1, "enabled map pin was not acquired")
 assert(fakeMap.pins[1].frameLevelType == "PIN_FRAME_LEVEL_AREA_POI",
@@ -485,9 +576,10 @@ SearchMakerDB.settings.showMapPinNames = false
 SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 1 and fakeMap.pins[1].label.shown == false,
     "disabled map pin name was still rendered")
-SearchMakerDB.settings.showMapPins = false
+SearchMakerDB.settings.showPinTextures = false
 SMK.MapPins:Refresh()
-assert(#fakeMap.pins == 0, "disabled map pins were not cleared")
+assert(#fakeMap.pins == 0,
+    "fully hidden map pins still retained an interactive frame")
 
 local layoutButton = {
     showIcon = false,
@@ -504,8 +596,12 @@ local layoutButton = {
     background = {
         ClearAllPoints = function() end,
         SetPoint = function() end,
-        left = { SetWidth = function(self, width) self.width = width end },
-        right = { SetWidth = function(self, width) self.width = width end },
+        Show = function() end,
+        texture = {
+            SetAllPoints = function() end,
+            SetAtlas = function() end,
+            Show = function() end,
+        },
     },
     hitArea = { ClearAllPoints = function() end, SetAllPoints = function() end },
     label = {
@@ -524,7 +620,6 @@ assert(layoutButton.height == 38 and layoutButton.width == 179
     and layoutButton.iconBox.width == 0 and not layoutButton.iconBox.shown
     and layoutButton.label.leftOffset == 8 and layoutButton.label.yOffset == 1,
     "main panel location sign geometry is incorrect")
-local leftWidth, rightWidth = layoutButton.background.left.width, layoutButton.background.right.width
 layoutButton.showIcon = true
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
 assert(layoutButton.width == 217 and layoutButton.iconBox.width == 38
@@ -532,13 +627,10 @@ assert(layoutButton.width == 217 and layoutButton.iconBox.width == 38
     "search result location icon geometry is incorrect")
 layoutButton.label.text, layoutButton.label.width = "long", 220
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
-assert(layoutButton.width == 274 and layoutButton.background.left.width == leftWidth
-    and layoutButton.background.right.width == rightWidth,
-    "search result location sign did not stretch only its center segment")
+assert(layoutButton.width == 274,
+    "search result location sign did not expand for long text")
 SMK.Widgets:StretchSearchResult(layoutButton, 232)
-assert(layoutButton.width == 232 and not layoutButton.clipsChildren
-    and layoutButton.background.left.width == leftWidth
-    and layoutButton.background.right.width == rightWidth,
-    "search result did not fit the fixed result width")
+assert(layoutButton.width == 274 and not layoutButton.clipsChildren,
+    "search result clipped content wider than its minimum width")
 
 print("SearchMaker service tests passed")

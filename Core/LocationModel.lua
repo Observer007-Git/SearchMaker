@@ -5,22 +5,37 @@ local Config = SMK.Config
 local Util = SMK.Util
 
 Model.persistentKeys = {
-    "mapID", "x", "y", "name", "categoryKey", "showPin", "pinTextureID",
+    "mapID", "x", "y", "name", "categoryKey", "showPin", "showPinName", "showPinTexture", "pinTextureID", "pinColor",
 }
 
 function Model:Normalize(values)
     if type(values) ~= "table" then return nil, "INVALID_LOCATION" end
+    local legacyShowPin = values.showPin == true or tonumber(values.showPin) == 1
+    local showPinName = values.showPinName == nil and legacyShowPin
+        or values.showPinName == true or tonumber(values.showPinName) == 1
+    local showPinTexture = values.showPinTexture == nil and legacyShowPin
+        or values.showPinTexture == true or tonumber(values.showPinTexture) == 1
     local entry = {
         mapID = tonumber(values.mapID),
         x = tonumber(values.x),
         y = tonumber(values.y),
         name = Util.Trim(values.name),
         categoryKey = Config.GetCategoryKey(values.categoryKey),
-        showPin = (values.showPin == true or tonumber(values.showPin) == 1) and 1 or 0,
+        showPin = (showPinName or showPinTexture) and 1 or 0,
+        showPinName = showPinName and 1 or 0,
+        showPinTexture = showPinTexture and 1 or 0,
     }
     local pinTextureID = tonumber(values.pinTextureID)
     entry.pinTextureID = pinTextureID and SMK.PinTextureByID[pinTextureID]
         and pinTextureID or SMK.DefaultPinTextureID
+    local pinColor = type(values.pinColor) == "table" and values.pinColor or nil
+    if pinColor and tonumber(pinColor.r) and tonumber(pinColor.g) and tonumber(pinColor.b) then
+        entry.pinColor = {
+            r = math.max(0, math.min(1, tonumber(pinColor.r))),
+            g = math.max(0, math.min(1, tonumber(pinColor.g))),
+            b = math.max(0, math.min(1, tonumber(pinColor.b))),
+        }
+    end
     if not entry.mapID or entry.mapID <= 0 or entry.mapID % 1 ~= 0
         or not entry.x or entry.x < 0 or entry.x > 100
         or not entry.y or entry.y < 0 or entry.y > 100

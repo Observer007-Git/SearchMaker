@@ -28,14 +28,16 @@ function Controller:Initialize(callbacks)
 
     WorldMapFrame:HookScript("OnShow", function()
         SMK.MapIndex:Rebuild()
+        SMK.HandyNotesProvider:RebuildCache()
         if self.callbacks.onShown then self.callbacks.onShown() end
     end)
     WorldMapFrame:HookScript("OnHide", function()
         if self.callbacks.onHidden then self.callbacks.onHidden() end
     end)
     hooksecurefunc(WorldMapFrame, "SetMapID", function()
-        if WorldMapFrame:IsShown() and self.callbacks.onMapChanged then
-            self.callbacks.onMapChanged()
+        if WorldMapFrame:IsShown() then
+            SMK.HandyNotesProvider:RebuildCache()
+            if self.callbacks.onMapChanged then self.callbacks.onMapChanged() end
         end
     end)
 
@@ -47,10 +49,14 @@ function Controller:Initialize(callbacks)
             or not WorldMapFrame:IsShown() or not IsCursorOverCanvas() then return end
         local x, y = SMK.Map:GetCursorMapCoordinates()
         local mapID = x and SMK.Map:GetContextMapID() or nil
-        if mapID and self.callbacks.onAltClick then self.callbacks.onAltClick(mapID, x, y) end
+        local screenX, screenY = SMK.Map:GetCursorScreenPosition()
+        if mapID and self.callbacks.onAltClick then
+            self.callbacks.onAltClick(mapID, x, y, screenX, screenY)
+        end
     end)
 
     self:BuildMapIndex()
+    SMK.HandyNotesProvider:RebuildCache()
     C_Timer.After(0, function()
         if self.callbacks.onReady then self.callbacks.onReady() end
     end)

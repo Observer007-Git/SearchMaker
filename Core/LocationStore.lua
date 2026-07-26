@@ -143,12 +143,6 @@ function Store:FindByCategory(category)
     return matches
 end
 
-function Store:FindByMap(mapID)
-    local matches = {}
-    for _, entry in ipairs(self:GetByMap(mapID)) do matches[#matches + 1] = entry end
-    return matches
-end
-
 function Store:FindDuplicate(values, excludeEntry)
     if not values or not values.mapID then return end
     local duplicateKey = Model:GetDuplicateKey(values)
@@ -169,7 +163,7 @@ function Store:GetUsage(entry)
 end
 
 function Store:RecordUsage(entry)
-    if SMK.DB:IsReadOnly() then return false end
+    if SMK.DB:IsReadOnly() or type(entry) ~= "table" or not entry.id then return false end
     local counts = SMK.DB:Get().usageCounts
     local key = UsageKey(entry)
     counts[key] = self:GetUsage(entry) + 1

@@ -20,6 +20,7 @@ function SearchBar:ApplyArt()
         if box[key] then box[key]:Hide() end
     end
     if box.searchIcon then box.searchIcon:Hide() end
+    if box.ClearButton then box.ClearButton:Hide() end
     box.backgroundLeft = box:CreateTexture(nil, "BACKGROUND")
     box.backgroundLeft:SetPoint("TOPLEFT")
     box.backgroundLeft:SetPoint("BOTTOMLEFT")
@@ -71,6 +72,16 @@ function SearchBar:UpdateMoveHint()
     self.box.moveHint:SetText(text)
 end
 
+function SearchBar:ApplyScale()
+    local scale = SMK.Settings:Get("searchBarScale") or 1
+    self.bar:SetScale(scale)
+end
+
+function SearchBar:ApplyOpacity()
+    local opacity = SMK.Settings:Get("searchBarOpacity") or 1
+    if self.bar then self.bar:SetAlpha(opacity) end
+end
+
 --- 定位搜索栏：在世界地图上或作为浮动快捷方式。
 -- @param mode string "map" 或 "shortcut"。
 function SearchBar:ApplyPosition(mode)
@@ -120,8 +131,8 @@ end
 --- 执行搜索并填充结果下拉框。
 -- 文本变更时防抖 50ms。
 function SearchBar:UpdateResults()
-    local query = Util.Normalize(self.box:GetText())
-    self._lastQuery = query
+    local query = Util.Trim(self.box:GetText())
+    self._lastQuery = Util.Normalize(query)
     if query == "" then
         self:HideResults()
         if self.panel and self.panel:IsExpanded() then self.panel:SetSearchActive(false) end
@@ -319,7 +330,11 @@ function SearchBar:Create(callbacks)
     end)
     self.box:HookScript("OnMouseDown", function(box, button)
         box.moveHint:Hide()
-        if button == "RightButton" then self:OpenPanel() end
+        if button == "RightButton" then
+            self:OpenPanel()
+        elseif button == "MiddleButton" then
+            ToggleWorldMap()
+        end
     end)
     self.box:HookScript("OnLeave", function(box) box.moveHint:Hide() end)
 
@@ -395,6 +410,8 @@ function SearchBar:Create(callbacks)
         self:ClosePanel()
     end)
     bar:Hide()
+    self:ApplyScale()
+    self:ApplyOpacity()
     return bar
 end
 

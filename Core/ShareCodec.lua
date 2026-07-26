@@ -37,13 +37,7 @@ local function GetPayload(text)
     if text:sub(1, #Config.share.prefix) ~= Config.share.prefix then
         return nil, SMK.L.IMPORT_INVALID_FORMAT
     end
-    local versionText, payload = text:sub(#Config.share.prefix + 1):match("^(%d+)|(.*)$")
-    local version = tonumber(versionText)
-    if not version then return nil, SMK.L.IMPORT_INVALID_FORMAT end
-    if version > Config.share.version then
-        return nil, string.format(SMK.L.IMPORT_NEWER_FORMAT, version)
-    end
-    if version ~= Config.share.version then return nil, SMK.L.IMPORT_INVALID_FORMAT end
+    local payload = text:sub(#Config.share.prefix + 1)
     if payload == "" then return nil, SMK.L.IMPORT_EMPTY end
     return payload
 end
@@ -67,9 +61,11 @@ function Codec:Encode(entries)
             EncodeField(entry.name),
             entry.showPin or 0,
             tonumber(entry.pinTextureID) or SMK.DefaultPinTextureID,
+            entry.showPinName or 0,
+            entry.showPinTexture or 0,
         }, ",")
     end
-    return Config.share.prefix .. Config.share.version .. "|" .. table.concat(records, ";")
+    return Config.share.prefix .. table.concat(records, ";")
 end
 
 function Codec:Decode(text)
@@ -80,20 +76,30 @@ function Codec:Decode(text)
     for record in payload:gmatch("[^;]+") do
         local fields = SplitRecord(record)
         local category = Config.categoryByID[tonumber(fields[4])]
-        local values = #fields == 7 and category and {
-            mapID = tonumber(fields[1]),
-            x = tonumber(fields[2]) and tonumber(fields[2]) / 100 or nil,
-            y = tonumber(fields[3]) and tonumber(fields[3]) / 100 or nil,
-            categoryKey = category.key,
-            name = DecodeField(fields[5]),
-            showPin = tonumber(fields[6]) or 0,
-            pinTextureID = tonumber(fields[7]) or SMK.DefaultPinTextureID,
-        } or nil
-        local entry = values and SMK.LocationModel:Normalize(values) or nil
-        if entry then
-            entries[#entries + 1] = entry
-        else
+        if not category then
             invalid = invalid + 1
+        else
+            local values = {
+                mapID = tonumber(fields[1]),
+                x = tonumber(fields[2]) and tonumber(fields[2]) / 100 or nil,
+                y = tonumber(fields[3]) and tonumber(fields[3]) / 100 or nil,
+                categoryKey = category.key,
+                name = DecodeField(fields[5]),
+                showPin = tonumber(fields[6]) or 0,
+                pinTextureID = tonumber(fields[7]) or SMK.DefaultPinTextureID,
+                showPinName = tonumber(fields[8]) or 0,
+                showPinTexture = tonumber(fields[9]) or 0,
+            }
+            if #fields == 7 then
+                values.showPinName = values.showPin
+                values.showPinTexture = values.showPin
+            end
+            local entry = SMK.LocationModel:Normalize(values) or nil
+            if entry then
+                entries[#entries + 1] = entry
+            else
+                invalid = invalid + 1
+            end
         end
     end
     return entries, nil, invalid

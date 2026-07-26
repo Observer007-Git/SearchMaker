@@ -19,24 +19,36 @@ local function CreatePinMixin()
         end
         self.entry = entry
         self:SetPosition(entry.x / 100, entry.y / 100)
-        self:SetSize(SMK.Config.mapPins.size, SMK.Config.mapPins.size)
+        local textureScale = SMK.Settings:Get("pinTextureScale")
+        local pinSize = SMK.Config.mapPins.size * textureScale
+        self:SetSize(pinSize, pinSize)
         if not self.icon then
             self.icon = self:CreateTexture(nil, "OVERLAY")
             self.icon:SetAllPoints(self)
         end
         if not self.label then
             self.label = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-            self.label:SetPoint("BOTTOM", self, "TOP", 0, 2)
         end
-        local textColor = SMK.Settings:Get("mapPinTextColor")
-        self.label:SetTextColor(textColor.r, textColor.g, textColor.b)
+        self.label:ClearAllPoints()
+        local offsetX = SMK.Settings:Get("mapPinNameOffsetX")
+        local offsetY = SMK.Settings:Get("mapPinNameOffsetY")
+        self.label:SetPoint("BOTTOM", self, "TOP", offsetX, offsetY)
+        if entry.pinColor then
+            self.label:SetTextColor(entry.pinColor.r, entry.pinColor.g, entry.pinColor.b)
+        else
+            local textColor = SMK.Settings:Get("mapPinTextColor")
+            self.label:SetTextColor(textColor.r, textColor.g, textColor.b)
+        end
         self.label:SetScale(SMK.Settings:Get("mapPinTextScale"))
         local texture = SMK.PinTextureByID[tonumber(entry.pinTextureID)]
             or SMK.PinTextureByID[SMK.DefaultPinTextureID]
         self.icon:SetAtlas(texture and texture.atlas or SMK.Config.art.fallbackLocationAtlas, true)
+        self.icon:SetVertexColor(1, 1, 1)
         self.label:SetText(entry.name)
-        self.label:SetShown(SMK.Settings:Get("showMapPinNames"))
-        self.icon:Show()
+        local showName = entry.showPinName == 1
+        local showTexture = entry.showPinTexture == 1
+        self.label:SetShown(SMK.Settings:Get("showMapPinNames") and showName)
+        self.icon:SetShown(SMK.Settings:Get("showPinTextures") and showTexture)
         self:Show()
     end
 
@@ -69,7 +81,9 @@ local function CreatePinMixin()
     function mixin:OnClick(button)
         if button == "LeftButton" and self.entry and MapPins.callbacks.onEdit then
             GameTooltip_Hide()
-            MapPins.callbacks.onEdit(self.entry)
+            local screenX = (self:GetLeft() + self:GetRight()) / 2
+            local screenY = (self:GetBottom() + self:GetTop()) / 2
+            MapPins.callbacks.onEdit(self.entry, screenX, screenY)
         end
     end
 
@@ -172,11 +186,14 @@ function MapPins:Initialize(map, callbacks)
     end
     function provider:RefreshAllData()
         self:RemoveAllData()
-        if not SMK.Settings:Get("showMapPins") then return end
         local mapID = self:GetMap():GetMapID()
         if not mapID then return end
+        local showNames = SMK.Settings:Get("showMapPinNames")
+        local showTextures = SMK.Settings:Get("showPinTextures")
         for _, entry in ipairs(SMK.Store:GetByMap(mapID)) do
-            if entry.showPin == 1 then
+            local showName = entry.showPinName == 1
+            local showTexture = entry.showPinTexture == 1
+            if (showNames and showName) or (showTextures and showTexture) then
                 self:GetMap():AcquirePin(TEMPLATE, entry)
             end
         end
@@ -232,6 +249,50 @@ end
 
 function MapPins:Clear()
     if self.provider then self.provider:RemoveAllData() end
+end
+
+--- 实时更新地图上指定条目标记的文字颜色（颜色选择预览用）。
+-- @param entry table 地点条目。
+-- @param color table|nil {r, g, b} 或 nil 表示恢复默认颜色。
+function MapPins:UpdatePinPreviewColor(entry, color)
+    if not self.provider or not entry then return end
+    local map = self.provider:GetMap()
+    if not map or not map:IsShown() or map:GetMapID() ~= entry.mapID then return end
+    local canvas = map:GetCanvas()
+    if not canvas then return end
+    for _, child in ipairs({canvas:GetChildren()}) do
+        if child.isSearchMakerMapPin and child.entry == entry and child.label then
+            if color then
+                child.label:SetTextColor(color.r, color.g, color.b)
+            else
+                local textColor = SMK.Settings:Get("mapPinTextColor")
+                child.label:SetTextColor(textColor.r, textColor.g, textColor.b)
+            end
+            return
+        end
+    end
+end
+
+function MapPins:UpdatePinVisibility(entry, showPinName, showPinTexture)
+    if not self.provider or not entry then return end
+    local map = self.provider:GetMap()
+    if not map or not map:IsShown() or map:GetMapID() ~= entry.mapID then return end
+    local canvas = map:GetCanvas()
+    if not canvas then return end
+    for _, child in ipairs({canvas:GetChildren()}) do
+        if child.isSearchMakerMapPin and child.entry == entry then
+            local nameVisible = SMK.Settings:Get("showMapPinNames") and showPinName
+            local textureVisible = SMK.Settings:Get("showPinTextures") and showPinTexture
+            if child.label then
+                child.label:SetShown(nameVisible)
+            end
+            if child.icon then
+                child.icon:SetShown(textureVisible)
+            end
+            child:SetShown(nameVisible or textureVisible)
+            return
+        end
+    end
 end
 
 SMK.MapPins = MapPins

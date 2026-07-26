@@ -127,7 +127,7 @@ function MainPanel:RenderFrequent()
             self.frequentButtons[index] = button
         end
         button:ClearAllPoints()
-        button.background:Show()
+        button:Show()
         Widgets:SetLocationEntry(button, frequent[index].entry)
         local width, height = button:GetWidth(), button:GetHeight()
         if x > startX and x + width > available - startX then
@@ -159,6 +159,10 @@ function MainPanel:RefreshHeader()
     end
     self.frame.locationCount:SetText(string.format(SMK.L.LOCATION_COUNT,
         #SMK.State.currentEntries, SMK.State.totalLocationCount))
+    local scale = SMK.Settings:Get("locationScale")
+    self.scaleValue:SetText(string.format("%d%%", math.floor(scale * 100 + 0.5)))
+    self.scaleMinus:SetEnabled(scale > Config.location.minScale)
+    self.scalePlus:SetEnabled(scale < Config.location.maxScale)
 end
 
 --- 全面板刷新：头部、地点列表、常用列表和显示设置。
@@ -194,15 +198,23 @@ function MainPanel:SetSearchActive(active)
     self.frequentRow:SetShown(not active)
 end
 
+function MainPanel:ChangeLocationScale(delta)
+    local value = math.max(Config.location.minScale,
+        math.min(Config.location.maxScale, SMK.Settings:Get("locationScale") + delta))
+    local changed, message = SMK.Settings:Set("locationScale", value)
+    if not changed then SMK:Print(message) end
+    self:RefreshHeader()
+end
+
 function MainPanel:ContainsMouseFocus(foci)
     if not DoesAncestryIncludeAny then return false end
     return self.frame and DoesAncestryIncludeAny(self.frame, foci)
 end
 
-function MainPanel:OpenEditor(mode, entry)
+function MainPanel:OpenEditor(mode, entry, position)
     SMK.ModalManager:PrepareToShow(SMK.LocationEditor)
     if self.callbacks.onDialogOpened then self.callbacks.onDialogOpened() end
-    SMK.LocationEditor:Open(mode, entry)
+    SMK.LocationEditor:Open(mode, entry, position)
 end
 
 function MainPanel:OpenShare()
@@ -223,6 +235,15 @@ function MainPanel:ToggleSettings()
     else
         SMK.ModalManager:PrepareToShow(SMK.PanelSettings)
         SMK.PanelSettings:Open()
+    end
+end
+
+function MainPanel:ToggleSearchSettings()
+    if SMK.SearchBarSettings:IsShown() then
+        SMK.SearchBarSettings:Hide()
+    else
+        SMK.ModalManager:PrepareToShow(SMK.SearchBarSettings)
+        SMK.SearchBarSettings:Open()
     end
 end
 
@@ -284,8 +305,11 @@ function MainPanel:Create(searchBar, callbacks)
     local settings = Widgets:CreatePanelButton(frame, SMK.L.SETTINGS)
     settings:SetPoint("RIGHT", close, "LEFT", -buttonGap, 0)
     settings:SetScript("OnClick", function() self:ToggleSettings() end)
+    local searchSettings = Widgets:CreatePanelButton(frame, SMK.L.SEARCH_BAR_SETTINGS)
+    searchSettings:SetPoint("RIGHT", settings, "LEFT", -buttonGap, 0)
+    searchSettings:SetScript("OnClick", function() self:ToggleSearchSettings() end)
     local more = Widgets:CreatePanelButton(frame, SMK.L.MORE)
-    more:SetPoint("RIGHT", settings, "LEFT", -buttonGap, 0)
+    more:SetPoint("RIGHT", searchSettings, "LEFT", -buttonGap, 0)
     more:SetScript("OnClick", function() self:ToggleMoreMenu() end)
     local share = Widgets:CreatePanelButton(frame, SMK.L.SHARE)
     share:SetPoint("RIGHT", more, "LEFT", -buttonGap, 0)
@@ -294,8 +318,28 @@ function MainPanel:Create(searchBar, callbacks)
     add:SetPoint("RIGHT", share, "LEFT", -buttonGap, 0)
     add:SetScript("OnClick", function() self:OpenEditor("add") end)
 
+    -- 地点缩放控件
+    local scaleMinus = Widgets:CreatePanelButton(frame, "-", { width = 24 })
+    scaleMinus:SetPoint("RIGHT", add, "LEFT", -buttonGap, 0)
+    scaleMinus:SetScript("OnClick", function()
+        self:ChangeLocationScale(-Config.location.scaleStep)
+    end)
+    self.scaleValue = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    self.scaleValue:SetPoint("RIGHT", scaleMinus, "LEFT", -4, 0)
+    self.scaleValue:SetWidth(36)
+    self.scaleValue:SetJustifyH("CENTER")
+    local scalePlus = Widgets:CreatePanelButton(frame, "+", { width = 24 })
+    scalePlus:SetPoint("RIGHT", self.scaleValue, "LEFT", -4, 0)
+    scalePlus:SetScript("OnClick", function()
+        self:ChangeLocationScale(Config.location.scaleStep)
+    end)
+    self.scaleMinus = scaleMinus
+    self.scalePlus = scalePlus
+
     SMK.PanelSettings:Create(settings)
-    self.shortcutButton = SMK.PanelSettings.shortcutButton
+    SMK.SearchBarSettings:Create(searchSettings)
+    self.shortcutButton = SMK.SearchBarSettings.shortcutButton
+    SMK.ModalManager:Register(SMK.SearchBarSettings)
 
     local moreMenu = {}
     local moreFrame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")

@@ -21,12 +21,14 @@ end
 
 local function NormalizeSettings(source)
     source = type(source) == "table" and source or {}
-    local scale = tonumber(source.locationScale) or Config.settingsDefaults.locationScale
-    scale = math.max(Config.location.minScale, math.min(Config.location.maxScale, scale))
-    local textScale = tonumber(source.mapPinTextScale) or Config.settingsDefaults.mapPinTextScale
-    textScale = math.max(Config.mapPins.minTextScale, math.min(Config.mapPins.maxTextScale, textScale))
     local sourceColor = type(source.mapPinTextColor) == "table" and source.mapPinTextColor or {}
     local defaultColor = Config.settingsDefaults.mapPinTextColor
+    local function NumberInRange(key, minimum, maximum, decimals)
+        local value = tonumber(source[key]) or Config.settingsDefaults[key]
+        value = math.max(minimum, math.min(maximum, value))
+        local factor = 10 ^ (decimals or 0)
+        return math.floor(value * factor + 0.5) / factor
+    end
     local function ColorComponent(key)
         local value = tonumber(sourceColor[key]) or defaultColor[key]
         return math.max(0, math.min(1, value))
@@ -36,16 +38,26 @@ local function NormalizeSettings(source)
         return Config.settingsDefaults[key]
     end
     return {
-        locationScale = math.floor(scale * 10 + 0.5) / 10,
-        mapPinTextScale = math.floor(textScale * 10 + 0.5) / 10,
+        locationScale = NumberInRange("locationScale",
+            Config.location.minScale, Config.location.maxScale, 1),
+        mapPinTextScale = NumberInRange("mapPinTextScale",
+            Config.mapPins.minTextScale, Config.mapPins.maxTextScale, 1),
+        pinTextureScale = NumberInRange("pinTextureScale",
+            Config.mapPins.minTextureScale, Config.mapPins.maxTextureScale, 1),
+        mapPinNameOffsetX = NumberInRange("mapPinNameOffsetX",
+            Config.mapPins.nameOffsetXMin, Config.mapPins.nameOffsetXMax),
+        mapPinNameOffsetY = NumberInRange("mapPinNameOffsetY",
+            Config.mapPins.nameOffsetYMin, Config.mapPins.nameOffsetYMax),
+        searchBarScale = NumberInRange("searchBarScale", 0.5, 2, 1),
+        searchBarOpacity = NumberInRange("searchBarOpacity", 0.2, 1, 1),
         mapPinTextColor = {
             r = ColorComponent("r"),
             g = ColorComponent("g"),
             b = ColorComponent("b"),
         },
         shortcutSearchVisible = BooleanOrDefault("shortcutSearchVisible"),
-        showMapPins = BooleanOrDefault("showMapPins"),
         showMapPinNames = BooleanOrDefault("showMapPinNames"),
+        showPinTextures = BooleanOrDefault("showPinTextures"),
         searchAllMaps = BooleanOrDefault("searchAllMaps"),
         shortcutSearchBarPosition = CopyPosition(source.shortcutSearchBarPosition),
         mapSearchBarPosition = CopyPosition(source.mapSearchBarPosition),

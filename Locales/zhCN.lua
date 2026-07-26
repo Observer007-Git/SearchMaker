@@ -3,11 +3,16 @@ local _, SMK = ...
 if SMK.locale ~= "zhCN" then return end
 
 local translations = {
+    SEARCH_BAR_SETTINGS = "搜索设置",
+    SEARCH_BAR_SCALE = "搜索框缩放",
+    SEARCH_BAR_OPACITY = "搜索框透明度",
+    SHORTCUT_KEY = "呼出快捷键",
+    EXTERNAL_SOURCE = "外部来源",
     SEARCH_CURRENT_MAP = "搜索 %s",
     SEARCH_ALL_MAPS = "搜索 宇宙",
     SHARE = "导出/导入",
-    ADD = "新增",
-    SETTINGS = "设置",
+    ADD = "新增坐标",
+    SETTINGS = "标记设置",
     DISPLAY_SETTINGS = "显示设置",
     MORE = "更多",
     BULK_DELETE = "批量删除",
@@ -21,10 +26,15 @@ local translations = {
     NO_FREQUENT = "暂无使用记录",
     LOCATION_COUNT = "坐标数量：%d/%d",
     SHOW_MAP_PINS = "显示地图标记",
+    SHOW_PIN_TEXTURES = "显示标记材质",
     SHOW_MAP_PIN_NAMES = "显示标记名称",
-    PIN_TEXT_COLOR = "标记文字颜色",
+    PIN_TEXT_COLOR = "显示标记文字",
     PIN_TEXT_SIZE = "标记文字大小",
     PIN_TEXTURE_LABEL = "标记材质",
+    PIN_COLOR_LABEL = "标记颜色",
+    PIN_NAME_OFFSET_X = "名称水平偏移",
+    PIN_NAME_OFFSET_Y = "名称垂直偏移",
+    PIN_TEXTURE_SIZE = "标记材质大小",
     LOCATION_SCALE = "地点缩放",
 
     -- Namespace
@@ -79,7 +89,6 @@ local translations = {
     DELETE_MAP_DESC = "地图 ID %d 的全部地点",
 
     -- ShareDialog
-    
     CHAT_IMPORT = "密语导入",
     CHAT_IMPORT_NONE = "未在聊天记录中发现 SMK 编码。",
     CHAT_IMPORT_ALL_DUPLICATES = "聊天中发现 SMK 编码，但都已存在。",
@@ -87,7 +96,7 @@ local translations = {
     CHAT_IMPORT_SUCCESS = "从聊天中成功导入 %d 个地点。",
     SHARE_TITLE = "导入 / 导出",
     EXPORT_CURRENT_ONLY = "只导出当前地图",
-        EXPORT_RANGE = "导出范围",
+    EXPORT_RANGE = "导出范围",
     EXPORT_RANGE_SUCCESS = "已生成 %d 个地点（第%d-%d条）。按 Ctrl+C 复制。",
     EXPORT_SUCCESS = "已生成 %d 个地点，按 Ctrl+C 复制。",
     EXPORT_BUTTON = "生成导出文本",
@@ -96,8 +105,7 @@ local translations = {
     IMPORT_RESULT = "已导入 %d 个，跳过重复 %d 个，无效 %d 个。",
     EXPORT_NO_LOCATIONS = "该地图没有可导出的地点。",
     EXPORT_NO_LOCATIONS_ALL = "没有可导出的地点。",
-    IMPORT_INVALID_FORMAT = "文本格式无效：缺少 SMK 版本标记。",
-    IMPORT_NEWER_FORMAT = "该共享文本使用了尚不支持的格式版本 %d。",
+    IMPORT_INVALID_FORMAT = "文本格式无效：缺少 SMK 前缀。",
     IMPORT_EMPTY = "文本中没有可导入的地点。",
     DATABASE_READ_ONLY = "存档版本 %d 高于当前支持的版本 %d，SearchMaker 已进入只读模式以保护数据。",
 
@@ -121,7 +129,8 @@ local translations = {
     SHORTCUT_TOOLTIP_CURRENT = "当前：%s",
     SHORTCUT_TOOLTIP_HINT = "点击后按下新的组合键。",
     SEARCH_RESULT_FORMAT = "%s：%s",
-            MAP_PORTAL_SUFFIX = " [地图]",
+    COORDINATE_RESULT_FORMAT = "坐标：%s，%s",
+    MAP_PORTAL_SUFFIX = " [地图]",
     OPEN_MAP = "点击打开地图",
     NO_KEY_BOUND = "未设置",
 

@@ -2,6 +2,14 @@ local _, SMK = ...
 
 local Map = {}
 
+function Map:GetCursorScreenPosition()
+    local x, y = GetCursorPosition()
+    if not x or not y then return end
+    local scale = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+    if not scale or scale <= 0 then scale = 1 end
+    return x / scale, y / scale
+end
+
 --- 获取当前相关的地图 ID：已打开的世界地图，或玩家当前区域。
 -- @return number|nil 地图 ID。
 function Map:GetContextMapID()
@@ -70,7 +78,7 @@ function Map:GetCursorMapCoordinates()
     if not (left and right and top and bottom) or right - left == 0 or top - bottom == 0 then
         return
     end
-    local cursorX, cursorY = GetCursorPosition()
+    local cursorX, cursorY = self:GetCursorScreenPosition()
     if not cursorX or not cursorY then
         return
     end

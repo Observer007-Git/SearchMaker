@@ -6,8 +6,8 @@ local changeHandler
 
 local booleanKeys = {
     shortcutSearchVisible = true,
-    showMapPins = true,
     showMapPinNames = true,
+    showPinTextures = true,
     searchAllMaps = true,
 }
 
@@ -38,11 +38,36 @@ local function Normalize(key, value)
         scale = math.max(Config.location.minScale, math.min(Config.location.maxScale, scale))
         return math.floor(scale * 10 + 0.5) / 10
     end
+    if key == "searchBarScale" then
+        local scale = tonumber(value)
+        if not scale then return nil end
+        scale = math.max(0.5, math.min(2, scale))
+        return math.floor(scale * 10 + 0.5) / 10
+    end
+    if key == "searchBarOpacity" then
+        local opacity = tonumber(value)
+        if not opacity then return nil end
+        return math.max(0.2, math.min(1, opacity))
+    end
     if key == "mapPinTextScale" then
         local scale = tonumber(value)
         if not scale then return nil end
         scale = math.max(Config.mapPins.minTextScale, math.min(Config.mapPins.maxTextScale, scale))
         return math.floor(scale * 10 + 0.5) / 10
+    end
+    if key == "pinTextureScale" then
+        local scale = tonumber(value)
+        if not scale then return nil end
+        scale = math.max(Config.mapPins.minTextureScale, math.min(Config.mapPins.maxTextureScale, scale))
+        return math.floor(scale * 10 + 0.5) / 10
+    end
+    if key == "mapPinNameOffsetX" or key == "mapPinNameOffsetY" then
+        local offset = tonumber(value)
+        if not offset then return nil end
+        local axis = key:sub(-1)
+        local minVal = Config.mapPins["nameOffset" .. axis .. "Min"]
+        local maxVal = Config.mapPins["nameOffset" .. axis .. "Max"]
+        return math.max(minVal, math.min(maxVal, math.floor(offset + 0.5)))
     end
     if key == "mapPinTextColor" then
         if type(value) ~= "table" or not tonumber(value.r)

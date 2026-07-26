@@ -52,7 +52,8 @@ function SearchResults:Hide()
     for _, button in ipairs(self.widgets) do
         button.isSearchSelected = false
         button.highlight:Hide()
-        button.label:SetTextColor(unpack(SMK.Config.colors.locationNormal))
+        local color = button.isPinned and SMK.Config.colors.locationPinned or SMK.Config.colors.locationNormal
+        button.label:SetTextColor(unpack(color))
         button:Hide()
     end
     self:NotifyVisibilityChanged()
@@ -63,8 +64,10 @@ function SearchResults:UpdateSelection()
         button.isSearchSelected = index == self.selectedIndex
             and index <= self.visibleCount and button:IsShown()
         button.highlight:SetShown(button.isSearchSelected)
-        button.label:SetTextColor(unpack(button.isSearchSelected
-            and SMK.Config.colors.locationHover or SMK.Config.colors.locationNormal))
+        local color = button.isSearchSelected and SMK.Config.colors.locationHover
+            or (button.isPinned and SMK.Config.colors.locationPinned
+                or SMK.Config.colors.locationNormal)
+        button.label:SetTextColor(unpack(color))
     end
 end
 
@@ -94,9 +97,9 @@ function SearchResults:GetSelected()
     return self.matches[index]
 end
 
---- 渲染已归一化查询的搜索结果。
+--- 渲染搜索结果；SearchService 负责文本归一化和坐标识别。
 function SearchResults:Render(source, query, allMaps)
-    local matches = SMK.Search:Find(source, query, allMaps)
+    local matches = SMK.Search:Find(source, query, allMaps, SMK.State.currentMapID)
     self.matches = matches
     local visible = #matches
     if visible == 0 then
@@ -113,10 +116,8 @@ function SearchResults:Render(source, query, allMaps)
 
     self.empty:Hide()
     self.visibleCount, self.selectedIndex = visible, 1
-    local y = 4
     local frameInset = SMK.Config.search.resultFrameInset
     local frameWidth = math.max(1, self.box:GetWidth() - frameInset * 2)
-    local width = math.max(1, frameWidth - 8)
     for index, match in ipairs(matches) do
         local button = self.widgets[index]
         if not button then
@@ -124,22 +125,36 @@ function SearchResults:Render(source, query, allMaps)
             self.widgets[index] = button
         end
         button:ClearAllPoints()
-        button.background:Show()
         local display
-        if match.isMapPortal then
+        if match.isCoordinateResult then
+            display = match.entry.name
+        elseif match.isMapPortal then
             display = match.entry.name .. SMK.L.MAP_PORTAL_SUFFIX
         elseif allMaps then
             display = string.format(SMK.L.SEARCH_RESULT_FORMAT, match.mapName, match.entry.name)
         end
+        button:Show()
         SMK.Widgets:SetLocationEntry(button, match.entry, display, true)
-        SMK.Widgets:StretchSearchResult(button, width)
-        button.isSearchResult, button.resultIndex = true, index
+        button.resultIndex = index
+    end
+    local y = 4
+    local maxWidth = math.max(1, frameWidth - 8)
+    for index = 1, visible do
+        maxWidth = math.max(maxWidth, self.widgets[index]:GetWidth())
+    end
+    for index, match in ipairs(matches) do
+        local button = self.widgets[index]
+        button.isSearchResult = true
+        SMK.Widgets:StretchSearchResult(button, maxWidth)
         button:SetPoint("TOPLEFT", 4, -y)
         y = y + button:GetHeight() + SMK.Config.location.verticalGap
     end
-    for index = visible + 1, #self.widgets do self.widgets[index]:Hide() end
-    self.frame:SetWidth(frameWidth)
-    self.frame:SetHeight(y + 2)
+    for index = visible + 1, #self.widgets do
+        self.widgets[index].resultIndex = nil
+        self.widgets[index]:Hide()
+    end
+    self.frame:SetWidth(maxWidth + 8)
+    self.frame:SetHeight(math.max(1, y) + 2)
     self.frame:Show()
     self:UpdateSelection()
     self:NotifyVisibilityChanged()

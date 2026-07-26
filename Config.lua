@@ -155,6 +155,7 @@ local Config = {
         locationNormal = { 1, 0.82, 0 },
         locationHover = { 1, 1, 1 },
         locationPinned = { 0.33, 0.9, 1 },
+        externalSource = { 0.72, 0.55, 1 },
         panelBorder = { 0.82, 0.62, 0.25, 1 },
         dialogBackground = { 0.08, 0.055, 0.025, 1 },
         disabled = { 0.55, 0.55, 0.55 },

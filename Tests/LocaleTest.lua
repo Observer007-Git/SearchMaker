@@ -44,7 +44,8 @@ assert(english.L.COORDINATE_RESULT_FORMAT and chinese.L.COORDINATE_RESULT_FORMAT
     "coordinate result locale is missing")
 assert(english.L.SEARCH_BAR_SETTINGS == "Search Settings"
     and chinese.L.SEARCH_BAR_SETTINGS == "搜索设置"
-    and english.L.EXTERNAL_SOURCE == "External Source",
+    and english.L.EXTERNAL_SOURCE == "External Source"
+    and chinese.L.HANDYNOTES_SOURCE_SUFFIX == "[来自HandyNotes_MapNotes]",
     "search settings or external source locale is missing")
 assert(english.Config.GetCategoryKey("delves") == "delves", "canonical category key failed")
 assert(english.Config.GetCategoryKey("地下堡") == "other", "localized category leaked into storage")

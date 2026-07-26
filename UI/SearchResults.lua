@@ -3,6 +3,13 @@ local _, SMK = ...
 local SearchResults = {}
 SearchResults.__index = SearchResults
 
+local function ColorText(text, color)
+    return string.format("|cff%02x%02x%02x%s|r",
+        math.floor(color[1] * 255 + 0.5),
+        math.floor(color[2] * 255 + 0.5),
+        math.floor(color[3] * 255 + 0.5), text)
+end
+
 function SearchResults:New(parent, box, callbacks)
     local view = setmetatable({
         box = box,
@@ -132,6 +139,10 @@ function SearchResults:Render(source, query, allMaps)
             display = match.entry.name .. SMK.L.MAP_PORTAL_SUFFIX
         elseif allMaps then
             display = string.format(SMK.L.SEARCH_RESULT_FORMAT, match.mapName, match.entry.name)
+        end
+        if match.entry.isExternal then
+            display = (display or match.entry.name) .. " "
+                .. ColorText(SMK.L.HANDYNOTES_SOURCE_SUFFIX, SMK.Config.colors.externalSource)
         end
         button:Show()
         SMK.Widgets:SetLocationEntry(button, match.entry, display, true)

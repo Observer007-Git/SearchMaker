@@ -129,6 +129,7 @@ SMK.L = {
     SEARCH_RESULT_FORMAT = "%s: %s",
     COORDINATE_RESULT_FORMAT = "Coordinates: %s, %s",
     MAP_PORTAL_SUFFIX = " [Map]",
+    HANDYNOTES_SOURCE_SUFFIX = "[From HandyNotes_MapNotes]",
     OPEN_MAP = "Click to open map",
     NO_KEY_BOUND = "Not set",
 

@@ -52,6 +52,7 @@ for _, path in ipairs({
     "Core/PinTextures.lua", "Core/LocationModel.lua", "Core/Database.lua", "Core/SettingsService.lua",
     "Core/LocationStore.lua", "Core/MapService.lua",
     "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/HandyNotesProvider.lua",
+    "Core/RareScannerProvider.lua",
     "Core/ImportService.lua", "Core/MapPinProvider.lua",
     "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua", "UI/ModalManager.lua", "UI/BulkDeleteDialog.lua",
     "UI/Widgets.lua",
@@ -91,7 +92,9 @@ assert(SMK.Config.searchResultBackdrop.insets.left == 5
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\Ability_Paladin_SavedByTheLight"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
-    and SMK.Config.art.searchResultIconFrameExpand == 4,
+    and SMK.Config.art.searchResultIconFrameExpand == 4
+    and SMK.Config.art.rareScannerFallbackIcon
+        == "Interface\\AddOns\\RareScanner\\Media\\Icons\\OriginalSkull",
     "search scope icon art is not configured")
 local widgetsFile = assert(io.open(root .. "/UI/Widgets.lua", "r"))
 local widgetsSource = widgetsFile:read("*a")
@@ -289,6 +292,19 @@ assert(not duplicateFavorite
     and duplicateFavoriteError == string.format(SMK.L.DUPLICATE_NAME, externalFavorite.name),
     "duplicate external favorite was accepted")
 assert(SMK.Store:Delete(favorite) == 1, "external favorite could not be deleted")
+local rareFavorite = assert(SMK.Store:AddExternal({
+    isExternal = true,
+    externalSource = "RareScanner",
+    mapID = 100,
+    x = 52.5,
+    y = 61.25,
+    name = "稀有目标",
+}))
+assert(rareFavorite.source == "saved" and SMK.Store:Delete(rareFavorite) == 1,
+    "RareScanner result could not be favorited")
+assert(not SMK.Store:CanFavoriteExternal({
+    isExternal = true, externalSource = "Unknown",
+}), "unknown external source was accepted")
 
 local storeChangeReason
 SMK.Store:SetChangeHandler(function(reason) storeChangeReason = reason end)
@@ -415,6 +431,60 @@ SMK.Widgets:SetLocationIcon(fakeIcon, { isExternal = true })
 assert(fakeIcon.texture == SMK.Config.art.handyNotesFallbackIcon,
     "HandyNotes search result did not use the MNL4 fallback icon")
 HandyNotes = nil
+
+local rareTexture = "Interface\\AddOns\\RareScanner\\Media\\Icons\\RedSkullDark"
+assert(SMK.RareScannerProvider:CapturePOI({
+    isNpc = true,
+    entityID = 3001,
+    mapID = 100,
+    x = 0.3333,
+    y = 0.4444,
+    name = "稀有精英甲",
+    Texture = rareTexture,
+}), "RareScanner NPC POI was not captured")
+assert(not SMK.RareScannerProvider:CapturePOI({
+    isNpc = true,
+    entityID = 3001,
+    mapID = 100,
+    x = 0.3333,
+    y = 0.4444,
+    name = "稀有精英甲",
+    Texture = rareTexture,
+}), "duplicate RareScanner POI was inserted")
+assert(SMK.RareScannerProvider:CapturePOI({
+    POIs = {
+        {
+            isNpc = true,
+            entityID = 3002,
+            mapID = 200,
+            x = 20,
+            y = 30,
+            name = "稀有精英乙",
+            Texture = rareTexture,
+        },
+        { isContainer = true, entityID = 4001, mapID = 200, x = 10, y = 10, name = "宝箱" },
+    },
+}), "RareScanner grouped NPC POI was not captured")
+local rareCurrent = SMK.RareScannerProvider:GetAll(100, false)
+local rareAll = SMK.RareScannerProvider:GetAll(nil, true)
+assert(#rareCurrent == 1 and #rareAll == 2
+    and rareCurrent[1].x == 33.33 and rareCurrent[1].y == 44.44
+    and rareCurrent[1].externalSource == "RareScanner",
+    "RareScanner POI cache or coordinate conversion is incorrect")
+local rareMatches = SMK.Search:Find({}, "稀有精英甲", false, 100)
+assert(#rareMatches == 1 and rareMatches[1].entry == rareCurrent[1],
+    "RareScanner localized name was not searchable on the current map")
+fakeIcon.texture = nil
+SMK.Widgets:SetLocationIcon(fakeIcon, rareCurrent[1])
+assert(fakeIcon.texture == rareTexture,
+    "RareScanner result did not use its source icon")
+fakeIcon.texture = nil
+SMK.Widgets:SetLocationIcon(fakeIcon, {
+    isExternal = true,
+    externalSource = "RareScanner",
+})
+assert(fakeIcon.texture == SMK.Config.art.rareScannerFallbackIcon,
+    "RareScanner result did not use its fallback icon")
 
 local encoded = SMK.ShareCodec:Encode({ SMK.Store:GetAll()[1] })
 assert(encoded:sub(1, 4) == "SMK|" and encoded:sub(1, 6) ~= "SMK|2|",

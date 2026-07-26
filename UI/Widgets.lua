@@ -124,12 +124,14 @@ function Widgets:CreatePanelButton(parent, text, options)
 end
 
 --- 设置地点条目的图标。
--- HandyNotes 条目使用来源插件迭代器返回的纹理；缺失时回退到内置 MNL4。
+-- 外部条目优先使用来源插件提供的纹理。
 function Widgets:SetLocationIcon(texture, entry)
     if entry.isMapPortal then
         texture:SetAtlas("poi-islands-table", false)
     elseif entry.isExternal then
-        texture:SetTexture(entry.iconTexture or Art.handyNotesFallbackIcon)
+        local fallback = entry.externalSource == "RareScanner"
+            and Art.rareScannerFallbackIcon or Art.handyNotesFallbackIcon
+        texture:SetTexture(entry.iconTexture or fallback)
         texture:SetTexCoord(0, 1, 0, 1)
     else
         local catInfo = Config.categoryByKey[entry.categoryKey]

@@ -48,6 +48,7 @@ assert(english.L.SEARCH_BAR_SETTINGS == "Search Settings"
     and chinese.L.SEARCH_BAR_SETTINGS == "搜索设置"
     and english.L.EXTERNAL_SOURCE == "External Source"
     and chinese.L.HANDYNOTES_SOURCE_SUFFIX == "[来自HandyNotes_MapNotes]"
+    and chinese.L.RARESCANNER_SOURCE_SUFFIX == "[来自RareScanner]"
     and chinese.L.HANDYNOTES_PORTAL == "传送门",
     "search settings or external source locale is missing")
 assert(english.Config.GetCategoryKey("delves") == "delves", "canonical category key failed")

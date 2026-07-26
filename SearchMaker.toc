@@ -4,9 +4,9 @@
 ## Notes: Search and mark locations on the world map, using in-game tools.
 ## Notes-zhCN: 在世界地图上搜索并标记地点，使用游戏内置功能。
 ## Author: Codex
-## Version: 1.21.7
+## Version: 1.22.0
 ## SavedVariables: SearchMakerDB
-## OptionalDeps: HandyNotes, HandyNotes_MapNotes
+## OptionalDeps: HandyNotes, HandyNotes_MapNotes, RareScanner
 
 Core/Namespace.lua
 Config.lua
@@ -23,6 +23,7 @@ Core/SearchService.lua
 Core/MapIndex.lua
 Core/ShareCodec.lua
 Core/HandyNotesProvider.lua
+Core/RareScannerProvider.lua
 Core/ImportService.lua
 Core/MapPinProvider.lua
 Core/RefreshCoordinator.lua

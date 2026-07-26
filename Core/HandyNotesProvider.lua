@@ -155,13 +155,13 @@ local function BuildNodeText(nodeData)
     return displayName, table.concat(parts, " ")
 end
 
-function HandyNotesProvider:RebuildCache()
+function HandyNotesProvider:RebuildCache(mapID)
     cache = {}
     if not HandyNotes or not HandyNotes.plugins or not HandyNotes.plugins[pluginName] then return end
     local plugin = HandyNotes.plugins[pluginName]
     if not plugin.GetNodes2 then return end
 
-    local mapID = SMK.Map:GetContextMapID()
+    mapID = tonumber(mapID) or SMK.Map:GetContextMapID()
     if not mapID then return end
 
     local ok, iterFunc, tbl = pcall(plugin.GetNodes2, plugin, mapID, false)

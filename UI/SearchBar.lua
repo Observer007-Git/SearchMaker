@@ -79,7 +79,9 @@ end
 
 function SearchBar:ApplyOpacity()
     local opacity = SMK.Settings:Get("searchBarOpacity") or 1
-    if self.bar then self.bar:SetAlpha(opacity) end
+    if self.bar then self.bar:SetAlpha(1) end
+    if self.box then self.box:SetAlpha(opacity) end
+    if self.box and self.box.moveHint then self.box.moveHint:SetAlpha(opacity) end
 end
 
 --- 定位搜索栏：在世界地图上或作为浮动快捷方式。
@@ -141,6 +143,13 @@ function SearchBar:UpdateResults()
     if self.panel then self.panel:SetSearchActive(true) end
     local source = IsAllMaps() and SMK.Store:GetAll() or SMK.State.currentEntries
     self.searchResults:Render(source, query, IsAllMaps())
+end
+
+function SearchBar:RefreshPlayerContext()
+    if IsAllMaps() or (WorldMapFrame and WorldMapFrame:IsShown()) then return end
+    if self.callbacks.onPlayerContextRequested then
+        self.callbacks.onPlayerContextRequested()
+    end
 end
 
 --- 切换当前地图/全图搜索模式。
@@ -296,7 +305,7 @@ end
 
 --- 创建搜索框框架、编辑框和结果下拉框。
 -- 这是整个插件界面的主要入口点。
--- @param callbacks table { onShown, onActivate, onEdit, onDelete }。
+-- @param callbacks table { onShown, onPlayerContextRequested, onActivate, onEdit, onDelete }。
 -- @return Frame 搜索栏框架。
 function SearchBar:Create(callbacks)
     self.callbacks = callbacks or {}
@@ -330,6 +339,9 @@ function SearchBar:Create(callbacks)
     end)
     self.box:HookScript("OnMouseDown", function(box, button)
         box.moveHint:Hide()
+        if button == "LeftButton" or button == "RightButton" then
+            self:RefreshPlayerContext()
+        end
         if button == "RightButton" then
             self:OpenPanel()
         elseif button == "MiddleButton" then

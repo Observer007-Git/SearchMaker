@@ -10,13 +10,19 @@ function Map:GetCursorScreenPosition()
     return x / scale, y / scale
 end
 
+--- 获取玩家当前区域的地图 ID。
+-- @return number|nil 地图 ID。
+function Map:GetPlayerMapID()
+    return C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+end
+
 --- 获取当前相关的地图 ID：已打开的世界地图，或玩家当前区域。
 -- @return number|nil 地图 ID。
 function Map:GetContextMapID()
     if WorldMapFrame and WorldMapFrame:IsShown() then
         return WorldMapFrame:GetMapID()
     end
-    return C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    return self:GetPlayerMapID()
 end
 
 --- 对 C_Map.GetMapInfo 的封装，带 nil 安全保护。

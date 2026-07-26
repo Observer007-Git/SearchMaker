@@ -99,7 +99,8 @@ function Search:Find(entries, query, allMaps, currentMapID)
     if SMK.HandyNotesProvider then
         local hnEntries = SMK.HandyNotesProvider:GetAll()
         for _, entry in ipairs(hnEntries) do
-            local score = self:GetScore(entry, query)
+            local isCurrentContext = allMaps or entry.mapID == currentMapID
+            local score = isCurrentContext and self:GetScore(entry, query) or nil
             if score then
                 local mapName = allMaps and SMK.Map:GetMapName(entry.mapID) or nil
                 matches[#matches + 1] = {

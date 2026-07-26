@@ -10,6 +10,21 @@ local function ColorText(text, color)
         math.floor(color[3] * 255 + 0.5), text)
 end
 
+local function GetMaximumContentWidth(frame, minimumWidth)
+    local search = SMK.Config.search
+    local maximumWidth = math.max(minimumWidth, search.resultMaxContentWidth)
+    local frameLeft = frame:GetLeft()
+    local frameScale = frame:GetEffectiveScale()
+    local uiRight = UIParent:GetRight()
+    local uiScale = UIParent:GetEffectiveScale()
+    if frameLeft and frameScale and frameScale > 0 and uiRight and uiScale then
+        local screenWidth = (uiRight * uiScale - frameLeft * frameScale) / frameScale
+            - search.resultScreenMargin - 8
+        maximumWidth = math.min(maximumWidth, math.floor(screenWidth))
+    end
+    return math.max(minimumWidth, maximumWidth)
+end
+
 function SearchResults:New(parent, box, callbacks)
     local view = setmetatable({
         box = box,
@@ -83,9 +98,16 @@ function SearchResults:OpenExternalMenu(entry, owner)
     if entry.externalSource ~= "HandyNotes_MapNotes" or not self.callbacks.onFavorite then return end
     GameTooltip_Hide()
     self.contextMenu = MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
-        rootDescription:CreateButton(SMK.L.FAVORITE, function()
-            self.callbacks.onFavorite(entry)
-        end)
+        for _, category in ipairs(SMK.Config.categories) do
+            local categoryKey = category.key
+            local categoryLabel = SMK.L[category.nameKey] or category.key
+            local categoryIcon = category.atlas and CreateAtlasMarkup(category.atlas, 16, 16) or ""
+            local menuText = string.format(SMK.L.FAVORITE_TO_FORMAT,
+                categoryIcon ~= "" and (categoryIcon .. " " .. categoryLabel) or categoryLabel)
+            rootDescription:CreateButton(menuText, function()
+                self.callbacks.onFavorite(entry, categoryKey)
+            end)
+        end
     end)
 end
 
@@ -201,6 +223,7 @@ function SearchResults:Render(source, query, allMaps)
     for index = 1, visible do
         maxWidth = math.max(maxWidth, self.widgets[index]:GetWidth())
     end
+    maxWidth = math.min(maxWidth, GetMaximumContentWidth(self.frame, frameWidth - 8))
     for index, match in ipairs(matches) do
         local button = self.widgets[index]
         button.isSearchResult = true

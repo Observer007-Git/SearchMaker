@@ -37,7 +37,8 @@ for key, value in pairs(english.L) do
 end
 for key in pairs(chinese.L) do assert(english.L[key], "enUS missing locale key: " .. key) end
 assert(english.L.ADD == "Add Coordinate" and chinese.L.ADD == "新增坐标", "locale selection failed")
-assert(english.L.FAVORITE == "Favorite" and chinese.L.FAVORITE == "收藏",
+assert(english.L.FAVORITE_TO_FORMAT == "Add to %s"
+    and chinese.L.FAVORITE_TO_FORMAT == "收藏到 %s",
     "favorite locale is missing")
 assert(english.L.READ_COORDINATES == "Get Character Coordinates"
     and chinese.L.READ_COORDINATES == "读取角色坐标",

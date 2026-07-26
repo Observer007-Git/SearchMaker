@@ -54,9 +54,7 @@ function Widgets:UpdateLocationGeometry(button)
         button.background:SetPoint("TOPLEFT")
     end
     button.background:SetPoint("BOTTOMRIGHT")
-    button.background.texture:SetAllPoints(button.background)
-    button.background.texture:SetAtlas(Sign.atlas, false)
-    button.background.texture:Show()
+    button.background:SetAtlas(Sign.atlas, false)
     button.background:Show()
     button.hitArea:ClearAllPoints()
     button.hitArea:SetAllPoints(button)
@@ -173,12 +171,9 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button:SetSize(Config.location.baseWidth, Config.location.baseHeight)
     button.callbacks = callbacks or {}
 
-    button.background = CreateFrame("Frame", nil, button)
-    button.background:SetFrameLevel(math.max(0, button:GetFrameLevel() - 1))
+    button.background = button:CreateTexture(nil, "BACKGROUND")
     button.background:SetAllPoints(button)
-    button.background.texture = button.background:CreateTexture(nil, "BACKGROUND")
-    button.background.texture:SetAllPoints(button.background)
-    button.background.texture:SetAtlas(Sign.atlas, false)
+    button.background:SetAtlas(Sign.atlas, false)
 
     button.highlight = button:CreateTexture(nil, "ARTWORK")
     button.highlight:SetAllPoints(button)
@@ -198,6 +193,7 @@ function Widgets:CreateLocationButton(parent, callbacks)
 
     button.hitArea = CreateFrame("Button", nil, button)
     button.hitArea:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    button.hitArea:SetClipsChildren(true)
     button.hitArea.owner = button
     button.label = button.hitArea:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     button.label:SetPoint("LEFT")
@@ -278,7 +274,7 @@ end
 function Widgets:StretchSearchResult(button, targetWidth)
     button:SetClipsChildren(false)
     self:UpdateLocationGeometry(button)
-    button:SetWidth(math.max(targetWidth, button:GetWidth()))
+    button:SetWidth(math.max(1, targetWidth))
     button.background:Show()
 end
 

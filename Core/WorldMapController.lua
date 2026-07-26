@@ -32,6 +32,7 @@ function Controller:Initialize(callbacks)
         if self.callbacks.onShown then self.callbacks.onShown() end
     end)
     WorldMapFrame:HookScript("OnHide", function()
+        SMK.HandyNotesProvider:RebuildCache(SMK.Map:GetPlayerMapID())
         if self.callbacks.onHidden then self.callbacks.onHidden() end
     end)
     hooksecurefunc(WorldMapFrame, "SetMapID", function()

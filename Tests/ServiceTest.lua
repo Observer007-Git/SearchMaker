@@ -99,8 +99,14 @@ widgetsFile:close()
 assert(widgetsSource:find('texture:SetAtlas("poi-islands-table"', 1, true)
     and widgetsSource:find("button.icon:SetAllPoints(button.iconBox)", 1, true),
     "map portal icon is not contained by the search result icon frame")
+assert(widgetsSource:find('button.background = button:CreateTexture(nil, "BACKGROUND")', 1, true)
+    and not widgetsSource:find("button.background:SetFrameLevel", 1, true)
+    and widgetsSource:find("button.hitArea:SetClipsChildren(true)", 1, true),
+    "location sign layering or text clipping is not configured")
 assert(SMK.Config.search.resultFrameInset == 5
     and SMK.Config.search.resultGap == 2
+    and SMK.Config.search.resultMaxContentWidth == 520
+    and SMK.Config.search.resultScreenMargin == 12
     and SMK.Config.search.hoverHighlightDelay == 0.08
     and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
     "search result frame is not aligned inside the search box border")
@@ -280,10 +286,10 @@ local externalFavorite = {
     y = 63.5,
     name = "绷带训练师",
 }
-local favorite = assert(SMK.Store:AddExternal(externalFavorite))
-assert(favorite.source == "saved" and favorite.categoryKey == "other"
+local favorite = assert(SMK.Store:AddExternal(externalFavorite, "professions"))
+assert(favorite.source == "saved" and favorite.categoryKey == "professions"
     and favorite.showPinName == 0 and favorite.showPinTexture == 0,
-    "external favorite was not converted to a saved location")
+    "external favorite was not saved to its selected category")
 local duplicateFavorite, duplicateFavoriteError = SMK.Store:AddExternal(externalFavorite)
 assert(not duplicateFavorite
     and duplicateFavoriteError == string.format(SMK.L.DUPLICATE_NAME, externalFavorite.name),
@@ -351,6 +357,8 @@ WorldMapFrame = {
     IsShown = function() return false end,
     GetMapID = function() return nil end,
 }
+assert(SMK.Map:GetPlayerMapID() == 100 and SMK.Map:GetContextMapID() == 100,
+    "hidden world map did not use the player's current map")
 mapInfo[85] = { mapID = 85, name = "奥格瑞玛" }
 local externalNodes = {
     [12345678] = { name = "English Internal Name", npcID = 9876 },
@@ -402,6 +410,18 @@ assert(portalEntry and portalEntry.name == "传送门：奥格瑞玛"
 assert(#SMK.Search:Find({}, "English", false, 100) == 0
     and #SMK.Search:Find({}, "9876", false, 100) == 0,
     "non-Chinese HandyNotes fields were searchable in a Chinese locale")
+SMK.HandyNotesProvider:RebuildCache(85)
+assert(#SMK.Search:Find({}, "绷带", false, 100) == 0,
+    "current-map search included a stale HandyNotes map cache")
+SMK.HandyNotesProvider:RebuildCache(100)
+assert(#SMK.Search:Find({}, "绷带", false, 100) == 1,
+    "HandyNotes cache did not return to the player's current map")
+local worldMapControllerFile = assert(io.open(root .. "/Core/WorldMapController.lua", "r"))
+local worldMapControllerSource = worldMapControllerFile:read("*a")
+worldMapControllerFile:close()
+assert(worldMapControllerSource:find(
+    "SMK.HandyNotesProvider:RebuildCache(SMK.Map:GetPlayerMapID())", 1, true),
+    "closing the world map does not rebuild the player's HandyNotes cache")
 local fakeIcon = {
     SetTexture = function(self, value) self.texture = value end,
     SetTexCoord = function(self, ...) self.texCoord = { ... } end,
@@ -684,12 +704,8 @@ local layoutButton = {
     background = {
         ClearAllPoints = function() end,
         SetPoint = function() end,
+        SetAtlas = function() end,
         Show = function() end,
-        texture = {
-            SetAllPoints = function() end,
-            SetAtlas = function() end,
-            Show = function() end,
-        },
     },
     hitArea = { ClearAllPoints = function() end, SetAllPoints = function() end },
     label = {
@@ -718,7 +734,33 @@ SMK.Widgets:UpdateLocationGeometry(layoutButton)
 assert(layoutButton.width == 274,
     "search result location sign did not expand for long text")
 SMK.Widgets:StretchSearchResult(layoutButton, 232)
-assert(layoutButton.width == 274 and not layoutButton.clipsChildren,
-    "search result clipped content wider than its minimum width")
+assert(layoutButton.width == 232 and not layoutButton.clipsChildren,
+    "search result width was not constrained")
+
+local searchBarFile = assert(io.open(root .. "/UI/SearchBar.lua", "r"))
+local searchBarSource = searchBarFile:read("*a")
+searchBarFile:close()
+assert(searchBarSource:find("self.bar:SetAlpha(1)", 1, true)
+    and searchBarSource:find("self.box:SetAlpha(opacity)", 1, true)
+    and not searchBarSource:find("self.bar:SetAlpha(opacity)", 1, true),
+    "search result opacity still inherits the search bar setting")
+assert(searchBarSource:find("function SearchBar:RefreshPlayerContext()", 1, true)
+    and searchBarSource:find("self:RefreshPlayerContext()", 1, true),
+    "clicking the floating search box does not refresh the player map context")
+local appFile = assert(io.open(root .. "/Core/App.lua", "r"))
+local appSource = appFile:read("*a")
+appFile:close()
+assert(appSource:find("function App:RefreshPlayerSearchContext()", 1, true)
+    and appSource:find("SMK.HandyNotesProvider:RebuildCache(mapID)", 1, true)
+    and appSource:find("self:LoadContext(mapID)", 1, true),
+    "player map search context does not refresh all data sources")
+local searchResultsFile = assert(io.open(root .. "/UI/SearchResults.lua", "r"))
+local searchResultsSource = searchResultsFile:read("*a")
+searchResultsFile:close()
+assert(searchResultsSource:find("ipairs(SMK.Config.categories)", 1, true)
+    and searchResultsSource:find("SMK.L.FAVORITE_TO_FORMAT", 1, true)
+    and searchResultsSource:find("CreateAtlasMarkup(category.atlas, 16, 16)", 1, true)
+    and searchResultsSource:find("self.callbacks.onFavorite(entry, categoryKey)", 1, true),
+    "HandyNotes favorite menu does not expose configured categories")
 
 print("SearchMaker service tests passed")

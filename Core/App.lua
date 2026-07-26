@@ -71,13 +71,24 @@ end
 
 --- 刷新当前地图上下文：更新 currentMapID、currentEntries 和总数。
 -- 在地图切换、数据变更和启动时调用。
-function App:LoadContext()
-    local mapID = SMK.Map:GetContextMapID()
+function App:LoadContext(mapID)
+    mapID = tonumber(mapID) or SMK.Map:GetContextMapID()
     local current = SMK.Store:GetByMap(mapID)
     local total = #SMK.Store:GetAll()
     SMK.State.currentMapID = mapID
     SMK.State.currentEntries = current
     SMK.State.totalLocationCount = total
+end
+
+--- 浮动搜索框被点击时同步角色当前地图及其外部地点缓存。
+function App:RefreshPlayerSearchContext()
+    if SMK.Settings:Get("searchAllMaps")
+        or (WorldMapFrame and WorldMapFrame:IsShown()) then return end
+    local mapID = SMK.Map:GetPlayerMapID()
+    if not mapID then return end
+    SMK.HandyNotesProvider:RebuildCache(mapID)
+    self:LoadContext(mapID)
+    SMK.SearchBar:UpdateInstructions()
 end
 
 --- 激活地点：为用户条目设置路径点，或为地图传送门跳转到目标地图。
@@ -162,8 +173,8 @@ function App:DeleteLocation(entry)
     return true
 end
 
-function App:FavoriteExternal(entry)
-    local added, errorMessage = SMK.Store:AddExternal(entry)
+function App:FavoriteExternal(entry, categoryKey)
+    local added, errorMessage = SMK.Store:AddExternal(entry, categoryKey)
     if not added then
         if errorMessage == "READ_ONLY" then
             errorMessage = SMK.DB:GetReadOnlyMessage()
@@ -204,10 +215,11 @@ function App:CreateUI()
     end
     local bar = SMK.SearchBar:Create({
         onShown = function() self:RequestRefresh("visible") end,
+        onPlayerContextRequested = function() self:RefreshPlayerSearchContext() end,
         onActivate = function(entry, result) self:Activate(entry, result) end,
         onEdit = function(entry) SMK.MainPanel:OpenEditor("edit", entry) end,
         onDelete = function(entry) self:DeleteLocation(entry) end,
-        onFavorite = function(entry) self:FavoriteExternal(entry) end,
+        onFavorite = function(entry, categoryKey) self:FavoriteExternal(entry, categoryKey) end,
     })
     SMK.MainPanel:Create(bar, {
         onActivate = function(entry, result) self:Activate(entry, result) end,

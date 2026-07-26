@@ -83,7 +83,7 @@ function Store:Add(values)
     return display
 end
 
-function Store:AddExternal(entry)
+function Store:AddExternal(entry, categoryKey)
     if type(entry) ~= "table" or not entry.isExternal
         or entry.externalSource ~= "HandyNotes_MapNotes" then
         return nil, "INVALID_LOCATION"
@@ -93,7 +93,7 @@ function Store:AddExternal(entry)
         x = entry.x,
         y = entry.y,
         name = entry.name,
-        categoryKey = Config.defaultCategoryKey,
+        categoryKey = Config.GetCategoryKey(categoryKey),
     }
     local duplicate, duplicateMessage = self:FindDuplicate(values)
     if duplicate then return nil, duplicateMessage end

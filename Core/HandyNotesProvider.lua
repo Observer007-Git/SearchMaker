@@ -2,7 +2,9 @@ local _, SMK = ...
 
 local HandyNotesProvider = {}
 local pluginName = "MapNotes"
-local cache = {}
+local cachedMapID
+local cachedEntries = {}
+local cacheReady = false
 local npcInfoCache = {}
 
 local function ParseCoord(coord)
@@ -155,18 +157,23 @@ local function BuildNodeText(nodeData)
     return displayName, table.concat(parts, " ")
 end
 
-function HandyNotesProvider:RebuildCache(mapID)
-    cache = {}
-    if not HandyNotes or not HandyNotes.plugins or not HandyNotes.plugins[pluginName] then return end
-    local plugin = HandyNotes.plugins[pluginName]
-    if not plugin.GetNodes2 then return end
-
+function HandyNotesProvider:RebuildCache(mapID, force)
     mapID = tonumber(mapID) or SMK.Map:GetContextMapID()
-    if not mapID then return end
+    if not mapID then
+        cachedMapID, cachedEntries, cacheReady = nil, {}, false
+        return cachedEntries
+    end
+    if cacheReady and cachedMapID == mapID and not force then return cachedEntries end
+
+    cachedMapID, cachedEntries, cacheReady = mapID, {}, true
+    if not HandyNotes or not HandyNotes.plugins or not HandyNotes.plugins[pluginName] then
+        return cachedEntries
+    end
+    local plugin = HandyNotes.plugins[pluginName]
+    if not plugin.GetNodes2 then return cachedEntries end
 
     local ok, iterFunc, tbl = pcall(plugin.GetNodes2, plugin, mapID, false)
-    if not ok then return end
-    if not iterFunc or not tbl or not tbl.data then return end
+    if not ok or not iterFunc or not tbl or not tbl.data then return cachedEntries end
 
     local nodes = {}
     local coord, _, iconTexture = iterFunc(tbl, nil)
@@ -197,17 +204,12 @@ function HandyNotesProvider:RebuildCache(mapID)
         end
         coord, _, iconTexture = iterFunc(tbl, coord)
     end
-    cache[mapID] = nodes
+    cachedEntries = nodes
+    return cachedEntries
 end
 
-function HandyNotesProvider:GetAll()
-    local all = {}
-    for _, nodes in pairs(cache) do
-        for _, node in ipairs(nodes) do
-            all[#all + 1] = node
-        end
-    end
-    return all
+function HandyNotesProvider:GetByMap(mapID)
+    return tonumber(mapID) == cachedMapID and cachedEntries or {}
 end
 
 SMK.HandyNotesProvider = HandyNotesProvider

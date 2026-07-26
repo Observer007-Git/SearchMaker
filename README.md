@@ -50,8 +50,9 @@ SearchMaker 是一个适用于《魔兽世界》正式服的轻量地图搜索�
 
 ## 导出 / 导入编码格式
 
-当前导出格式统一使用 `SMK|` 前缀，坐标采用整数编码（×100），类别使用稳定数字 ID。
-导入只接受 `SMK|` 前缀，旧项目前缀不会被识别。
+当前导出格式统一使用 `SMK|` 前缀，坐标采用整数编码（×100），类别使用稳定数字 ID，
+并保留单地点标记文字颜色。导入只接受当前 `SMK|` 记录，旧项目前缀和旧字段结构不会
+被识别。
 
 导出时可选择“只导出当前地图”，并将最大单次导出数量设为 `20`、`50`、`100` 或
 `200`。超过该数量时，可在“导出范围”中选择分页；切换地图范围或批次大小会立即重新
@@ -100,6 +101,7 @@ SearchMaker 是一个适用于《魔兽世界》正式服的轻量地图搜索�
 | 新增/修改面板布局 | `UI/LocationEditor.lua` → `Editor:Create()` |
 | 搜索框布局 | `UI/SearchBar.lua` → `SearchBar:Create()` + `ApplyArt()` |
 | 搜索结果列表 | `UI/SearchResults.lua` |
+| 主面板开关、外部点击与搜索结果生命周期 | `UI/PanelController.lua` |
 | 弹窗显示与下拉菜单生命周期 | `UI/ModalManager.lua` |
 | 主面板显示设置 | `UI/PanelSettings.lua` |
 | 搜索栏位置 | `UI/SearchBarPosition.lua` |
@@ -121,10 +123,13 @@ SearchMaker 是一个适用于《魔兽世界》正式服的轻量地图搜索�
 |---|---|
 | 地点搜索算法 | `Core/SearchService.lua` → `Search:GetScore()` |
 | 数据库初始化 / 存档字段 | `Core/Database.lua` → `DB:Initialize()` |
+| 设置字段验证规则 | `Core/SettingsSchema.lua` |
 | 地点数据操作（增删改查） | `Core/LocationStore.lua` → `Store:*()` |
 | 导入导出编码 | `Core/ShareCodec.lua` → `Codec:Encode()` / `Decode()` |
 | HandyNotes_MapNotes 读取与缓存 | `Core/HandyNotesProvider.lua` |
+| 当前地图上下文快照 | `Core/MapContextService.lua` |
 | 地图标记绘制 | `Core/MapPinProvider.lua` |
+| 地图标记池兼容边界 | `Core/MapPinPoolAdapter.lua` |
 | 定位后的临时高亮样式与时长 | `Config.lua` → `mapPins.targetHighlight` |
 | 地图显示/隐藏与 Alt 单击 | `Core/WorldMapController.lua` |
 | 设置读写 | `Core/SettingsService.lua` |

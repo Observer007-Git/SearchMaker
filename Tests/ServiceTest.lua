@@ -49,13 +49,15 @@ end
 local SMK = {}
 for _, path in ipairs({
     "Core/Namespace.lua", "Config.lua", "Locales/init.lua", "Locales/enUS.lua", "Locales/zhCN.lua",
-    "Core/PinTextures.lua", "Core/LocationModel.lua", "Core/Database.lua", "Core/SettingsService.lua",
+    "Core/PinTextures.lua", "Core/LocationModel.lua", "Core/SettingsSchema.lua",
+    "Core/Database.lua", "Core/SettingsService.lua",
     "Core/LocationStore.lua", "Core/MapService.lua",
     "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/HandyNotesProvider.lua",
-    "Core/ImportService.lua", "Core/MapPinProvider.lua",
+    "Core/MapContextService.lua", "Core/ImportService.lua",
+    "Core/MapPinPoolAdapter.lua", "Core/MapPinProvider.lua",
     "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua", "UI/ModalManager.lua", "UI/BulkDeleteDialog.lua",
-    "UI/HelpDialog.lua",
-    "UI/Widgets.lua",
+    "UI/PanelController.lua", "UI/HelpDialog.lua",
+    "UI/Widgets.lua", "UI/SearchResults.lua", "UI/SearchBar.lua",
 }) do
     loadModule(SMK, path)
 end
@@ -94,16 +96,6 @@ assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
-local widgetsFile = assert(io.open(root .. "/UI/Widgets.lua", "r"))
-local widgetsSource = widgetsFile:read("*a")
-widgetsFile:close()
-assert(widgetsSource:find('texture:SetAtlas("poi-islands-table"', 1, true)
-    and widgetsSource:find("button.icon:SetAllPoints(button.iconBox)", 1, true),
-    "map portal icon is not contained by the search result icon frame")
-assert(widgetsSource:find('button.background = button:CreateTexture(nil, "BACKGROUND")', 1, true)
-    and not widgetsSource:find("button.background:SetFrameLevel", 1, true)
-    and widgetsSource:find("button.hitArea:SetClipsChildren(true)", 1, true),
-    "location sign layering or text clipping is not configured")
 assert(SMK.Config.search.resultFrameInset == 5
     and SMK.Config.search.resultGap == 2
     and SMK.Config.search.resultMaxContentWidth == 520
@@ -162,6 +154,10 @@ SMK.BulkDeleteDialog.frame = {
 SMK.ModalManager:Register(SMK.BulkDeleteDialog)
 assert(SMK.ModalManager:ContainsMouseFocus({ popup }),
     "bulk delete confirmation was not treated as modal content")
+SMK.BulkDeleteDialog.dropdown = { IsMenuOpen = function() return true end }
+assert(SMK.ModalManager:IsMenuOpen(),
+    "modal manager did not query the dialog's menu state interface")
+SMK.BulkDeleteDialog.dropdown = nil
 StaticPopup_Hide = function(id) popupHiddenID = id end
 SMK.BulkDeleteDialog:Hide()
 assert(popupHiddenID == "SEARCHMAKER_BULK_DELETE" and dialogHidden
@@ -220,14 +216,18 @@ SearchMakerDB = {
     locations = {
         { id = "user:4", mapID = "100", x = "12.34", y = "56.78", name = "旧地点", categoryKey = "delves", showPin = true, pinTextureID = "5", futureExtension = "keep" },
         { id = "user:4", mapID = 100, x = 20, y = 30, name = "重复ID", categoryKey = "npc" },
+        { id = "invalid", mapID = 0, x = 1, y = 2, name = "损坏地点", categoryKey = "other" },
     },
-    usageCounts = {},
+    usageCounts = { ["id:user:4"] = 2, ["id:missing"] = 9 },
 }
 SMK.DB:Initialize()
 assert(SearchMakerDB.schemaVersion == SMK.Config.databaseSchemaVersion, "database schema was not initialized")
 assert(SearchMakerDB.locations[1].categoryKey == "delves", "category normalization failed")
 assert(SearchMakerDB.locations[1].pinTextureID == 5, "pin texture normalization failed")
 assert(SearchMakerDB.locations[2].id ~= "user:4", "duplicate ID was not repaired")
+assert(#SearchMakerDB.locations == 2 and SearchMakerDB.usageCounts["id:missing"] == nil
+    and SearchMakerDB.usageCounts["id:user:4"] == 2,
+    "invalid locations or orphan usage counts were not pruned")
 assert(SMK.Settings:Get("showPinTextures") and SMK.Settings:Get("locationScale") == 1.2,
     "nested settings were not initialized")
 assert(SMK.Settings:Get("searchBarScale") == 1.4
@@ -265,6 +265,9 @@ assert(SMK.Settings:Set("shortcutSearchBarPosition", { x = 10, y = 20 })
     and SMK.Settings:Set("shortcutSearchBarPosition", { x = 30, y = 40 })
     and SMK.Settings:Get("shortcutSearchBarPosition").x == 30,
     "color comparison interfered with position settings")
+assert(not SMK.Settings:Set("showMapPinNames", 1)
+    and SMK.Settings:Get("showMapPinNames") == true,
+    "runtime settings bypassed the shared settings schema")
 
 local first = SMK.Store:GetAll()[1]
 assert(first.categoryKey == "delves" and first.categoryLabel == "地下堡", "display projection is not localized")
@@ -299,6 +302,21 @@ assert(not duplicateFavorite
     and duplicateFavoriteError == string.format(SMK.L.DUPLICATE_NAME, externalFavorite.name),
     "duplicate external favorite was accepted")
 assert(SMK.Store:Delete(favorite) == 1, "external favorite could not be deleted")
+local deleteA = assert(SMK.Store:Add({
+    mapID = 200, x = 10, y = 10, name = "批量甲", categoryKey = "other",
+}))
+local keepB = assert(SMK.Store:Add({
+    mapID = 200, x = 20, y = 20, name = "保留乙", categoryKey = "other",
+}))
+local deleteC = assert(SMK.Store:Add({
+    mapID = 200, x = 30, y = 30, name = "批量丙", categoryKey = "other",
+}))
+local locationsBeforeDelete = SearchMakerDB.locations
+assert(SMK.Store:DeleteMany({ deleteA, deleteC }) == 2
+    and SearchMakerDB.locations ~= locationsBeforeDelete
+    and #SMK.Store:GetByMap(200) == 1
+    and SMK.Store:GetByMap(200)[1].id == keepB.id,
+    "bulk delete did not rebuild the retained location array in one pass")
 
 local storeChangeReason
 SMK.Store:SetChangeHandler(function(reason) storeChangeReason = reason end)
@@ -378,10 +396,12 @@ HandyNotes_MapNotesRetailNpcCacheDB = {
         },
     },
 }
+local handyNotesBuilds = 0
 HandyNotes = {
     plugins = {
         MapNotes = {
             GetNodes2 = function()
+                handyNotesBuilds = handyNotesBuilds + 1
                 return function(state, previous)
                     local coord = next(state.data, previous)
                     if coord then return coord, nil, state.icons[coord] end
@@ -390,8 +410,11 @@ HandyNotes = {
         },
     },
 }
-SMK.HandyNotesProvider:RebuildCache()
-local handyNotesEntries = SMK.HandyNotesProvider:GetAll()
+SMK.HandyNotesProvider:RebuildCache(100, true)
+local handyNotesEntries = SMK.HandyNotesProvider:GetByMap(100)
+assert(SMK.HandyNotesProvider:RebuildCache(100) == handyNotesEntries
+    and handyNotesBuilds == 1,
+    "HandyNotes rebuilt an unchanged current-map cache")
 local trainerEntry, portalEntry
 for _, entry in ipairs(handyNotesEntries) do
     if entry.x == 12.34 then trainerEntry = entry end
@@ -404,28 +427,29 @@ assert(#handyNotesEntries == 2 and trainerEntry
     and trainerEntry.normalizedSearchable:find("绷带", 1, true)
     and trainerEntry.iconTexture == externalIcons[12345678],
     "HandyNotes did not cache the player's map while WorldMapFrame was unopened")
-local bandageMatches = SMK.Search:Find({}, "绷带", false, 100)
+local bandageMatches = SMK.Search:Find({}, "绷带", false, 100, handyNotesEntries)
 assert(#bandageMatches == 1 and bandageMatches[1].entry == trainerEntry,
     "localized HandyNotes NPC title was not searchable")
-local portalMatches = SMK.Search:Find({}, "传送", false, 100)
+local portalMatches = SMK.Search:Find({}, "传送", false, 100, handyNotesEntries)
 assert(portalEntry and portalEntry.name == "传送门：奥格瑞玛"
     and #portalMatches == 1 and portalMatches[1].entry == portalEntry,
     "localized HandyNotes portal type was not searchable")
-assert(#SMK.Search:Find({}, "English", false, 100) == 0
-    and #SMK.Search:Find({}, "9876", false, 100) == 0,
+assert(#SMK.Search:Find({}, "English", false, 100, handyNotesEntries) == 0
+    and #SMK.Search:Find({}, "9876", false, 100, handyNotesEntries) == 0,
     "non-Chinese HandyNotes fields were searchable in a Chinese locale")
 SMK.HandyNotesProvider:RebuildCache(85)
-assert(#SMK.Search:Find({}, "绷带", false, 100) == 0,
+assert(#SMK.Search:Find({}, "绷带", false, 100,
+    SMK.HandyNotesProvider:GetByMap(85)) == 0,
     "current-map search included a stale HandyNotes map cache")
 SMK.HandyNotesProvider:RebuildCache(100)
-assert(#SMK.Search:Find({}, "绷带", false, 100) == 1,
+handyNotesEntries = SMK.HandyNotesProvider:GetByMap(100)
+assert(#SMK.Search:Find({}, "绷带", false, 100, handyNotesEntries) == 1,
     "HandyNotes cache did not return to the player's current map")
-local worldMapControllerFile = assert(io.open(root .. "/Core/WorldMapController.lua", "r"))
-local worldMapControllerSource = worldMapControllerFile:read("*a")
-worldMapControllerFile:close()
-assert(worldMapControllerSource:find(
-    "SMK.HandyNotesProvider:RebuildCache(SMK.Map:GetPlayerMapID())", 1, true),
-    "closing the world map does not rebuild the player's HandyNotes cache")
+SMK.MapContext:Refresh(100)
+assert(SMK.MapContext:GetMapID() == 100
+    and SMK.MapContext:GetExternalEntries() == handyNotesEntries
+    and SMK.MapContext:GetEntries() == SMK.Store:GetByMap(100),
+    "map context did not expose one current-map snapshot for all consumers")
 local fakeIcon = {
     SetTexture = function(self, value) self.texture = value end,
     SetTexCoord = function(self, ...) self.texCoord = { ... } end,
@@ -439,16 +463,42 @@ fakeIcon.atlas = nil
 SMK.Widgets:SetLocationIcon(fakeIcon, { isExternal = true })
 assert(fakeIcon.atlas == SMK.Config.categoryByKey.other.atlas,
     "HandyNotes search result did not use the other-category fallback icon")
+fakeIcon.atlas = nil
+SMK.Widgets:SetLocationIcon(fakeIcon, { isMapPortal = true })
+assert(fakeIcon.atlas == "poi-islands-table",
+    "map portal search result did not use its contained icon atlas")
 HandyNotes = nil
 
-local encoded = SMK.ShareCodec:Encode({ SMK.Store:GetAll()[1] })
+local shareEntry = assert(SMK.LocationModel:Normalize({
+    mapID = first.mapID,
+    x = first.x,
+    y = first.y,
+    name = first.name,
+    categoryKey = first.categoryKey,
+    showPinName = 1,
+    showPinTexture = 1,
+    pinTextureID = first.pinTextureID,
+    pinColor = { r = 0.2, g = 0.4, b = 0.6 },
+}))
+local encoded = SMK.ShareCodec:Encode({ shareEntry })
 assert(encoded:sub(1, 4) == "SMK|" and encoded:sub(1, 6) ~= "SMK|2|",
     "current share format does not use the unified SMK prefix")
 assert(SMK.ShareCodec:FindShareText("chat " .. encoded) == encoded,
     "share text was not found in chat")
 local decoded, decodeError, invalid = SMK.ShareCodec:Decode(encoded)
 assert(not decodeError and invalid == 0 and #decoded == 1, "current share round trip failed")
-assert(decoded[1].categoryKey == "delves" and decoded[1].pinTextureID == 5, "share fields were not preserved")
+assert(decoded[1].categoryKey == "delves" and decoded[1].pinTextureID == 5
+    and math.abs(decoded[1].pinColor.r - 0.2) < 0.005
+    and math.abs(decoded[1].pinColor.g - 0.4) < 0.005
+    and math.abs(decoded[1].pinColor.b - 0.6) < 0.005,
+    "share fields or per-location pin color were not preserved")
+local noColorDecoded, noColorError, noColorInvalid = SMK.ShareCodec:Decode(
+    SMK.ShareCodec:Encode({ assert(SMK.LocationModel:Normalize({
+        mapID = 100, x = 1, y = 2, name = "无颜色", categoryKey = "other",
+    })) }))
+assert(not noColorError and noColorInvalid == 0 and #noColorDecoded == 1
+    and noColorDecoded[1].pinColor == nil,
+    "share records without a per-location color did not round trip")
 local importResult = assert(SMK.Import:ImportText(encoded))
 assert(importResult.imported == 0 and importResult.duplicates == 1,
     "shared import service did not filter duplicates")
@@ -460,6 +510,10 @@ for _, sample in ipairs({ "SMK3|x", "SMK2|x", "MLL2|x", "MLL1|x" }) do
     local entries = SMK.ShareCodec:Decode(sample)
     assert(not entries, "legacy share prefix was accepted: " .. sample)
 end
+local oldEntries, _, oldInvalid = SMK.ShareCodec:Decode(
+    "SMK|100,100,200,8,old,0,1,0,0")
+assert(oldEntries and #oldEntries == 0 and oldInvalid == 1,
+    "obsolete field-count share records were accepted")
 
 local duplicateA = { mapID = 100, x = 1.234, y = 5.678, name = " Test Name " }
 local duplicateB = { mapID = 100, x = 1.2341, y = 5.6781, name = "testname" }
@@ -759,63 +813,69 @@ SMK.Widgets:StretchSearchResult(layoutButton, 232)
 assert(layoutButton.width == 232 and not layoutButton.clipsChildren,
     "search result width was not constrained")
 
-local searchBarFile = assert(io.open(root .. "/UI/SearchBar.lua", "r"))
-local searchBarSource = searchBarFile:read("*a")
-searchBarFile:close()
-assert(searchBarSource:find("self.bar:SetAlpha(1)", 1, true)
-    and searchBarSource:find("self.box:SetAlpha(opacity)", 1, true)
-    and not searchBarSource:find("self.bar:SetAlpha(opacity)", 1, true),
-    "search result opacity still inherits the search bar setting")
-assert(searchBarSource:find("function SearchBar:RefreshPlayerContext()", 1, true)
-    and searchBarSource:find("self:RefreshPlayerContext()", 1, true),
-    "clicking the floating search box does not refresh the player map context")
-local appFile = assert(io.open(root .. "/Core/App.lua", "r"))
-local appSource = appFile:read("*a")
-appFile:close()
-assert(appSource:find("function App:RefreshPlayerSearchContext()", 1, true)
-    and appSource:find("SMK.HandyNotesProvider:RebuildCache(mapID)", 1, true)
-    and appSource:find("self:LoadContext(mapID)", 1, true),
-    "player map search context does not refresh all data sources")
-local searchResultsFile = assert(io.open(root .. "/UI/SearchResults.lua", "r"))
-local searchResultsSource = searchResultsFile:read("*a")
-searchResultsFile:close()
-assert(searchResultsSource:find("ipairs(SMK.Config.categories)", 1, true)
-    and searchResultsSource:find("SMK.L.FAVORITE_TO_FORMAT", 1, true)
-    and searchResultsSource:find("CreateAtlasMarkup(category.atlas, 16, 16)", 1, true)
-    and searchResultsSource:find("self.callbacks.onFavorite(entry, categoryKey)", 1, true),
-    "HandyNotes favorite menu does not expose configured categories")
-local helpFile = assert(io.open(root .. "/UI/HelpDialog.lua", "r"))
-local helpSource = helpFile:read("*a")
-helpFile:close()
-assert(helpSource:find("Config.panel.backgroundAtlas", 1, true)
-    and helpSource:find("Config.panel.borderAtlas", 1, true)
-    and SMK.HelpDialog and SMK.HelpDialog.Create and SMK.HelpDialog.Open,
-    "help dialog does not use the main panel art or lifecycle")
-local mainPanelFile = assert(io.open(root .. "/UI/MainPanel.lua", "r"))
-local mainPanelSource = mainPanelFile:read("*a")
-mainPanelFile:close()
-assert(mainPanelSource:find("Widgets:CreatePanelButton(moreFrame, SMK.L.HELP)", 1, true)
-    and mainPanelSource:find("SMK.ModalManager:Register(SMK.HelpDialog)", 1, true)
-    and mainPanelSource:find(
-        'SMK.ModalManager:Register(SMK.ShareDialog, { "batchSizeDropdown", "rangeDropdown" })',
-        1, true),
-    "main panel does not expose the managed help dialog")
-assert(SMK.Config.panel.layout.scrollbarOffsetX == -6
-    and mainPanelSource:find("Config.panel.layout.scrollbarOffsetX", 1, true),
-    "main panel scrollbar offset is not applied from layout config")
-local shareDialogFile = assert(io.open(root .. "/UI/ShareDialog.lua", "r"))
-local shareDialogSource = shareDialogFile:read("*a")
-shareDialogFile:close()
-assert(shareDialogSource:find("SMK.L.EXPORT_BATCH_SIZE", 1, true)
-    and shareDialogSource:find("ipairs(Config.export.batchSizes)", 1, true)
-    and shareDialogSource:find("function Dialog:SetBatchSize(batchSize)", 1, true),
-    "share dialog does not expose configurable export pagination")
-assert(shareDialogSource:find(
-        'self.rangeLabel:SetPoint("LEFT", self.batchSizeDropdown, "RIGHT", 12, 0)', 1, true),
-    "export range should be placed to the right of the batch-size dropdown")
-assert(shareDialogSource:find(
-        'self.currentMapOnly:SetScript("OnClick"', 1, true)
-    and shareDialogSource:find("if self.exportEntries then self:Export() end", 1, true),
-    "current-map export selection should refresh the export ranges")
+local appliedBarAlpha, appliedBoxAlpha, appliedHintAlpha
+local originalSearchBar, originalSearchBox = SMK.SearchBar.bar, SMK.SearchBar.box
+SMK.SearchBar.bar = { SetAlpha = function(_, value) appliedBarAlpha = value end }
+SMK.SearchBar.box = {
+    SetAlpha = function(_, value) appliedBoxAlpha = value end,
+    moveHint = { SetAlpha = function(_, value) appliedHintAlpha = value end },
+}
+SMK.SearchBar:ApplyOpacity()
+SMK.SearchBar.bar, SMK.SearchBar.box = originalSearchBar, originalSearchBox
+assert(appliedBarAlpha == 1 and appliedBoxAlpha == SMK.Settings:Get("searchBarOpacity")
+    and appliedHintAlpha == appliedBoxAlpha,
+    "search results inherited search-box opacity")
+
+local playerContextRequests = 0
+local originalCallbacks = SMK.SearchBar.callbacks
+SMK.SearchBar.callbacks = {
+    onPlayerContextRequested = function() playerContextRequests = playerContextRequests + 1 end,
+}
+assert(SMK.Settings:Set("searchAllMaps", false))
+SMK.SearchBar:RefreshPlayerContext()
+SMK.SearchBar.callbacks = originalCallbacks
+assert(playerContextRequests == 1,
+    "floating search did not request a fresh player-map context")
+
+local favoriteOptions = SMK.SearchResults:GetFavoriteOptions()
+assert(#favoriteOptions == #SMK.Config.categories
+    and favoriteOptions[1].key == SMK.Config.categories[1].key
+    and favoriteOptions[#favoriteOptions].atlas == SMK.Config.categories[#SMK.Config.categories].atlas,
+    "HandyNotes favorite options do not follow the dynamic category configuration")
+assert(SMK.HelpDialog and SMK.HelpDialog.Create and SMK.HelpDialog.Open
+    and SMK.L.HELP_TEXT ~= "",
+    "localized help dialog is unavailable")
+assert(SMK.Config.panel.layout.scrollbarOffsetX == -6,
+    "main panel scrollbar offset changed")
+
+local panelExpanded, resultsUpdated, outsideRegistered = false, 0, false
+local controllerSearchBar = {
+    suppressPanelHidden = false,
+    searchResults = {
+        IsShown = function() return false end,
+        IsContextMenuOpen = function() return false end,
+    },
+    outsideListener = {
+        RegisterEvent = function() outsideRegistered = true end,
+        UnregisterEvent = function() outsideRegistered = false end,
+    },
+    box = { ClearFocus = function() end },
+    UpdateResults = function() resultsUpdated = resultsUpdated + 1 end,
+    HideResults = function() end,
+    CancelPendingSearch = function() end,
+    SetQuery = function() end,
+}
+local managedPanel = {
+    SetExpanded = function(_, value) panelExpanded = value end,
+    IsExpanded = function() return panelExpanded end,
+}
+local panelController = SMK.PanelController:New(controllerSearchBar)
+panelController:AttachPanel(managedPanel)
+panelController:Open()
+assert(panelExpanded and resultsUpdated == 1 and outsideRegistered,
+    "panel controller did not own panel opening and listener registration")
+panelController:Close()
+assert(not panelExpanded and not outsideRegistered,
+    "panel controller did not close the panel and release its listener")
 
 print("SearchMaker service tests passed")

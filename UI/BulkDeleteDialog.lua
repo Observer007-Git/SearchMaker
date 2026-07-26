@@ -158,7 +158,8 @@ end
 function Dialog:Open()
     self.categoryKey = Config.defaultCategoryKey
     self:UpdateCategory()
-    self.mapInput:SetText(tostring(SMK.State.currentMapID or SMK.Map:GetContextMapID() or ""))
+    self.mapInput:SetText(tostring(SMK.MapContext:GetMapID()
+        or SMK.Map:GetContextMapID() or ""))
     self:SetStatus()
     self.frame:Show()
 end
@@ -166,6 +167,10 @@ end
 function Dialog:Hide()
     self:HideConfirmation()
     if self.frame then self.frame:Hide() end
+end
+
+function Dialog:IsMenuOpen()
+    return self.dropdown and self.dropdown.IsMenuOpen and self.dropdown:IsMenuOpen() or false
 end
 
 SMK.BulkDeleteDialog = Dialog

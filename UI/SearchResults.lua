@@ -94,16 +94,28 @@ function SearchResults:IsContextMenuOpen()
     return self.contextMenu and self.contextMenu:IsShown()
 end
 
+function SearchResults:GetFavoriteOptions()
+    local options = {}
+    for _, category in ipairs(SMK.Config.categories) do
+        options[#options + 1] = {
+            key = category.key,
+            label = SMK.L[category.nameKey] or category.key,
+            atlas = category.atlas,
+        }
+    end
+    return options
+end
+
 function SearchResults:OpenExternalMenu(entry, owner)
     if entry.externalSource ~= "HandyNotes_MapNotes" or not self.callbacks.onFavorite then return end
     GameTooltip_Hide()
     self.contextMenu = MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
-        for _, category in ipairs(SMK.Config.categories) do
-            local categoryKey = category.key
-            local categoryLabel = SMK.L[category.nameKey] or category.key
-            local categoryIcon = category.atlas and CreateAtlasMarkup(category.atlas, 16, 16) or ""
+        for _, option in ipairs(self:GetFavoriteOptions()) do
+            local categoryKey = option.key
+            local categoryIcon = option.atlas
+                and CreateAtlasMarkup(option.atlas, 16, 16) or ""
             local menuText = string.format(SMK.L.FAVORITE_TO_FORMAT,
-                categoryIcon ~= "" and (categoryIcon .. " " .. categoryLabel) or categoryLabel)
+                categoryIcon ~= "" and (categoryIcon .. " " .. option.label) or option.label)
             rootDescription:CreateButton(menuText, function()
                 self.callbacks.onFavorite(entry, categoryKey)
             end)
@@ -176,7 +188,8 @@ end
 function SearchResults:Render(source, query, allMaps)
     self:CancelHoverHighlight()
     self.allMaps = allMaps == true
-    local matches = SMK.Search:Find(source, query, allMaps, SMK.State.currentMapID)
+    local matches = SMK.Search:Find(source, query, allMaps,
+        SMK.MapContext:GetMapID(), SMK.MapContext:GetExternalEntries())
     self.matches = matches
     local visible = #matches
     if visible == 0 then

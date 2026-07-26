@@ -42,6 +42,26 @@ local function GetPayload(text)
     return payload
 end
 
+local function EncodeColor(color)
+    if type(color) ~= "table" then return "", "", "" end
+    local function Component(value)
+        value = tonumber(value)
+        if not value then return "" end
+        return tostring(math.floor(math.max(0, math.min(1, value)) * 255 + 0.5))
+    end
+    return Component(color.r), Component(color.g), Component(color.b)
+end
+
+local function DecodeColor(rText, gText, bText)
+    if rText == "" and gText == "" and bText == "" then return nil, true end
+    local r, g, b = tonumber(rText), tonumber(gText), tonumber(bText)
+    if not r or not g or not b
+        or r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 then
+        return nil, false
+    end
+    return { r = r / 255, g = g / 255, b = b / 255 }, true
+end
+
 function Codec:FindShareText(text)
     local value = tostring(text or "")
     local position = value:find(Config.share.prefix, 1, true)
@@ -53,6 +73,7 @@ function Codec:Encode(entries)
     for _, entry in ipairs(entries or {}) do
         local category = Config.categoryByKey[entry.categoryKey]
             or Config.categoryByKey[Config.defaultCategoryKey]
+        local colorR, colorG, colorB = EncodeColor(entry.pinColor)
         records[#records + 1] = table.concat({
             entry.mapID,
             string.format("%.0f", entry.x * 100),
@@ -63,6 +84,9 @@ function Codec:Encode(entries)
             tonumber(entry.pinTextureID) or SMK.DefaultPinTextureID,
             entry.showPinName or 0,
             entry.showPinTexture or 0,
+            colorR,
+            colorG,
+            colorB,
         }, ",")
     end
     return Config.share.prefix .. table.concat(records, ";")
@@ -76,7 +100,8 @@ function Codec:Decode(text)
     for record in payload:gmatch("[^;]+") do
         local fields = SplitRecord(record)
         local category = Config.categoryByID[tonumber(fields[4])]
-        if not category then
+        local pinColor, colorValid = DecodeColor(fields[10], fields[11], fields[12])
+        if #fields ~= 12 or not category or not colorValid then
             invalid = invalid + 1
         else
             local values = {
@@ -89,11 +114,8 @@ function Codec:Decode(text)
                 pinTextureID = tonumber(fields[7]) or SMK.DefaultPinTextureID,
                 showPinName = tonumber(fields[8]) or 0,
                 showPinTexture = tonumber(fields[9]) or 0,
+                pinColor = pinColor,
             }
-            if #fields == 7 then
-                values.showPinName = values.showPin
-                values.showPinTexture = values.showPin
-            end
             local entry = SMK.LocationModel:Normalize(values) or nil
             if entry then
                 entries[#entries + 1] = entry

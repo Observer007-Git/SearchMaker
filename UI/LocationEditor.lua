@@ -43,7 +43,7 @@ function Editor:SelectPinTexture(textureID)
 end
 
 --- 验证输入并保存地点。
--- 检查：mapID、坐标（0-100）、名称（非空，≤ maxNameLength）、重复。
+-- 检查：mapID、坐标（0-100）、名称（非空且不超过显示宽度限制）、重复。
 -- 调用 onSave 回调，由 App:SaveLocation 处理。
 function Editor:Save()
     local frame = self.frame
@@ -410,7 +410,7 @@ function Editor:Open(mode, entry, position)
     frame.mode, frame.entry = mode, entry
     frame.title:SetText(mode == "edit" and SMK.L.EDIT_TITLE or SMK.L.ADD_TITLE)
     local mapID = entry and tonumber(entry.mapID)
-        or SMK.State.currentMapID or SMK.Map:GetContextMapID()
+        or SMK.MapContext:GetMapID() or SMK.Map:GetContextMapID()
     frame.mapID = mapID
     frame.mapName:SetText(mapID and string.format(SMK.L.MAP_FORMAT, SMK.Map:GetMapName(mapID), mapID) or SMK.L.UNKNOWN_MAP)
     self.inputs.name:SetText(entry and entry.name or "")
@@ -450,6 +450,10 @@ end
 function Editor:ContainsMouseFocus(foci)
     return self.colorPickerOpen and ColorPickerFrame and ColorPickerFrame:IsShown()
         and DoesAncestryIncludeAny(ColorPickerFrame, foci)
+end
+
+function Editor:IsMenuOpen()
+    return self.dropdown and self.dropdown.IsMenuOpen and self.dropdown:IsMenuOpen() or false
 end
 
 SMK.LocationEditor = Editor

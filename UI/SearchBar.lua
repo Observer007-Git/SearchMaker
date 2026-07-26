@@ -59,7 +59,8 @@ end
 function SearchBar:UpdateInstructions()
     if not self.box.Instructions then return end
     self.box.Instructions:SetText(IsAllMaps() and SMK.L.SEARCH_ALL_MAPS
-        or string.format(SMK.L.SEARCH_CURRENT_MAP, SMK.Map:GetMapName(SMK.State.currentMapID)))
+        or string.format(SMK.L.SEARCH_CURRENT_MAP,
+            SMK.Map:GetMapName(SMK.MapContext:GetMapID())))
 end
 
 --- 显示搜索框下方的"按住 Shift 移动"提示。
@@ -141,7 +142,7 @@ function SearchBar:UpdateResults()
         return
     end
     if self.panel then self.panel:SetSearchActive(true) end
-    local source = IsAllMaps() and SMK.Store:GetAll() or SMK.State.currentEntries
+    local source = SMK.MapContext:GetSearchEntries(IsAllMaps())
     self.searchResults:Render(source, query, IsAllMaps())
 end
 
@@ -169,43 +170,26 @@ function SearchBar:MoveSelection(key)
 end
 
 function SearchBar:SetPanelExpanded(expanded)
-    if not self.panel then return end
-    self.suppressPanelHidden = not expanded
-    self.panel:SetExpanded(expanded)
-    self.suppressPanelHidden = false
-    self:UpdateOutsideListener()
+    self.panelController:SetExpanded(expanded)
 end
 
 function SearchBar:OpenPanel()
-    self:SetPanelExpanded(true)
-    self:UpdateResults()
+    self.panelController:Open()
 end
 
 --- 关闭主面板和搜索结果，并清空搜索框。
 function SearchBar:ClosePanel()
-    self.suppressPanelHidden = true
-    if self.panel then self.panel:SetExpanded(false) end
-    self.suppressPanelHidden = false
-    self:HideResults()
-    self:CancelPendingSearch()
-    self:SetQuery("")
-    self.box:ClearFocus()
-    self:UpdateOutsideListener()
+    self.panelController:Close()
 end
 
 --- 根据界面可见性注册或注销 GLOBAL_MOUSE_DOWN 监听器。
 function SearchBar:UpdateOutsideListener()
-    local needs = (self.panel and self.panel:IsExpanded()) or self.searchResults:IsShown()
-    if needs then
-        self.outsideListener:RegisterEvent("GLOBAL_MOUSE_DOWN")
-    else
-        self.outsideListener:UnregisterEvent("GLOBAL_MOUSE_DOWN")
-    end
+    self.panelController:UpdateOutsideListener()
 end
 
 
 function SearchBar:OnPanelHidden()
-    if not self.suppressPanelHidden then self:ClosePanel() end
+    self.panelController:OnPanelHidden()
 end
 
 function SearchBar:StopShortcutCapture()
@@ -218,6 +202,7 @@ end
 
 function SearchBar:AttachPanel(panel)
     self.panel = panel
+    self.panelController:AttachPanel(panel)
     self.shortcutButton = panel.shortcutButton
     self.shortcutController = SMK.ShortcutController:New(self.shortcutButton, {
         onChanged = function() self:UpdateMoveHint() end,
@@ -309,6 +294,7 @@ end
 -- @return Frame 搜索栏框架。
 function SearchBar:Create(callbacks)
     self.callbacks = callbacks or {}
+    self.panelController = SMK.PanelController:New(self)
     local bar = CreateFrame("Frame", SMK.name .. "SearchBar", UIParent)
     self.bar = bar
     self.positionController = SMK.SearchBarPosition:New(self)
@@ -398,18 +384,7 @@ function SearchBar:Create(callbacks)
 
     self.outsideListener = CreateFrame("Frame")
     self.outsideListener:SetScript("OnEvent", function(_, _, button)
-        if self.searchResults:IsContextMenuOpen() or SMK.ModalManager:IsMenuOpen() then return end
-        local panelExpanded = self.panel and self.panel:IsExpanded()
-        if not panelExpanded and not self.searchResults:IsShown() then return end
-        local foci = GetMouseFoci()
-        if self.panel:ContainsMouseFocus(foci) or SMK.ModalManager:ContainsMouseFocus(foci)
-            or DoesAncestryIncludeAny(self.results, foci) then return end
-        if panelExpanded then
-            if button == "RightButton" and DoesAncestryIncludeAny(self.box, foci) then return end
-        elseif DoesAncestryIncludeAny(bar, foci) then
-            return
-        end
-        self:ClosePanel()
+        self.panelController:HandleGlobalMouseDown(button)
     end)
 
     bar:SetScript("OnShow", function()

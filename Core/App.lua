@@ -37,7 +37,12 @@ end
 
 function App:FlushRefresh(flags)
     if flags.geometry then SMK.Widgets:ClearGeometryCache() end
-    if flags.context then self:LoadContext() end
+    if flags.context then
+        local mapID = self.pendingContextMapID
+        local forceExternal = self.pendingForceExternal == true
+        self.pendingContextMapID, self.pendingForceExternal = nil, false
+        self:LoadContext(mapID, forceExternal)
+    end
     if flags.pins then SMK.MapPins:Refresh() end
     if not self.initialized then return end
 
@@ -50,6 +55,12 @@ function App:FlushRefresh(flags)
         if flags.instructions then SMK.SearchBar:UpdateInstructions() end
         if flags.search then SMK.SearchBar:RefreshResultsIfVisible() end
     end
+end
+
+function App:RequestMapRefresh(mapID, forceExternal)
+    self.pendingContextMapID = tonumber(mapID) or self.pendingContextMapID
+    self.pendingForceExternal = self.pendingForceExternal or forceExternal == true
+    self:RequestRefresh("map")
 end
 
 function App:StoreChanged(reason)
@@ -69,15 +80,10 @@ function App:SettingChanged(key)
     end
 end
 
---- 刷新当前地图上下文：更新 currentMapID、currentEntries 和总数。
+--- 刷新当前地图上下文快照。
 -- 在地图切换、数据变更和启动时调用。
-function App:LoadContext(mapID)
-    mapID = tonumber(mapID) or SMK.Map:GetContextMapID()
-    local current = SMK.Store:GetByMap(mapID)
-    local total = #SMK.Store:GetAll()
-    SMK.State.currentMapID = mapID
-    SMK.State.currentEntries = current
-    SMK.State.totalLocationCount = total
+function App:LoadContext(mapID, forceExternal)
+    SMK.MapContext:Refresh(mapID, forceExternal)
 end
 
 --- 浮动搜索框被点击时同步角色当前地图及其外部地点缓存。
@@ -86,8 +92,7 @@ function App:RefreshPlayerSearchContext()
         or (WorldMapFrame and WorldMapFrame:IsShown()) then return end
     local mapID = SMK.Map:GetPlayerMapID()
     if not mapID then return end
-    SMK.HandyNotesProvider:RebuildCache(mapID)
-    self:LoadContext(mapID)
+    self:LoadContext(mapID, false)
     SMK.SearchBar:UpdateInstructions()
 end
 
@@ -233,15 +238,17 @@ function App:CreateUI()
     self.initialized = true
     self:RequestRefresh("initialize")
     SMK.WorldMapController:Initialize({
-        onShown = function()
+        onShown = function(mapID)
             SMK.SearchBar:ShowForMap()
-            self:RequestRefresh("map")
+            self:RequestMapRefresh(mapID, true)
         end,
-        onHidden = function()
+        onHidden = function(mapID)
             SMK.SearchBar:HandleWorldMapHidden()
-            self:RequestRefresh("map")
+            self:RequestMapRefresh(mapID, true)
         end,
-        onMapChanged = function() self:RequestRefresh("map") end,
+        onMapChanged = function(mapID, forceExternal)
+            self:RequestMapRefresh(mapID, forceExternal)
+        end,
         onReady = function() SMK.SearchBar:RestoreVisibility() end,
         onAltClick = function(mapID, x, y, screenX, screenY)
             local marked, message = SMK.Map:BeginTemporaryWaypoint({ mapID = mapID, x = x, y = y })

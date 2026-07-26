@@ -2,7 +2,7 @@ local _, SMK = ...
 
 -- 常用尺寸、视觉和限制集中在本文件；修改后 /reload 即可生效。
 local Config = {
-    databaseSchemaVersion = 5,
+    databaseSchemaVersion = 6,
     panel = {
         height = 512,
         backgroundAtlas = "catalog-list-preview-bg",
@@ -150,9 +150,6 @@ local Config = {
         iconWidth = 58,
         iconHeight = 58,
         textLeft = 88,
-        textLeftPadding = 1,
-        textRightPadding = 20,
-        verticalPadding = 16,
     },
     colors = {
         gold = { 1, 0.82, 0 },

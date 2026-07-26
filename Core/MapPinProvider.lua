@@ -149,28 +149,6 @@ local function CreateHighlightPinMixin()
     return mixin
 end
 
-local function CreatePinPool(map, template, pinMixin, enableMouse)
-    local pool = CreateUnsecuredRegionPoolInstance
-        and CreateUnsecuredRegionPoolInstance(template) or CreateFramePool("FRAME")
-    pool.parent = map:GetCanvas()
-    pool.createFunc = function()
-        local pin = CreateFrame("Frame", nil, map:GetCanvas())
-        pin.isSearchMakerMapPin = true
-        pin:EnableMouse(enableMouse == true)
-        return Mixin(pin, pinMixin)
-    end
-    pool.resetFunc = function(_, pin)
-        pin:Hide()
-        pin:ClearAllPoints()
-        pin:OnReleased()
-        pin.pinTemplate = nil
-        pin.owningMap = nil
-    end
-    pool.creationFunc = pool.createFunc
-    pool.resetterFunc = pool.resetFunc
-    map.pinPools[template] = pool
-end
-
 function MapPins:Initialize(map, callbacks)
     self.callbacks = callbacks or self.callbacks or {}
     if self.provider then return true end
@@ -199,8 +177,12 @@ function MapPins:Initialize(map, callbacks)
         end
     end
 
-    CreatePinPool(map, TEMPLATE, CreatePinMixin(), true)
-    CreatePinPool(map, HIGHLIGHT_TEMPLATE, CreateHighlightPinMixin(), false)
+    if not SMK.MapPinPoolAdapter:Register(map, TEMPLATE, CreatePinMixin(), true)
+        or not SMK.MapPinPoolAdapter:Register(
+            map, HIGHLIGHT_TEMPLATE, CreateHighlightPinMixin(), false) then
+        self.available = false
+        return false
+    end
     map:AddDataProvider(provider)
     self.provider = provider
     self.available = true

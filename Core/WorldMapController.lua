@@ -28,17 +28,20 @@ function Controller:Initialize(callbacks)
 
     WorldMapFrame:HookScript("OnShow", function()
         SMK.MapIndex:Rebuild()
-        SMK.HandyNotesProvider:RebuildCache()
-        if self.callbacks.onShown then self.callbacks.onShown() end
+        if self.callbacks.onShown then
+            self.callbacks.onShown(SMK.Map:GetContextMapID())
+        end
     end)
     WorldMapFrame:HookScript("OnHide", function()
-        SMK.HandyNotesProvider:RebuildCache(SMK.Map:GetPlayerMapID())
-        if self.callbacks.onHidden then self.callbacks.onHidden() end
+        if self.callbacks.onHidden then
+            self.callbacks.onHidden(SMK.Map:GetPlayerMapID())
+        end
     end)
     hooksecurefunc(WorldMapFrame, "SetMapID", function()
         if WorldMapFrame:IsShown() then
-            SMK.HandyNotesProvider:RebuildCache()
-            if self.callbacks.onMapChanged then self.callbacks.onMapChanged() end
+            if self.callbacks.onMapChanged then
+                self.callbacks.onMapChanged(SMK.Map:GetContextMapID(), false)
+            end
         end
     end)
 
@@ -49,8 +52,9 @@ function Controller:Initialize(callbacks)
     mouseFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     mouseFrame:SetScript("OnEvent", function(_, event, button)
         if event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
-            SMK.HandyNotesProvider:RebuildCache()
-            if self.callbacks.onMapChanged then self.callbacks.onMapChanged() end
+            if self.callbacks.onMapChanged then
+                self.callbacks.onMapChanged(SMK.Map:GetPlayerMapID(), true)
+            end
             return
         end
         if button ~= "LeftButton" or not IsAltKeyDown()
@@ -64,7 +68,6 @@ function Controller:Initialize(callbacks)
     end)
 
     self:BuildMapIndex()
-    SMK.HandyNotesProvider:RebuildCache()
     C_Timer.After(0, function()
         if self.callbacks.onReady then self.callbacks.onReady() end
     end)

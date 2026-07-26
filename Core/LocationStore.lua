@@ -131,16 +131,17 @@ function Store:DeleteMany(entries)
     for _, entry in ipairs(entries or {}) do
         if type(entry) == "table" and entry.id then requestedIDs[entry.id] = true end
     end
-    local deleted = 0
-    for index = #database.locations, 1, -1 do
-        local entry = database.locations[index]
+    local deleted, retained = 0, {}
+    for _, entry in ipairs(database.locations) do
         if type(entry) == "table" and requestedIDs[entry.id] then
             database.usageCounts["id:" .. entry.id] = nil
-            table.remove(database.locations, index)
             deleted = deleted + 1
+        else
+            retained[#retained + 1] = entry
         end
     end
     if deleted > 0 then
+        database.locations = retained
         self:InvalidateCache()
         NotifyChanged("locations")
     end

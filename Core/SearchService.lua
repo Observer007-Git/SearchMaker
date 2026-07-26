@@ -56,8 +56,9 @@ end
 -- @param query string 用户原始查询（会被归一化）。
 -- @param allMaps boolean 若为 true，每条结果包含地图名称。
 -- @param currentMapID number|nil 当前地图 ID，用于生成临时坐标结果。
+-- @param externalEntries table|nil 当前上下文的外部地点。
 -- @return table { entry, score, mapName?, isMapPortal?, isCoordinateResult? } 数组。
-function Search:Find(entries, query, allMaps, currentMapID)
+function Search:Find(entries, query, allMaps, currentMapID, externalEntries)
     local coordinateX, coordinateY = self:ParseCoordinates(query)
     query = Util.Normalize(query)
     if query == "" then
@@ -95,19 +96,15 @@ function Search:Find(entries, query, allMaps, currentMapID)
             matches[#matches + 1] = m
         end
     end
-    -- Include HandyNotes_MapNotes matches
-    if SMK.HandyNotesProvider then
-        local hnEntries = SMK.HandyNotesProvider:GetAll()
-        for _, entry in ipairs(hnEntries) do
-            local isCurrentContext = allMaps or entry.mapID == currentMapID
-            local score = isCurrentContext and self:GetScore(entry, query) or nil
-            if score then
-                local mapName = allMaps and SMK.Map:GetMapName(entry.mapID) or nil
-                matches[#matches + 1] = {
-                    entry = entry, score = score + 4,
-                    mapName = mapName, isExternal = true,
-                }
-            end
+    for _, entry in ipairs(externalEntries or {}) do
+        local isCurrentContext = allMaps or entry.mapID == currentMapID
+        local score = isCurrentContext and self:GetScore(entry, query) or nil
+        if score then
+            local mapName = allMaps and SMK.Map:GetMapName(entry.mapID) or nil
+            matches[#matches + 1] = {
+                entry = entry, score = score + 4,
+                mapName = mapName, isExternal = true,
+            }
         end
     end
     table.sort(matches, function(a, b)

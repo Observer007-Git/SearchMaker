@@ -81,7 +81,8 @@ end
 -- 如果总数超过用户选择的单次导出数量，用户选择范围。
 function Dialog:Export()
     local currentOnly = self.currentMapOnly:GetChecked()
-    local mapID = currentOnly and (SMK.State.currentMapID or SMK.Map:GetContextMapID()) or nil
+    local mapID = currentOnly
+        and (SMK.MapContext:GetMapID() or SMK.Map:GetContextMapID()) or nil
     if currentOnly and not mapID then
         return self:SetStatus(SMK.L.ERROR_NO_MAP_ID, true)
     end
@@ -266,6 +267,14 @@ end
 
 function Dialog:Hide()
     if self.frame then self.frame:Hide() end
+end
+
+function Dialog:IsMenuOpen()
+    return self.batchSizeDropdown and self.batchSizeDropdown.IsMenuOpen
+        and self.batchSizeDropdown:IsMenuOpen()
+        or self.rangeDropdown and self.rangeDropdown.IsMenuOpen
+        and self.rangeDropdown:IsMenuOpen()
+        or false
 end
 
 SMK.ShareDialog = Dialog

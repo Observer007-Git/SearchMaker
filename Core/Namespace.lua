@@ -6,12 +6,6 @@ local addonName, SMK = ...
 SMK.name = addonName
 SMK.version = C_AddOns and C_AddOns.GetAddOnMetadata
     and C_AddOns.GetAddOnMetadata(addonName, "Version") or "dev"
-SMK.State = {
-    currentMapID = nil,
-    currentEntries = {},
-    totalLocationCount = 0,
-}
-
 SMK.Util = {}
 
 function SMK.Util.Trim(text)

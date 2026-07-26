@@ -3,74 +3,11 @@ local _, SMK = ...
 local DB = {}
 local Config = SMK.Config
 local Model = SMK.LocationModel
+local SettingsSchema = SMK.SettingsSchema
 local obsoleteRootKeys = {
     "locationScale", "showFullPanel", "shortcutSearchVisible", "showMapPins", "showMapPinNames", "searchAllMaps",
     "shortcutSearchBarPosition", "mapSearchBarPosition", "locationEdits", "locationDeletions",
 }
-
-local function CopyPosition(position)
-    if type(position) ~= "table" or type(position.x) ~= "number" or type(position.y) ~= "number" then
-        return nil
-    end
-    return {
-        x = position.x,
-        y = position.y,
-        relativePoint = position.relativePoint,
-    }
-end
-
-local function NormalizeSettings(source)
-    source = type(source) == "table" and source or {}
-    local sourceColor = type(source.mapPinTextColor) == "table" and source.mapPinTextColor or {}
-    local defaultColor = Config.settingsDefaults.mapPinTextColor
-    local function NumberInRange(key, minimum, maximum, decimals)
-        local value = tonumber(source[key]) or Config.settingsDefaults[key]
-        value = math.max(minimum, math.min(maximum, value))
-        local factor = 10 ^ (decimals or 0)
-        return math.floor(value * factor + 0.5) / factor
-    end
-    local function ColorComponent(key)
-        local value = tonumber(sourceColor[key]) or defaultColor[key]
-        return math.max(0, math.min(1, value))
-    end
-    local function BooleanOrDefault(key)
-        if type(source[key]) == "boolean" then return source[key] end
-        return Config.settingsDefaults[key]
-    end
-    local function ExportBatchSize()
-        local value = tonumber(source.exportBatchSize)
-        for _, option in ipairs(Config.export.batchSizes) do
-            if value == option then return option end
-        end
-        return Config.settingsDefaults.exportBatchSize
-    end
-    return {
-        locationScale = NumberInRange("locationScale",
-            Config.location.minScale, Config.location.maxScale, 1),
-        mapPinTextScale = NumberInRange("mapPinTextScale",
-            Config.mapPins.minTextScale, Config.mapPins.maxTextScale, 1),
-        pinTextureScale = NumberInRange("pinTextureScale",
-            Config.mapPins.minTextureScale, Config.mapPins.maxTextureScale, 1),
-        mapPinNameOffsetX = NumberInRange("mapPinNameOffsetX",
-            Config.mapPins.nameOffsetXMin, Config.mapPins.nameOffsetXMax),
-        mapPinNameOffsetY = NumberInRange("mapPinNameOffsetY",
-            Config.mapPins.nameOffsetYMin, Config.mapPins.nameOffsetYMax),
-        searchBarScale = NumberInRange("searchBarScale", 0.5, 2, 1),
-        searchBarOpacity = NumberInRange("searchBarOpacity", 0.2, 1, 1),
-        mapPinTextColor = {
-            r = ColorComponent("r"),
-            g = ColorComponent("g"),
-            b = ColorComponent("b"),
-        },
-        shortcutSearchVisible = BooleanOrDefault("shortcutSearchVisible"),
-        showMapPinNames = BooleanOrDefault("showMapPinNames"),
-        showPinTextures = BooleanOrDefault("showPinTextures"),
-        searchAllMaps = BooleanOrDefault("searchAllMaps"),
-        exportBatchSize = ExportBatchSize(),
-        shortcutSearchBarPosition = CopyPosition(source.shortcutSearchBarPosition),
-        mapSearchBarPosition = CopyPosition(source.mapSearchBarPosition),
-    }
-end
 
 local function AssignLocationIDs(database)
     database.nextLocationID = math.max(1, math.floor(tonumber(database.nextLocationID) or 1))
@@ -91,6 +28,7 @@ local function AssignLocationIDs(database)
 end
 
 local function NormalizeLocations(database)
+    local valid = {}
     for _, stored in ipairs(database.locations) do
         local normalized = Model:Normalize(stored)
         if normalized then
@@ -98,7 +36,19 @@ local function NormalizeLocations(database)
             stored.category = nil
             stored.pinTexture = nil
             stored.icon = nil
+            valid[#valid + 1] = stored
         end
+    end
+    database.locations = valid
+end
+
+local function PruneUsageCounts(database)
+    local valid = {}
+    for _, entry in ipairs(database.locations) do
+        if entry.id then valid["id:" .. entry.id] = true end
+    end
+    for key in pairs(database.usageCounts) do
+        if not valid[key] then database.usageCounts[key] = nil end
     end
 end
 
@@ -106,7 +56,7 @@ local function CreateFutureRuntime(database)
     local runtime = SMK.Util.CopyTable(database)
     runtime.locations = type(database.locations) == "table" and database.locations or {}
     runtime.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
-    runtime.settings = NormalizeSettings(database.settings)
+    runtime.settings = SettingsSchema:NormalizeAll(database.settings)
     return runtime
 end
 
@@ -128,10 +78,11 @@ function DB:Initialize()
     database.schemaVersion = Config.databaseSchemaVersion
     database.locations = type(database.locations) == "table" and database.locations or {}
     database.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
-    database.settings = NormalizeSettings(database.settings)
+    database.settings = SettingsSchema:NormalizeAll(database.settings)
     for _, key in ipairs(obsoleteRootKeys) do database[key] = nil end
-    AssignLocationIDs(database)
     NormalizeLocations(database)
+    AssignLocationIDs(database)
+    PruneUsageCounts(database)
     self.data = database
     return database
 end

@@ -47,7 +47,7 @@ end
 -- 使用部件池（Acquire/Release）最小化框架创建。
 function MainPanel:RenderList()
     self:ReleaseWidgets()
-    local entries = SMK.State.currentEntries
+    local entries = SMK.MapContext:GetEntries()
     if #entries == 0 then
         local empty = self:Acquire("message")
         empty:SetTextColor(unpack(Config.colors.disabled))
@@ -101,7 +101,7 @@ end
 -- @return table { entry, count } 数组。
 function MainPanel:GetFrequent()
     local frequent = {}
-    for _, entry in ipairs(SMK.State.currentEntries) do
+    for _, entry in ipairs(SMK.MapContext:GetEntries()) do
         local count = SMK.Store:GetUsage(entry)
         if count > 0 then frequent[#frequent + 1] = { entry = entry, count = count } end
     end
@@ -150,7 +150,7 @@ function MainPanel:RenderFrequent()
 end
 
 function MainPanel:RefreshHeader()
-    local mapID = SMK.State.currentMapID
+    local mapID = SMK.MapContext:GetMapID()
     self.frame.mapName:SetText(mapID and string.format(SMK.L.MAP_FORMAT, SMK.Map:GetMapName(mapID), mapID)
         or SMK.L.UNKNOWN_MAP)
     if self.frame.mapName.GetUnboundedStringWidth then
@@ -158,7 +158,7 @@ function MainPanel:RefreshHeader()
             math.ceil(self.frame.mapName:GetUnboundedStringWidth())))
     end
     self.frame.locationCount:SetText(string.format(SMK.L.LOCATION_COUNT,
-        #SMK.State.currentEntries, SMK.State.totalLocationCount))
+        #SMK.MapContext:GetEntries(), SMK.MapContext:GetTotalLocationCount()))
     local scale = SMK.Settings:Get("locationScale")
     self.scaleValue:SetText(string.format("%d%%", math.floor(scale * 100 + 0.5)))
     self.scaleMinus:SetEnabled(scale > Config.location.minScale)
@@ -436,9 +436,9 @@ function MainPanel:Create(searchBar, callbacks)
     SMK.HelpDialog:Create(frame)
     SMK.ModalManager:Register(SMK.PanelSettings)
     SMK.ModalManager:Register(self.moreMenu)
-    SMK.ModalManager:Register(SMK.LocationEditor, { "dropdown" })
-    SMK.ModalManager:Register(SMK.ShareDialog, { "batchSizeDropdown", "rangeDropdown" })
-    SMK.ModalManager:Register(SMK.BulkDeleteDialog, { "dropdown" })
+    SMK.ModalManager:Register(SMK.LocationEditor)
+    SMK.ModalManager:Register(SMK.ShareDialog)
+    SMK.ModalManager:Register(SMK.BulkDeleteDialog)
     SMK.ModalManager:Register(SMK.HelpDialog)
     frame:HookScript("OnHide", function()
         frame.isExpanded = false

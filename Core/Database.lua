@@ -37,6 +37,13 @@ local function NormalizeSettings(source)
         if type(source[key]) == "boolean" then return source[key] end
         return Config.settingsDefaults[key]
     end
+    local function ExportBatchSize()
+        local value = tonumber(source.exportBatchSize)
+        for _, option in ipairs(Config.export.batchSizes) do
+            if value == option then return option end
+        end
+        return Config.settingsDefaults.exportBatchSize
+    end
     return {
         locationScale = NumberInRange("locationScale",
             Config.location.minScale, Config.location.maxScale, 1),
@@ -59,6 +66,7 @@ local function NormalizeSettings(source)
         showMapPinNames = BooleanOrDefault("showMapPinNames"),
         showPinTextures = BooleanOrDefault("showPinTextures"),
         searchAllMaps = BooleanOrDefault("searchAllMaps"),
+        exportBatchSize = ExportBatchSize(),
         shortcutSearchBarPosition = CopyPosition(source.shortcutSearchBarPosition),
         mapSearchBarPosition = CopyPosition(source.mapSearchBarPosition),
     }

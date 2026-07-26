@@ -45,12 +45,20 @@ assert(english.L.READ_COORDINATES == "Get Character Coordinates"
     "coordinate button locale was not updated")
 assert(english.L.COORDINATE_RESULT_FORMAT and chinese.L.COORDINATE_RESULT_FORMAT,
     "coordinate result locale is missing")
+assert(english.L.EXPORT_BATCH_SIZE == "Maximum per Export"
+    and chinese.L.EXPORT_BATCH_SIZE == "最大单次导出数量",
+    "export batch size locale is missing")
 assert(english.L.SEARCH_BAR_SETTINGS == "Search Settings"
     and chinese.L.SEARCH_BAR_SETTINGS == "搜索设置"
     and english.L.EXTERNAL_SOURCE == "External Source"
     and chinese.L.HANDYNOTES_SOURCE_SUFFIX == "[来自HandyNotes_MapNotes]"
     and chinese.L.HANDYNOTES_PORTAL == "传送门",
     "search settings or external source locale is missing")
+assert(english.L.HELP == "How to Use" and chinese.L.HELP == "使用说明"
+    and english.L.HELP_TITLE == "SearchMaker Guide"
+    and chinese.L.HELP_TITLE == "SearchMaker 使用说明"
+    and english.L.HELP_TEXT and chinese.L.HELP_TEXT,
+    "help dialog locale is missing")
 assert(english.Config.GetCategoryKey("delves") == "delves", "canonical category key failed")
 assert(english.Config.GetCategoryKey("地下堡") == "other", "localized category leaked into storage")
 

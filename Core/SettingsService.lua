@@ -49,6 +49,13 @@ local function Normalize(key, value)
         if not opacity then return nil end
         return math.max(0.2, math.min(1, opacity))
     end
+    if key == "exportBatchSize" then
+        local batchSize = tonumber(value)
+        for _, option in ipairs(Config.export.batchSizes) do
+            if batchSize == option then return option end
+        end
+        return nil
+    end
     if key == "mapPinTextScale" then
         local scale = tonumber(value)
         if not scale then return nil end

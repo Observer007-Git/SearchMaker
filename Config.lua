@@ -18,6 +18,7 @@ local Config = {
             scrollLeftOutset = 6,
             scrollbarReserve = 48,
             scrollChildInset = 2,
+            scrollbarOffsetX = -6,
         },
         controls = {
             buttonAtlas = "housefinder_neighborhood-list-item-highlight",
@@ -61,7 +62,8 @@ local Config = {
     categoryHeadingScale = 1.3,
     shortcutAction = "SEARCHMAKER_TOGGLE_SEARCH",
     export = {
-        maxPerBatch = 500,
+        batchSizes = { 20, 50, 100, 200 },
+        defaultBatchSize = 200,
     },
     locationEditor = {
         width = 216,
@@ -235,6 +237,7 @@ Config.settingsDefaults = {
     searchAllMaps = false,
     searchBarScale = 1,
     searchBarOpacity = 1,
+    exportBatchSize = Config.export.defaultBatchSize,
 }
 
 Config.panelBackdrop = {

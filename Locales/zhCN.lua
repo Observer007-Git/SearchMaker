@@ -16,6 +16,7 @@ local translations = {
     SETTINGS = "标记设置",
     DISPLAY_SETTINGS = "显示设置",
     MORE = "更多",
+    HELP = "使用说明",
     BULK_DELETE = "批量删除",
     SHORTCUT = "呼出快捷键",
     CAPTURE_SHORTCUT = "请按快捷键",
@@ -37,6 +38,22 @@ local translations = {
     PIN_NAME_OFFSET_Y = "名称垂直偏移",
     PIN_TEXTURE_SIZE = "标记材质大小",
     LOCATION_SCALE = "地点缩放",
+    HELP_TITLE = "SearchMaker 使用说明",
+    HELP_TEXT = [[
+|cffffd100搜索与打开|r
+• 左键搜索框开始搜索，右键打开主面板，中键打开或关闭世界地图；按住 Shift 拖动可移动搜索框。
+• 按 Tab 切换“当前地图/全图”。地图打开时搜索正在浏览的地图，关闭时搜索角色所在地图。
+• 输入地点名称进行搜索；输入“45.2, 63.8”一类坐标可直接创建游戏路径点。
+
+|cffffd100地点与标记|r
+• 在世界地图空白处 Alt+左键新增地点；地点左键定位、右键修改、Shift+右键删除。
+• “标记设置”可调整图标和名称显示、颜色、大小及偏移；“搜索设置”可调整搜索框和快捷键。
+• HandyNotes_MapNotes 结果可直接定位，右键可收藏到指定分组。
+
+|cffffd100分享与数据|r
+• “导出/导入”用于复制或粘贴 SMK 文本；“更多”可扫描聊天编码或批量删除。
+• 地点和设置保存在账号存档中，大量修改前建议先导出备份。
+]],
 
     -- Namespace
     BINDING_HEADER = "SearchMaker",
@@ -97,6 +114,7 @@ local translations = {
     CHAT_IMPORT_SUCCESS = "从聊天中成功导入 %d 个地点。",
     SHARE_TITLE = "导入 / 导出",
     EXPORT_CURRENT_ONLY = "只导出当前地图",
+    EXPORT_BATCH_SIZE = "最大单次导出数量",
     EXPORT_RANGE = "导出范围",
     EXPORT_RANGE_SUCCESS = "已生成 %d 个地点（第%d-%d条）。按 Ctrl+C 复制。",
     EXPORT_SUCCESS = "已生成 %d 个地点，按 Ctrl+C 复制。",

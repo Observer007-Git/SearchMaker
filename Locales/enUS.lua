@@ -14,6 +14,7 @@ SMK.L = {
     SETTINGS = "Pin Settings",
     DISPLAY_SETTINGS = "Display Settings",
     MORE = "More",
+    HELP = "How to Use",
     BULK_DELETE = "Bulk Delete",
     SHORTCUT = "Shortcut Key",
     CAPTURE_SHORTCUT = "Press a key...",
@@ -38,6 +39,22 @@ SMK.L = {
     PIN_NAME_OFFSET_Y = "Name Offset Y",
     PIN_TEXTURE_SIZE = "Pin Texture Size",
     LOCATION_SCALE = "Icon Scale",
+    HELP_TITLE = "SearchMaker Guide",
+    HELP_TEXT = [[
+|cffffd100Search and access|r
+• Left-click the search box to search, right-click it to open the main panel, and middle-click it to toggle the world map. Hold Shift and drag to move the search box.
+• Press Tab to switch between Current Map and All Maps. With the map open, Current Map follows the viewed map; with it closed, it follows your character.
+• Search by location name, or enter coordinates such as “45.2, 63.8” to create a native waypoint.
+
+|cffffd100Locations and pins|r
+• Alt+Left-click empty map space to add a location. Left-click a saved location to mark it, right-click to edit, or Shift+Right-click to delete.
+• Pin Settings controls icon/name visibility, color, size, and offset. Search Settings controls the search box and shortcut key.
+• HandyNotes_MapNotes results can be marked directly; right-click one to save it to a chosen group.
+
+|cffffd100Sharing and data|r
+• Import / Export copies or pastes SMK text. More can scan chat for SMK text or bulk-delete locations.
+• Locations and settings are stored account-wide. Export a backup before making large changes.
+]],
 
     -- Namespace
     ERROR_NO_CLIENT_SUPPORT = "Current client does not support built-in map markers.",
@@ -95,6 +112,7 @@ SMK.L = {
     CHAT_IMPORT_SUCCESS = "Imported %d locations from chat.",
     SHARE_TITLE = "Import / Export",
     EXPORT_CURRENT_ONLY = "Current map only",
+    EXPORT_BATCH_SIZE = "Maximum per Export",
     EXPORT_RANGE = "Export range",
     EXPORT_RANGE_SUCCESS = "Generated %d locations (range %d-%d). Press Ctrl+C to copy.",
     EXPORT_SUCCESS = "Generated %d locations. Press Ctrl+C to copy.",

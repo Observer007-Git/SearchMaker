@@ -229,6 +229,12 @@ function MainPanel:OpenBulkDelete()
     SMK.BulkDeleteDialog:Open()
 end
 
+function MainPanel:OpenHelp()
+    SMK.ModalManager:PrepareToShow(SMK.HelpDialog)
+    if self.callbacks.onDialogOpened then self.callbacks.onDialogOpened() end
+    SMK.HelpDialog:Open()
+end
+
 function MainPanel:ToggleSettings()
     if SMK.PanelSettings:IsShown() then
         SMK.PanelSettings:Hide()
@@ -354,14 +360,17 @@ function MainPanel:Create(searchBar, callbacks)
     moreFrame:SetPoint("TOPRIGHT", more, "BOTTOMRIGHT", 0, -4)
     local scan = Widgets:CreatePanelButton(moreFrame, SMK.L.CHAT_IMPORT)
     local bulk = Widgets:CreatePanelButton(moreFrame, SMK.L.BULK_DELETE)
+    local help = Widgets:CreatePanelButton(moreFrame, SMK.L.HELP)
     local popupPadding = Config.panel.controls.popupPadding
-    local menuWidth = math.max(scan:GetWidth(), bulk:GetWidth())
+    local menuWidth = math.max(scan:GetWidth(), bulk:GetWidth(), help:GetWidth())
     scan:SetWidth(menuWidth)
     bulk:SetWidth(menuWidth)
+    help:SetWidth(menuWidth)
     scan:SetPoint("TOPLEFT", popupPadding, -popupPadding)
     bulk:SetPoint("TOPLEFT", scan, "BOTTOMLEFT", 0, -buttonGap)
+    help:SetPoint("TOPLEFT", bulk, "BOTTOMLEFT", 0, -buttonGap)
     moreFrame:SetSize(menuWidth + popupPadding * 2,
-        Config.panel.controls.buttonHeight * 2 + buttonGap + popupPadding * 2)
+        Config.panel.controls.buttonHeight * 3 + buttonGap * 2 + popupPadding * 2)
     scan:SetScript("OnClick", function()
         moreMenu:Hide()
         SMK.App:ScanChatForImports()
@@ -369,6 +378,10 @@ function MainPanel:Create(searchBar, callbacks)
     bulk:SetScript("OnClick", function()
         moreMenu:Hide()
         self:OpenBulkDelete()
+    end)
+    help:SetScript("OnClick", function()
+        moreMenu:Hide()
+        self:OpenHelp()
     end)
     function moreMenu:Open() moreFrame:Show() end
     function moreMenu:Hide() moreFrame:Hide() end
@@ -404,7 +417,9 @@ function MainPanel:Create(searchBar, callbacks)
     local scroll = CreateFrame("ScrollFrame", SMK.name .. "ScrollFrame", frame, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", divider, "BOTTOMLEFT",
         -Config.panel.layout.dividerInset, -6)
-    scroll:SetPoint("BOTTOMRIGHT", -PanelLayout.scrollRightInset, Config.panel.layout.outerInset)
+    scroll:SetPoint("BOTTOMRIGHT",
+        -PanelLayout.scrollRightInset + Config.panel.layout.scrollbarOffsetX,
+        Config.panel.layout.outerInset)
     self.listContent = CreateFrame("Frame", nil, scroll)
     self.listContent:SetWidth(PanelLayout.contentWidth)
     self.listContent:SetHeight(100)
@@ -418,11 +433,13 @@ function MainPanel:Create(searchBar, callbacks)
     })
     SMK.ShareDialog:Create(frame)
     SMK.BulkDeleteDialog:Create(frame)
+    SMK.HelpDialog:Create(frame)
     SMK.ModalManager:Register(SMK.PanelSettings)
     SMK.ModalManager:Register(self.moreMenu)
     SMK.ModalManager:Register(SMK.LocationEditor, { "dropdown" })
-    SMK.ModalManager:Register(SMK.ShareDialog)
+    SMK.ModalManager:Register(SMK.ShareDialog, { "batchSizeDropdown", "rangeDropdown" })
     SMK.ModalManager:Register(SMK.BulkDeleteDialog, { "dropdown" })
+    SMK.ModalManager:Register(SMK.HelpDialog)
     frame:HookScript("OnHide", function()
         frame.isExpanded = false
         self:HideDialogs()

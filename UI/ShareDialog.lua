@@ -24,12 +24,17 @@ local function SortEntries(entries)
     end)
 end
 
+function Dialog:GetBatchSize()
+    return SMK.Settings:Get("exportBatchSize") or Config.export.defaultBatchSize
+end
+
 function Dialog:GetExportRanges(total)
+    local batchSize = self:GetBatchSize()
     local ranges = {}
-    for first = 1, total, Config.export.maxPerBatch do
+    for first = 1, total, batchSize do
         ranges[#ranges + 1] = {
             first = first,
-            last = math.min(total, first + Config.export.maxPerBatch - 1),
+            last = math.min(total, first + batchSize - 1),
         }
     end
     return ranges
@@ -55,7 +60,7 @@ function Dialog:RenderExportRange()
     self.textBox:SetText(SMK.ShareCodec:Encode(sliced))
     self.textBox:SetFocus()
     self.textBox:HighlightText()
-    if #entries > Config.export.maxPerBatch then
+    if #entries > self:GetBatchSize() then
         self:SetStatus(string.format(SMK.L.EXPORT_RANGE_SUCCESS,
             #sliced, self.currentRangeStart, self.currentRangeEnd))
     else
@@ -63,8 +68,17 @@ function Dialog:RenderExportRange()
     end
 end
 
+function Dialog:SetBatchSize(batchSize)
+    local changed, message = SMK.Settings:Set("exportBatchSize", batchSize)
+    if not changed then
+        if message then SMK:Print(message) end
+        return
+    end
+    if self.exportEntries then self:Export() end
+end
+
 --- 以 SMK| 共享格式导出条目（仅当前地图或全部）。
--- 如果总数超过 Config.export.maxPerBatch，用户选择范围。
+-- 如果总数超过用户选择的单次导出数量，用户选择范围。
 function Dialog:Export()
     local currentOnly = self.currentMapOnly:GetChecked()
     local mapID = currentOnly and (SMK.State.currentMapID or SMK.Map:GetContextMapID()) or nil
@@ -77,13 +91,17 @@ function Dialog:Export()
     end
     SortEntries(entries)
     if #entries == 0 then
+        self.exportEntries, self.exportRanges = {}, {}
+        self.currentRangeStart, self.currentRangeEnd = 1, 0
+        self.rangeLabel:Hide()
+        self.rangeDropdown:Hide()
         self.textBox:SetText("")
         return self:SetStatus(mapID and SMK.L.EXPORT_NO_LOCATIONS or SMK.L.EXPORT_NO_LOCATIONS_ALL, true)
     end
     self.exportEntries = entries
     self.currentRangeStart = 1
     self.currentRangeEnd = #entries
-    if #entries > Config.export.maxPerBatch then
+    if #entries > self:GetBatchSize() then
         self:UpdateExportRanges(#entries)
         self.rangeLabel:Show()
         self.rangeDropdown:Show()
@@ -135,11 +153,33 @@ function Dialog:Create(parent)
     label:SetPoint("LEFT", self.currentMapOnly, "RIGHT", 4, 0)
     label:SetText(SMK.L.EXPORT_CURRENT_ONLY)
     label:SetTextColor(unpack(Config.colors.gold))
+    self.currentMapOnly:SetScript("OnClick", function()
+        if self.exportEntries then self:Export() end
+    end)
+
+    local batchSizeLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    batchSizeLabel:SetPoint("LEFT", label, "RIGHT", 24, 0)
+    batchSizeLabel:SetText(SMK.L.EXPORT_BATCH_SIZE)
+    batchSizeLabel:SetTextColor(unpack(Config.colors.gold))
+    self.batchSizeDropdown = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
+    self.batchSizeDropdown:SetSize(72, 24)
+    self.batchSizeDropdown:SetPoint("LEFT", batchSizeLabel, "RIGHT", 6, 0)
+    self.batchSizeDropdown:SetSelectionText(function()
+        return tostring(self:GetBatchSize())
+    end)
+    self.batchSizeDropdown:SetupMenu(function(_, root)
+        for _, batchSize in ipairs(Config.export.batchSizes) do
+            root:CreateRadio(tostring(batchSize),
+                function(value) return self:GetBatchSize() == value end,
+                function(value) self:SetBatchSize(value) end,
+                batchSize)
+        end
+    end)
 
     self.currentRangeStart = 1
     self.currentRangeEnd = 0
     self.rangeLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    self.rangeLabel:SetPoint("LEFT", self.currentMapOnly, "RIGHT", 16, -24)
+    self.rangeLabel:SetPoint("LEFT", self.batchSizeDropdown, "RIGHT", 12, 0)
     self.rangeLabel:SetText(SMK.L.EXPORT_RANGE)
     self.rangeLabel:SetTextColor(unpack(Config.colors.gold))
     self.rangeLabel:Hide()
@@ -157,7 +197,7 @@ function Dialog:Create(parent)
                 function(value)
                     self.currentRangeStart = value
                     self.currentRangeEnd = math.min(#(self.exportEntries or {}),
-                        value + Config.export.maxPerBatch - 1)
+                        value + self:GetBatchSize() - 1)
                     self:RenderExportRange()
                 end,
                 first)

@@ -54,7 +54,7 @@
 |---|---|
 | 搜索结果最大条数 | `Config.lua` → `search.maxResults` |
 | 常用地点最大显示数 | `Config.lua` → `location.maxFrequent` |
-| 批量导出每批条数 | `Config.lua` → `export.maxPerBatch` |
+| 导出分页可选数量与默认值 | `Config.lua` → `export.batchSizes/defaultBatchSize` |
 | 默认类别 | `Config.lua` → `defaultCategoryKey` |
 | 类别列表（名称/图标/顺序） | `Config.lua` → `categories[...]` |
 | 编辑器中列表顺序 | `Config.lua` → `categories[...]`（遍历顺序即为显示顺序） |

@@ -54,6 +54,7 @@ for _, path in ipairs({
     "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/HandyNotesProvider.lua",
     "Core/ImportService.lua", "Core/MapPinProvider.lua",
     "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua", "UI/ModalManager.lua", "UI/BulkDeleteDialog.lua",
+    "UI/HelpDialog.lua",
     "UI/Widgets.lua",
 }) do
     loadModule(SMK, path)
@@ -211,6 +212,7 @@ SearchMakerDB = {
         locationScale = 1.2,
         searchBarScale = 1.4,
         searchBarOpacity = 0.6,
+        exportBatchSize = 75,
         pinTextureScale = 9,
         mapPinNameOffsetX = -80,
         mapPinNameOffsetY = 80,
@@ -231,6 +233,8 @@ assert(SMK.Settings:Get("showPinTextures") and SMK.Settings:Get("locationScale")
 assert(SMK.Settings:Get("searchBarScale") == 1.4
     and SMK.Settings:Get("searchBarOpacity") == 0.6,
     "search bar appearance settings were not persisted")
+assert(SMK.Settings:Get("exportBatchSize") == SMK.Config.export.defaultBatchSize,
+    "export batch size default was not initialized")
 assert(SMK.Settings:Get("pinTextureScale") == SMK.Config.mapPins.maxTextureScale
     and SMK.Settings:Get("mapPinNameOffsetX") == SMK.Config.mapPins.nameOffsetXMin
     and SMK.Settings:Get("mapPinNameOffsetY") == SMK.Config.mapPins.nameOffsetYMax,
@@ -463,10 +467,27 @@ assert(SMK.LocationModel:GetDuplicateKey(duplicateA) == SMK.LocationModel:GetDup
 
 local ranges501 = SMK.ShareDialog:GetExportRanges(501)
 local ranges1000 = SMK.ShareDialog:GetExportRanges(1000)
-assert(#ranges501 == 2 and ranges501[2].first == 501 and ranges501[2].last == 501,
+assert(#ranges501 == 3 and ranges501[3].first == 401 and ranges501[3].last == 501,
     "501-entry export pagination failed")
-assert(#ranges1000 == 2 and ranges1000[2].first == 501 and ranges1000[2].last == 1000,
+assert(#ranges1000 == 5 and ranges1000[5].first == 801 and ranges1000[5].last == 1000,
     "1000-entry export pagination failed")
+assert(SMK.Settings:Set("exportBatchSize", 50))
+local ranges120 = SMK.ShareDialog:GetExportRanges(120)
+assert(#ranges120 == 3 and ranges120[2].first == 51 and ranges120[2].last == 100
+    and ranges120[3].first == 101 and ranges120[3].last == 120,
+    "selected export batch size did not control pagination")
+assert(not SMK.Settings:Set("exportBatchSize", 75)
+    and SMK.Settings:Get("exportBatchSize") == 50,
+    "unsupported export batch size was accepted")
+local originalExport = SMK.ShareDialog.Export
+local exportRefreshes = 0
+SMK.ShareDialog.exportEntries = {}
+SMK.ShareDialog.Export = function() exportRefreshes = exportRefreshes + 1 end
+SMK.ShareDialog:SetBatchSize(100)
+SMK.ShareDialog.Export = originalExport
+SMK.ShareDialog.exportEntries = nil
+assert(exportRefreshes == 1,
+    "changing export batch size did not refresh the filtered export entries")
 
 mapInfo[946] = { name = "Cosmic", mapType = Enum.UIMapType.Cosmic }
 mapChildren[946] = {}
@@ -762,5 +783,38 @@ assert(searchResultsSource:find("ipairs(SMK.Config.categories)", 1, true)
     and searchResultsSource:find("CreateAtlasMarkup(category.atlas, 16, 16)", 1, true)
     and searchResultsSource:find("self.callbacks.onFavorite(entry, categoryKey)", 1, true),
     "HandyNotes favorite menu does not expose configured categories")
+local helpFile = assert(io.open(root .. "/UI/HelpDialog.lua", "r"))
+local helpSource = helpFile:read("*a")
+helpFile:close()
+assert(helpSource:find("Config.panel.backgroundAtlas", 1, true)
+    and helpSource:find("Config.panel.borderAtlas", 1, true)
+    and SMK.HelpDialog and SMK.HelpDialog.Create and SMK.HelpDialog.Open,
+    "help dialog does not use the main panel art or lifecycle")
+local mainPanelFile = assert(io.open(root .. "/UI/MainPanel.lua", "r"))
+local mainPanelSource = mainPanelFile:read("*a")
+mainPanelFile:close()
+assert(mainPanelSource:find("Widgets:CreatePanelButton(moreFrame, SMK.L.HELP)", 1, true)
+    and mainPanelSource:find("SMK.ModalManager:Register(SMK.HelpDialog)", 1, true)
+    and mainPanelSource:find(
+        'SMK.ModalManager:Register(SMK.ShareDialog, { "batchSizeDropdown", "rangeDropdown" })',
+        1, true),
+    "main panel does not expose the managed help dialog")
+assert(SMK.Config.panel.layout.scrollbarOffsetX == -6
+    and mainPanelSource:find("Config.panel.layout.scrollbarOffsetX", 1, true),
+    "main panel scrollbar offset is not applied from layout config")
+local shareDialogFile = assert(io.open(root .. "/UI/ShareDialog.lua", "r"))
+local shareDialogSource = shareDialogFile:read("*a")
+shareDialogFile:close()
+assert(shareDialogSource:find("SMK.L.EXPORT_BATCH_SIZE", 1, true)
+    and shareDialogSource:find("ipairs(Config.export.batchSizes)", 1, true)
+    and shareDialogSource:find("function Dialog:SetBatchSize(batchSize)", 1, true),
+    "share dialog does not expose configurable export pagination")
+assert(shareDialogSource:find(
+        'self.rangeLabel:SetPoint("LEFT", self.batchSizeDropdown, "RIGHT", 12, 0)', 1, true),
+    "export range should be placed to the right of the batch-size dropdown")
+assert(shareDialogSource:find(
+        'self.currentMapOnly:SetScript("OnClick"', 1, true)
+    and shareDialogSource:find("if self.exportEntries then self:Export() end", 1, true),
+    "current-map export selection should refresh the export ranges")
 
 print("SearchMaker service tests passed")

@@ -9,10 +9,6 @@ local cacheDirty = true
 local cachedEntries = {}
 local mapIndex = {}
 local changeHandler
-local supportedExternalSources = {
-    HandyNotes_MapNotes = true,
-    RareScanner = true,
-}
 
 local function NotifyChanged(reason)
     if changeHandler then changeHandler(reason) end
@@ -87,13 +83,11 @@ function Store:Add(values)
     return display
 end
 
-function Store:CanFavoriteExternal(entry)
-    return type(entry) == "table" and entry.isExternal == true
-        and supportedExternalSources[entry.externalSource] == true
-end
-
 function Store:AddExternal(entry)
-    if not self:CanFavoriteExternal(entry) then return nil, "INVALID_LOCATION" end
+    if type(entry) ~= "table" or not entry.isExternal
+        or entry.externalSource ~= "HandyNotes_MapNotes" then
+        return nil, "INVALID_LOCATION"
+    end
     local values = {
         mapID = entry.mapID,
         x = entry.x,

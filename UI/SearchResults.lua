@@ -80,7 +80,7 @@ function SearchResults:IsContextMenuOpen()
 end
 
 function SearchResults:OpenExternalMenu(entry, owner)
-    if not SMK.Store:CanFavoriteExternal(entry) or not self.callbacks.onFavorite then return end
+    if entry.externalSource ~= "HandyNotes_MapNotes" or not self.callbacks.onFavorite then return end
     GameTooltip_Hide()
     self.contextMenu = MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
         rootDescription:CreateButton(SMK.L.FAVORITE, function()
@@ -189,13 +189,8 @@ function SearchResults:Render(source, query, allMaps)
             display = string.format(SMK.L.SEARCH_RESULT_FORMAT, match.mapName, match.entry.name)
         end
         if match.entry.isExternal then
-            local isRareScanner = match.entry.externalSource == "RareScanner"
-            local suffix = isRareScanner and SMK.L.RARESCANNER_SOURCE_SUFFIX
-                or SMK.L.HANDYNOTES_SOURCE_SUFFIX
-            local sourceColor = isRareScanner and SMK.Config.colors.rareScannerSource
-                or SMK.Config.colors.externalSource
             display = (display or match.entry.name) .. " "
-                .. ColorText(suffix, sourceColor)
+                .. ColorText(SMK.L.HANDYNOTES_SOURCE_SUFFIX, SMK.Config.colors.externalSource)
         end
         button:Show()
         SMK.Widgets:SetLocationEntry(button, match.entry, display, true)

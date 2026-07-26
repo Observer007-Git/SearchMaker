@@ -338,9 +338,6 @@ loader:SetScript("OnEvent", function(self, _, addonName)
     if addonName == SMK.name then
         loadedSearchMaker = true
         SMK.DB:Initialize()
-        SMK.RareScannerProvider:Initialize(function()
-            App:RequestRefresh("search")
-        end)
         if App.initialized then
             SMK.Store:InvalidateCache()
             SMK.SearchBar:UpdateSearchIcon()

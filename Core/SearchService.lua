@@ -14,20 +14,6 @@ local function FormatCoordinate(value)
     return (text:gsub("0+$", ""):gsub("%.$", ""))
 end
 
-local function AddExternalMatches(search, matches, provider, query, allMaps, currentMapID)
-    if not provider then return end
-    for _, entry in ipairs(provider:GetAll(currentMapID, allMaps)) do
-        local score = search:GetScore(entry, query)
-        if score then
-            local mapName = allMaps and SMK.Map:GetMapName(entry.mapID) or nil
-            matches[#matches + 1] = {
-                entry = entry, score = score + 4,
-                mapName = mapName, isExternal = true,
-            }
-        end
-    end
-end
-
 --- 解析两个坐标值；每项可为一位或多位整数，可带 1–2 位小数。
 -- 支持空格、英文逗号或中文逗号分隔。坐标范围 0–100。
 function Search:ParseCoordinates(query)
@@ -109,8 +95,20 @@ function Search:Find(entries, query, allMaps, currentMapID)
             matches[#matches + 1] = m
         end
     end
-    AddExternalMatches(self, matches, SMK.HandyNotesProvider, query, allMaps, currentMapID)
-    AddExternalMatches(self, matches, SMK.RareScannerProvider, query, allMaps, currentMapID)
+    -- Include HandyNotes_MapNotes matches
+    if SMK.HandyNotesProvider then
+        local hnEntries = SMK.HandyNotesProvider:GetAll()
+        for _, entry in ipairs(hnEntries) do
+            local score = self:GetScore(entry, query)
+            if score then
+                local mapName = allMaps and SMK.Map:GetMapName(entry.mapID) or nil
+                matches[#matches + 1] = {
+                    entry = entry, score = score + 4,
+                    mapName = mapName, isExternal = true,
+                }
+            end
+        end
+    end
     table.sort(matches, function(a, b)
         if a.score ~= b.score then return a.score < b.score end
         if a.isMapPortal ~= b.isMapPortal then return not a.isMapPortal end

@@ -101,6 +101,7 @@ assert(widgetsSource:find('texture:SetAtlas("poi-islands-table"', 1, true)
     "map portal icon is not contained by the search result icon frame")
 assert(SMK.Config.search.resultFrameInset == 5
     and SMK.Config.search.resultGap == 2
+    and SMK.Config.search.hoverHighlightDelay == 0.08
     and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
     "search result frame is not aligned inside the search box border")
 assert(SMK.Config.mapPins.targetHighlight.atlas == "MonsterEnemy"
@@ -624,6 +625,22 @@ highlightTimers[1]()
 assert(#fakeMap.pins == 2, "an older timer removed the current target highlight")
 highlightTimers[2]()
 assert(#fakeMap.pins == 1, "target highlight was not released after its duration")
+assert(SMK.MapPins:ShowHoverHighlight({ mapID = 100, x = 30, y = 70 })
+    and #fakeMap.pins == 2 and fakeMap.pins[2].x == 0.3,
+    "hover highlight pin was not acquired")
+assert(SMK.MapPins:ShowHoverHighlight({ mapID = 100, x = 45, y = 55 })
+    and #fakeMap.pins == 2 and fakeMap.pins[2].x == 0.45,
+    "a newer hover highlight did not replace the previous one")
+SMK.MapPins:ClearHoverHighlight()
+assert(#fakeMap.pins == 1, "hover highlight was not cleared")
+assert(SMK.MapPins:ShowTargetHighlight({ mapID = 100, x = 20, y = 80 })
+    and not SMK.MapPins:ShowHoverHighlight({ mapID = 100, x = 90, y = 10 })
+    and #fakeMap.pins == 2 and fakeMap.pins[2].x == 0.2,
+    "hover highlight replaced an active target highlight")
+SMK.MapPins:ClearHoverHighlight()
+assert(#fakeMap.pins == 2, "clearing hover removed an active target highlight")
+highlightTimers[3]()
+assert(#fakeMap.pins == 1, "protected target highlight was not released by its timer")
 assert(SMK.MapPins:ContainsMouseFocus({ fakeMap.pins[1] }),
     "map pin focus was not identified")
 assert(not fakeMap.pins[1].scripts or (not fakeMap.pins[1].scripts.OnEnter

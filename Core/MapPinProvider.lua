@@ -228,6 +228,7 @@ end
 
 function MapPins:ClearTargetHighlight()
     self.highlightToken = (self.highlightToken or 0) + 1
+    self.highlightMode = nil
     if self.provider then
         self.provider:GetMap():RemoveAllPinsByTemplate(HIGHLIGHT_TEMPLATE)
     end
@@ -240,11 +241,29 @@ function MapPins:ShowTargetHighlight(entry)
     if not map:IsShown() or map:GetMapID() ~= entry.mapID then return false end
 
     map:AcquirePin(HIGHLIGHT_TEMPLATE, entry)
+    self.highlightMode = "target"
     local token = self.highlightToken
     C_Timer.After(SMK.Config.mapPins.targetHighlight.duration, function()
         if self.highlightToken == token then self:ClearTargetHighlight() end
     end)
     return true
+end
+
+function MapPins:ShowHoverHighlight(entry)
+    if self.highlightMode == "target" or not self.provider or type(entry) ~= "table" then
+        return false
+    end
+    local map = self.provider:GetMap()
+    if not map:IsShown() or map:GetMapID() ~= entry.mapID then return false end
+
+    self:ClearTargetHighlight()
+    map:AcquirePin(HIGHLIGHT_TEMPLATE, entry)
+    self.highlightMode = "hover"
+    return true
+end
+
+function MapPins:ClearHoverHighlight()
+    if self.highlightMode == "hover" then self:ClearTargetHighlight() end
 end
 
 function MapPins:Clear()

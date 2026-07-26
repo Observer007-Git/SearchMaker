@@ -166,7 +166,7 @@ end
 --- 创建带有点击处理、工具提示和高亮的新地点按钮框架。
 -- 使用部件池模式：按钮创建一次，通过 Acquire/Release 复用。
 -- @param parent Frame 父框架。
--- @param callbacks table { onActivate, onEdit, onDelete, onExternalMenu, onEnter }。
+-- @param callbacks table { onActivate, onEdit, onDelete, onExternalMenu, onEnter, onLeave }。
 -- @return Frame 新按钮。
 function Widgets:CreateLocationButton(parent, callbacks)
     local button = CreateFrame("Frame", nil, parent)
@@ -260,6 +260,9 @@ function Widgets:CreateLocationButton(parent, callbacks)
     end)
     button.hitArea:SetScript("OnLeave", function(self)
         local owner = self.owner
+        if owner.callbacks.onLeave then
+            owner.callbacks.onLeave(owner)
+        end
         owner.highlight:SetShown(owner.isSearchSelected)
         local color = owner.isSearchSelected and Config.colors.locationHover
             or (owner.isPinned and Config.colors.locationPinned or Config.colors.locationNormal)

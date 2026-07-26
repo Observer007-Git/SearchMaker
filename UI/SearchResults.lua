@@ -40,9 +40,39 @@ function SearchResults:New(parent, box, callbacks)
         onEdit = view.callbacks.onEdit,
         onDelete = view.callbacks.onDelete,
         onExternalMenu = function(entry, owner) view:OpenExternalMenu(entry, owner) end,
-        onEnter = function(button) view:Select(button) end,
+        onEnter = function(button)
+            view:Select(button)
+            view:ScheduleHoverHighlight(button)
+        end,
+        onLeave = function(button) view:CancelHoverHighlight(button) end,
     }
     return view
+end
+
+function SearchResults:CancelHoverHighlight(button)
+    if button and self.hoverButton ~= button then return end
+    self.hoverButton = nil
+    self.hoverToken = (self.hoverToken or 0) + 1
+    SMK.MapPins:ClearHoverHighlight()
+end
+
+function SearchResults:ScheduleHoverHighlight(button)
+    self:CancelHoverHighlight()
+    local entry = button and button.entry
+    if self.allMaps or not entry or not tonumber(entry.x) or not tonumber(entry.y)
+        or not WorldMapFrame or not WorldMapFrame:IsShown()
+        or WorldMapFrame:GetMapID() ~= entry.mapID then
+        return
+    end
+    self.hoverButton = button
+    local token = self.hoverToken
+    C_Timer.After(SMK.Config.search.hoverHighlightDelay, function()
+        if self.hoverToken ~= token or self.hoverButton ~= button or self.allMaps
+            or not WorldMapFrame:IsShown() or WorldMapFrame:GetMapID() ~= entry.mapID then
+            return
+        end
+        SMK.MapPins:ShowHoverHighlight(entry)
+    end)
 end
 
 function SearchResults:IsContextMenuOpen()
@@ -68,6 +98,7 @@ function SearchResults:IsShown()
 end
 
 function SearchResults:Hide()
+    self:CancelHoverHighlight()
     self.selectedIndex, self.visibleCount = 0, 0
     self.frame:Hide()
     self.empty:Hide()
@@ -121,6 +152,8 @@ end
 
 --- 渲染搜索结果；SearchService 负责文本归一化和坐标识别。
 function SearchResults:Render(source, query, allMaps)
+    self:CancelHoverHighlight()
+    self.allMaps = allMaps == true
     local matches = SMK.Search:Find(source, query, allMaps, SMK.State.currentMapID)
     self.matches = matches
     local visible = #matches

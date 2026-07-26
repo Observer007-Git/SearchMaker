@@ -38,6 +38,7 @@ local Config = {
         resultFrameInset = 5,
         resultGap = 2,
         maxResults = 20,
+        hoverHighlightDelay = 0.08,
         shortcutDefaultOffsetY = 200,
     },
     location = {

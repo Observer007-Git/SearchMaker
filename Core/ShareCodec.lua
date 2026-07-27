@@ -43,23 +43,25 @@ local function GetPayload(text)
 end
 
 local function EncodeColor(color)
-    if type(color) ~= "table" then return "", "", "" end
+    if type(color) ~= "table" then return "" end
     local function Component(value)
         value = tonumber(value)
-        if not value then return "" end
-        return tostring(math.floor(math.max(0, math.min(1, value)) * 255 + 0.5))
+        if not value then return end
+        return math.floor(math.max(0, math.min(1, value)) * 255 + 0.5)
     end
-    return Component(color.r), Component(color.g), Component(color.b)
+    local r, g, b = Component(color.r), Component(color.g), Component(color.b)
+    if not r or not g or not b then return "" end
+    return string.format("%02X%02X%02X", r, g, b)
 end
 
-local function DecodeColor(rText, gText, bText)
-    if rText == "" and gText == "" and bText == "" then return nil, true end
-    local r, g, b = tonumber(rText), tonumber(gText), tonumber(bText)
-    if not r or not g or not b
-        or r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 then
-        return nil, false
-    end
-    return { r = r / 255, g = g / 255, b = b / 255 }, true
+local function DecodeColor(text)
+    if text == "" then return nil, true end
+    if not tostring(text):match("^%x%x%x%x%x%x$") then return nil, false end
+    return {
+        r = tonumber(text:sub(1, 2), 16) / 255,
+        g = tonumber(text:sub(3, 4), 16) / 255,
+        b = tonumber(text:sub(5, 6), 16) / 255,
+    }, true
 end
 
 function Codec:FindShareText(text)
@@ -73,20 +75,22 @@ function Codec:Encode(entries)
     for _, entry in ipairs(entries or {}) do
         local category = Config.categoryByKey[entry.categoryKey]
             or Config.categoryByKey[Config.defaultCategoryKey]
-        local colorR, colorG, colorB = EncodeColor(entry.pinColor)
+        local pinTextureID = tonumber(entry.pinTextureID)
+        if not SMK.PinTextureByID[pinTextureID] then
+            pinTextureID = SMK.DefaultPinTextureID
+        end
+        local flags = (tonumber(entry.showPinName) == 1 and 1 or 0)
+            + (tonumber(entry.showPinTexture) == 1 and 2 or 0)
         records[#records + 1] = table.concat({
             entry.mapID,
             string.format("%.0f", entry.x * 100),
             string.format("%.0f", entry.y * 100),
             category.id,
             EncodeField(entry.name),
-            entry.showPin or 0,
-            tonumber(entry.pinTextureID) or SMK.DefaultPinTextureID,
-            entry.showPinName or 0,
-            entry.showPinTexture or 0,
-            colorR,
-            colorG,
-            colorB,
+            flags,
+            pinTextureID,
+            EncodeColor(entry.pinColor),
+            tonumber(entry.customIconID) or "",
         }, ",")
     end
     return Config.share.prefix .. table.concat(records, ";")
@@ -100,8 +104,15 @@ function Codec:Decode(text)
     for record in payload:gmatch("[^;]+") do
         local fields = SplitRecord(record)
         local category = Config.categoryByID[tonumber(fields[4])]
-        local pinColor, colorValid = DecodeColor(fields[10], fields[11], fields[12])
-        if #fields ~= 12 or not category or not colorValid then
+        local flags = tonumber(fields[6])
+        local pinTextureID = tonumber(fields[7])
+        local pinColor, colorValid = DecodeColor(fields[8] or "")
+        local customIconID = fields[9] ~= "" and tonumber(fields[9]) or nil
+        local customIconValid = fields[9] == ""
+            or (customIconID and SMK.IconCatalog:Get(customIconID))
+        if #fields ~= 9 or not category or not flags or flags % 1 ~= 0
+            or flags < 0 or flags > 3 or not SMK.PinTextureByID[pinTextureID]
+            or not colorValid or not customIconValid then
             invalid = invalid + 1
         else
             local values = {
@@ -110,11 +121,11 @@ function Codec:Decode(text)
                 y = tonumber(fields[3]) and tonumber(fields[3]) / 100 or nil,
                 categoryKey = category.key,
                 name = DecodeField(fields[5]),
-                showPin = tonumber(fields[6]) or 0,
-                pinTextureID = tonumber(fields[7]) or SMK.DefaultPinTextureID,
-                showPinName = tonumber(fields[8]) or 0,
-                showPinTexture = tonumber(fields[9]) or 0,
+                pinTextureID = pinTextureID,
+                showPinName = flags % 2,
+                showPinTexture = math.floor(flags / 2),
                 pinColor = pinColor,
+                customIconID = customIconID,
             }
             local entry = SMK.LocationModel:Normalize(values) or nil
             if entry then

@@ -30,6 +30,7 @@ end
 
 local english = loadLocale("enUS")
 local chinese = loadLocale("zhCN")
+local traditionalChinese = loadLocale("zhTW")
 for key, value in pairs(english.L) do
     assert(chinese.L[key], "zhCN missing locale key: " .. key)
     assert(FormatSignature(value) == FormatSignature(chinese.L[key]),
@@ -37,6 +38,8 @@ for key, value in pairs(english.L) do
 end
 for key in pairs(chinese.L) do assert(english.L[key], "enUS missing locale key: " .. key) end
 assert(english.L.ADD == "Add Coordinate" and chinese.L.ADD == "新增坐标", "locale selection failed")
+assert(traditionalChinese.L.ADD == english.L.ADD,
+    "a non-zhCN client did not fall back to English")
 assert(english.L.FAVORITE_TO_FORMAT == "Add to %s"
     and chinese.L.FAVORITE_TO_FORMAT == "收藏到 %s",
     "favorite locale is missing")
@@ -45,6 +48,12 @@ assert(english.L.READ_COORDINATES == "Get Character Coordinates"
     "coordinate button locale was not updated")
 assert(english.L.COORDINATE_RESULT_FORMAT and chinese.L.COORDINATE_RESULT_FORMAT,
     "coordinate result locale is missing")
+assert(english.L.CUSTOM_ICON == "Custom Icon" and chinese.L.CUSTOM_ICON == "自定义图标"
+    and english.L.CUSTOM_ICON_ATLAS and chinese.L.CUSTOM_ICON_PATH
+    and english.L.MAP_PIN_SETTINGS_LABEL == "Map Pin Settings:"
+    and chinese.L.MAP_PIN_SETTINGS_LABEL == "地图标记设置："
+    and chinese.L.CUSTOM_PIN_COLOR == "显示标记文字颜色",
+    "custom icon locale is missing")
 assert(english.L.EXPORT_BATCH_SIZE == "Maximum per Export"
     and chinese.L.EXPORT_BATCH_SIZE == "最大单次导出数量",
     "export batch size locale is missing")

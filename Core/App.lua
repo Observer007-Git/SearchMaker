@@ -5,13 +5,19 @@ BINDING_NAME_SEARCHMAKER_TOGGLE_SEARCH = SMK.L.BINDING_NAME
 
 local App = {}
 
+local function GetStoreErrorMessage(errorMessage)
+    if errorMessage == "READ_ONLY" then return SMK.DB:GetReadOnlyMessage() end
+    if errorMessage == "INVALID_LOCATION" then return SMK.L.SAVE_FAILED end
+    return errorMessage
+end
+
 local RefreshProfiles = {
     initialize = { context = true, panel = true, instructions = true },
     visible = { context = true, instructions = true },
     map = { context = true, panel = true, instructions = true, resetSearch = true },
     data = {
         context = true, panel = true, pins = true, instructions = true,
-        search = true, geometry = true,
+        search = true,
     },
     search = { search = true },
     scale = { panel = true, search = true },
@@ -36,7 +42,6 @@ function App:RequestRefresh(reason)
 end
 
 function App:FlushRefresh(flags)
-    if flags.geometry then SMK.Widgets:ClearGeometryCache() end
     if flags.context then
         local mapID = self.pendingContextMapID
         local forceExternal = self.pendingForceExternal == true
@@ -138,13 +143,17 @@ function App:SaveLocation(mode, entry, values)
     local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
     if readOnlyMessage then return false, readOnlyMessage end
     if mode == "edit" then
-        if not SMK.Store:Update(entry, values) then
-            return false, SMK.L.EDIT_NOT_FOUND
+        local updated, errorMessage = SMK.Store:Update(entry, values)
+        if not updated then
+            if errorMessage == "NOT_FOUND" then errorMessage = SMK.L.EDIT_NOT_FOUND end
+            return false, GetStoreErrorMessage(errorMessage) or SMK.L.SAVE_FAILED
         end
         SMK:Print(string.format(SMK.L.EDIT_SUCCESS, values.name, values.x, values.y))
     else
-        local added = SMK.Store:Add(values)
-        if not added then return false, SMK.L.SAVE_FAILED end
+        local added, errorMessage = SMK.Store:Add(values)
+        if not added then
+            return false, GetStoreErrorMessage(errorMessage) or SMK.L.SAVE_FAILED
+        end
         SMK:Print(string.format(SMK.L.ADD_SUCCESS, values.name, values.x, values.y))
     end
     return true

@@ -28,13 +28,16 @@ SMK.L = {
     PREFIX = "SearchMaker: ",
     BINDING_HEADER = "SearchMaker",
     BINDING_NAME = "Toggle Search",
-    SHOW_MAP_PINS = "Show Map Pins",
     SHOW_PIN_TEXTURES = "Show Pin Textures",
     SHOW_MAP_PIN_NAMES = "Show Pin Names",
     PIN_TEXT_COLOR = "Show Pin Text",
+    MAP_PIN_SETTINGS_LABEL = "Map Pin Settings:",
     PIN_TEXT_SIZE = "Pin Text Size",
-    PIN_TEXTURE_LABEL = "Pin Texture",
     PIN_COLOR_LABEL = "Pin Color",
+    CUSTOM_PIN_COLOR = "Show Pin Text Color",
+    CUSTOM_ICON = "Custom Icon",
+    CUSTOM_ICON_ATLAS = "Atlas Texture",
+    CUSTOM_ICON_PATH = "Texture Path",
     PIN_NAME_OFFSET_X = "Name Offset X",
     PIN_NAME_OFFSET_Y = "Name Offset Y",
     PIN_TEXTURE_SIZE = "Pin Texture Size",
@@ -48,6 +51,7 @@ SMK.L = {
 
 |cffffd100Locations and pins|r
 • Alt+Left-click empty map space to add a location. Left-click a saved location to mark it, right-click to edit, or Shift+Right-click to delete.
+• In the location editor, enable Custom Icon to override the group icon for that location.
 • Pin Settings controls icon/name visibility, color, size, and offset. Search Settings controls the search box and shortcut key.
 • HandyNotes_MapNotes results can be marked directly; right-click one to save it to a chosen group.
 
@@ -89,6 +93,7 @@ SMK.L = {
     MAP_FORMAT = "%s (Map ID: %d)",
     ERROR_NO_MAP_ID = "Cannot determine current map ID.",
     ERROR_INVALID_COORDINATES = "X and Y must be numbers between 0 and 100.",
+    ERROR_INVALID_SETTING = "That setting value is invalid.",
     ERROR_EMPTY_NAME = "Please enter a location name.",
     ERROR_NAME_TOO_LONG = "Name supports up to 10 Chinese characters or 20 English letters.",
 
@@ -155,12 +160,17 @@ SMK.L = {
 
     -- FindDuplicate
     DUPLICATE_NAME = "A location with this name already exists on this map: %s",
-    CAT_DELVES = "Delves",
-    CAT_DUNGEONS = "Dungeons",
+    CAT_CITY_SERVICES = "City Services",
+    CAT_CLASS = "Class",
+    CAT_PROFESSION = "Profession",
     CAT_RAIDS = "Raids",
-    CAT_TELEPORT = "Teleport Points",
-    CAT_FLIGHT = "Flight Paths",
-    CAT_PROFESSIONS = "Professions",
+    CAT_DUNGEONS = "Dungeons",
+    CAT_DELVES = "Delves",
+    CAT_RARES = "Rare Creatures",
+    CAT_TREASURES = "Treasures",
+    CAT_PORTALS = "Portals",
+    CAT_TELEPORT_BEACONS = "Teleport Beacons",
+    CAT_MERCHANTS = "Merchants",
     CAT_NPC = "NPC",
     CAT_OTHER = "Other",
 

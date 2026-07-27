@@ -122,10 +122,12 @@ function Widgets:CreatePanelButton(parent, text, options)
 end
 
 --- 设置地点条目的图标。
--- HandyNotes 条目优先使用来源插件返回的纹理；缺失时使用"其他"分组图标。
+-- 已保存的自定义图标优先；否则使用地图、HandyNotes 来源或地点分组的默认图标。
 function Widgets:SetLocationIcon(texture, entry)
-    if entry.isMapPortal then
-        texture:SetAtlas("poi-islands-table", false)
+    if entry.customIconID and SMK.IconCatalog:Apply(texture, entry.customIconID) then
+        return
+    elseif entry.isMapPortal then
+        texture:SetAtlas(Art.mapPortalAtlas, false)
     elseif entry.isExternal and entry.iconTexture then
         texture:SetTexture(entry.iconTexture)
         texture:SetTexCoord(0, 1, 0, 1)
@@ -136,7 +138,7 @@ function Widgets:SetLocationIcon(texture, entry)
 end
 
 --- 用条目数据、图标和几何信息填充地点按钮。
--- 地图传送门条目使用不同的图标（poi-islands-table）。
+-- 地图传送门条目使用 Config 中的专用图标。
 -- @param button Frame 要填充的按钮。
 -- @param entry table 地点条目（可能带有 isMapPortal 标记）。
 -- @param displayText string|nil 按钮标签的替代文本。

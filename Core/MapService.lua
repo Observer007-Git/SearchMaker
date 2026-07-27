@@ -1,6 +1,7 @@
 local _, SMK = ...
 
 local Map = {}
+local mapNameCache = {}
 
 function Map:GetCursorScreenPosition()
     local x, y = GetCursorPosition()
@@ -36,8 +37,12 @@ end
 -- @param mapID number
 -- @return string
 function Map:GetMapName(mapID)
+    if mapNameCache[mapID] then return mapNameCache[mapID] end
     local info = self:GetMapInfo(mapID)
-    return info and info.name or (mapID and string.format(SMK.L.MAP_FALLBACK, tostring(mapID)) or SMK.L.UNKNOWN_MAP)
+    local name = info and info.name
+        or (mapID and string.format(SMK.L.MAP_FALLBACK, tostring(mapID)) or SMK.L.UNKNOWN_MAP)
+    if mapID and info and info.name then mapNameCache[mapID] = name end
+    return name
 end
 
 --- 获取玩家在指定地图上的当前位置，坐标范围 0-100。

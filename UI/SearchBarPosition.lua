@@ -68,7 +68,7 @@ function SearchBarPosition:Save()
     }
     local key = shortcut and "shortcutSearchBarPosition" or "mapSearchBarPosition"
     local saved, message = SMK.Settings:Set(key, position)
-    if not saved and message ~= "INVALID_SETTING" then SMK:Print(message) end
+    if not saved and message then SMK:Print(message) end
     bar:ClearAllPoints()
     bar:SetPoint("CENTER", anchor, relativePoint, position.x, position.y)
 end

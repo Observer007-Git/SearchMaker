@@ -96,21 +96,21 @@ function Search:Find(entries, query, allMaps, currentMapID, externalEntries)
             matches[#matches + 1] = m
         end
     end
-    for _, entry in ipairs(externalEntries or {}) do
-        local isCurrentContext = allMaps or entry.mapID == currentMapID
-        local score = isCurrentContext and self:GetScore(entry, query) or nil
+    -- HandyNotes 只维护当前地图的惰性缓存，不能在全图模式中冒充全图数据。
+    for _, entry in ipairs(not allMaps and externalEntries or {}) do
+        local score = entry.mapID == currentMapID and self:GetScore(entry, query) or nil
         if score then
-            local mapName = allMaps and SMK.Map:GetMapName(entry.mapID) or nil
             matches[#matches + 1] = {
                 entry = entry, score = score + 4,
-                mapName = mapName, isExternal = true,
+                isExternal = true,
             }
         end
     end
     table.sort(matches, function(a, b)
         if a.score ~= b.score then return a.score < b.score end
         if a.isMapPortal ~= b.isMapPortal then return not a.isMapPortal end
-        local nameA, nameB = Util.Normalize(a.entry.name), Util.Normalize(b.entry.name)
+        local nameA = a.entry.normalizedName or Util.Normalize(a.entry.name)
+        local nameB = b.entry.normalizedName or Util.Normalize(b.entry.name)
         if nameA ~= nameB then return nameA < nameB end
         local mapNameA, mapNameB = a.mapName or "", b.mapName or ""
         if mapNameA ~= mapNameB then return mapNameA < mapNameB end

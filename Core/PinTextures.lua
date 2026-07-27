@@ -1,5 +1,6 @@
 local _, SMK = ...
 
+-- id 是地点存储和共享格式中的稳定索引；调整显示顺序时不得修改已有 id。
 SMK.PinTextures = {
     { id = 1, atlas = "MonsterEnemy" },
     { id = 2, atlas = "Ping_Map_Whole_OnMyWay" },
@@ -24,8 +25,9 @@ SMK.PinTextures = {
 }
 
 SMK.DefaultPinTextureID = SMK.PinTextures[1].id
-
 SMK.PinTextureByID = {}
+SMK.PinTextureIDByAtlas = {}
 for _, texture in ipairs(SMK.PinTextures) do
     SMK.PinTextureByID[texture.id] = texture
+    SMK.PinTextureIDByAtlas[texture.atlas] = texture.id
 end

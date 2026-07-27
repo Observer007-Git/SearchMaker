@@ -29,7 +29,7 @@ local function CleanText(text)
 end
 
 local function IsLocalizedText(text)
-    if SMK.locale == "zhCN" or SMK.locale == "zhTW" then
+    if SMK.locale == "zhCN" then
         return ContainsHan(text)
     end
     return text ~= nil and text ~= ""
@@ -110,7 +110,7 @@ local function BuildNodeText(nodeData)
         AddSearchText(parts, seen, value)
     end
 
-    if SMK.locale == "zhCN" or SMK.locale == "zhTW" then
+    if SMK.locale == "zhCN" then
         for _, value in pairs(nodeData) do
             if type(value) == "string" then
                 AddSearchText(parts, seen, value)
@@ -149,7 +149,7 @@ local function BuildNodeText(nodeData)
         end
     end
     displayName = displayName or typeDisplay or npcNames[1]
-    if not displayName and SMK.locale ~= "zhCN" and SMK.locale ~= "zhTW" then
+    if not displayName and SMK.locale ~= "zhCN" then
         displayName = CleanText(nodeData.type)
             or (nodeData.npcID and "NPC:" .. tostring(nodeData.npcID))
     end

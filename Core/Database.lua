@@ -4,9 +4,8 @@ local DB = {}
 local Config = SMK.Config
 local Model = SMK.LocationModel
 local SettingsSchema = SMK.SettingsSchema
-local obsoleteRootKeys = {
-    "locationScale", "showFullPanel", "shortcutSearchVisible", "showMapPins", "showMapPinNames", "searchAllMaps",
-    "shortcutSearchBarPosition", "mapSearchBarPosition", "locationEdits", "locationDeletions",
+local rootKeys = {
+    schemaVersion = true, locations = true, usageCounts = true, settings = true, nextLocationID = true,
 }
 
 local function AssignLocationIDs(database)
@@ -14,15 +13,14 @@ local function AssignLocationIDs(database)
     local used = {}
     for _, entry in ipairs(database.locations) do
         if type(entry) == "table" then
-            if type(entry.id) ~= "string" or entry.id == "" or used[entry.id] then
-                entry.id = "user:" .. database.nextLocationID
+            local id = tonumber(entry.id)
+            if not id or id < 1 or id % 1 ~= 0 or used[id] then
+                id = database.nextLocationID
                 database.nextLocationID = database.nextLocationID + 1
             end
-            used[entry.id] = true
-            local numericID = tonumber(entry.id:match("^user:(%d+)$"))
-            if numericID then
-                database.nextLocationID = math.max(database.nextLocationID, numericID + 1)
-            end
+            entry.id = id
+            used[id] = true
+            database.nextLocationID = math.max(database.nextLocationID, id + 1)
         end
     end
 end
@@ -32,31 +30,43 @@ local function NormalizeLocations(database)
     for _, stored in ipairs(database.locations) do
         local normalized = Model:Normalize(stored)
         if normalized then
-            for _, key in ipairs(Model.persistentKeys) do stored[key] = normalized[key] end
-            stored.category = nil
-            stored.pinTexture = nil
-            stored.icon = nil
-            valid[#valid + 1] = stored
+            normalized.id = stored.id
+            valid[#valid + 1] = normalized
         end
     end
     database.locations = valid
 end
 
 local function PruneUsageCounts(database)
-    local valid = {}
+    local counts = {}
     for _, entry in ipairs(database.locations) do
-        if entry.id then valid["id:" .. entry.id] = true end
+        local count = math.floor(tonumber(database.usageCounts[entry.id]) or 0)
+        if count > 0 then counts[entry.id] = count end
     end
-    for key in pairs(database.usageCounts) do
-        if not valid[key] then database.usageCounts[key] = nil end
-    end
+    database.usageCounts = counts
 end
 
 local function CreateFutureRuntime(database)
-    local runtime = SMK.Util.CopyTable(database)
-    runtime.locations = type(database.locations) == "table" and database.locations or {}
-    runtime.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
-    runtime.settings = SettingsSchema:NormalizeAll(database.settings)
+    local runtime = {
+        locations = {},
+        usageCounts = {},
+        settings = SettingsSchema:NormalizeAll(database.settings),
+        nextLocationID = 1,
+        schemaVersion = database.schemaVersion,
+    }
+    for _, stored in ipairs(type(database.locations) == "table" and database.locations or {}) do
+        local normalized = Model:Normalize(stored)
+        if normalized then
+            normalized.id = stored.id
+            runtime.locations[#runtime.locations + 1] = normalized
+        end
+    end
+    AssignLocationIDs(runtime)
+    for _, entry in ipairs(runtime.locations) do
+        local count = math.floor(tonumber(type(database.usageCounts) == "table"
+            and database.usageCounts[entry.id]) or 0)
+        if count > 0 then runtime.usageCounts[entry.id] = count end
+    end
     return runtime
 end
 
@@ -79,7 +89,9 @@ function DB:Initialize()
     database.locations = type(database.locations) == "table" and database.locations or {}
     database.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
     database.settings = SettingsSchema:NormalizeAll(database.settings)
-    for _, key in ipairs(obsoleteRootKeys) do database[key] = nil end
+    for key in pairs(database) do
+        if not rootKeys[key] then database[key] = nil end
+    end
     NormalizeLocations(database)
     AssignLocationIDs(database)
     PruneUsageCounts(database)
@@ -108,7 +120,7 @@ end
 function DB:NextLocationID()
     if self:IsReadOnly() then return nil end
     local database = self:Get()
-    local id = "user:" .. database.nextLocationID
+    local id = database.nextLocationID
     database.nextLocationID = database.nextLocationID + 1
     return id
 end

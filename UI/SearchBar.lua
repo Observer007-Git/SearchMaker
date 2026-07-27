@@ -51,8 +51,8 @@ end
 
 --- 切换搜索框图标：当前地图模式 ↔ 全图搜索模式。
 function SearchBar:UpdateSearchIcon()
-    self.box.locationIcon:SetAtlas(nil)
     self.box.locationIcon:SetTexture(IsAllMaps() and Art.searchAllMapsIcon or Art.searchIcon)
+    self.box.locationIcon:SetTexCoord(0, 1, 0, 1)
 end
 
 --- 更新搜索框上方的提示文字（"搜索 X" / "全图搜索"）。

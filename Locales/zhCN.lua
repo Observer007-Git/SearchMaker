@@ -27,13 +27,16 @@ local translations = {
     FREQUENT = "常用",
     NO_FREQUENT = "暂无使用记录",
     LOCATION_COUNT = "坐标数量：%d/%d",
-    SHOW_MAP_PINS = "显示地图标记",
     SHOW_PIN_TEXTURES = "显示标记材质",
     SHOW_MAP_PIN_NAMES = "显示标记名称",
     PIN_TEXT_COLOR = "显示标记文字",
+    MAP_PIN_SETTINGS_LABEL = "地图标记设置：",
     PIN_TEXT_SIZE = "标记文字大小",
-    PIN_TEXTURE_LABEL = "标记材质",
     PIN_COLOR_LABEL = "标记颜色",
+    CUSTOM_PIN_COLOR = "显示标记文字颜色",
+    CUSTOM_ICON = "自定义图标",
+    CUSTOM_ICON_ATLAS = "Atlas 材质",
+    CUSTOM_ICON_PATH = "路径材质",
     PIN_NAME_OFFSET_X = "名称水平偏移",
     PIN_NAME_OFFSET_Y = "名称垂直偏移",
     PIN_TEXTURE_SIZE = "标记材质大小",
@@ -47,6 +50,7 @@ local translations = {
 
 |cffffd100地点与标记|r
 • 在世界地图空白处 Alt+左键新增地点；地点左键定位、右键修改、Shift+右键删除。
+• 在地点面板勾选“自定义图标”，可单独覆盖该地点的分组图标。
 • “标记设置”可调整图标和名称显示、颜色、大小及偏移；“搜索设置”可调整搜索框和快捷键。
 • HandyNotes_MapNotes 结果可直接定位，右键可收藏到指定分组。
 
@@ -91,6 +95,7 @@ local translations = {
     MAP_FORMAT = "%s（地图 ID：%d）",
     ERROR_NO_MAP_ID = "无法取得当前地图 ID。",
     ERROR_INVALID_COORDINATES = "X、Y 坐标必须是 0 到 100 之间的数字。",
+    ERROR_INVALID_SETTING = "该设置值无效。",
     ERROR_EMPTY_NAME = "请输入地点名字。",
     ERROR_NAME_TOO_LONG = "地点名字最多支持 10 个汉字或 20 个英文字母。",
 
@@ -158,12 +163,17 @@ local translations = {
     -- FindDuplicate
     DUPLICATE_NAME = "此地图已有同名地点：%s",
     -- Categories
-    CAT_DELVES = "地下堡",
-    CAT_DUNGEONS = "地下城",
+    CAT_CITY_SERVICES = "主城功能区域",
+    CAT_CLASS = "职业",
+    CAT_PROFESSION = "专业",
     CAT_RAIDS = "团队副本",
-    CAT_TELEPORT = "传送点",
-    CAT_FLIGHT = "飞行点",
-    CAT_PROFESSIONS = "专业",
+    CAT_DUNGEONS = "地下城",
+    CAT_DELVES = "地下堡",
+    CAT_RARES = "稀有怪物",
+    CAT_TREASURES = "宝箱",
+    CAT_PORTALS = "传送门",
+    CAT_TELEPORT_BEACONS = "传送道标",
+    CAT_MERCHANTS = "商人",
     CAT_NPC = "NPC",
     CAT_OTHER = "其他",
 

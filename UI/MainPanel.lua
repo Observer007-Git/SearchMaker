@@ -80,7 +80,8 @@ function MainPanel:RenderList()
             for _, entry in ipairs(categoryEntries) do
                 local button = self:Acquire("button")
                 button.background:Show()
-                Widgets:SetLocationEntry(button, entry)
+                Widgets:SetLocationEntry(button, entry, nil,
+                    Config.panel.layout.showLocationIcons)
                 local width, height = button:GetWidth(), button:GetHeight()
                 if rowX > startX and rowX + width > self.listContent:GetWidth() - startX then
                     rowX = startX
@@ -118,7 +119,8 @@ function MainPanel:RenderFrequent()
     local visible = math.min(#frequent, Config.location.maxFrequent)
     self.frequentEmpty:SetShown(visible == 0)
     local startX = PanelLayout.sidePadding
-    local x, y, rowHeight, firstRowHeight = startX, 0, 0, nil
+    local titleHeight = Config.panel.layout.frequentTitleHeight
+    local x, y, rowHeight = startX, titleHeight, 0
     local available = self.frequentRow:GetWidth() > 0 and self.frequentRow:GetWidth() or Config.panel.width - 28
     for index = 1, visible do
         local button = self.frequentButtons[index]
@@ -128,24 +130,21 @@ function MainPanel:RenderFrequent()
         end
         button:ClearAllPoints()
         button:Show()
-        Widgets:SetLocationEntry(button, frequent[index].entry)
+        Widgets:SetLocationEntry(button, frequent[index].entry, nil,
+            Config.panel.layout.showLocationIcons)
         local width, height = button:GetWidth(), button:GetHeight()
         if x > startX and x + width > available - startX then
-            firstRowHeight = firstRowHeight or rowHeight
             x, y, rowHeight = startX, y + rowHeight + Config.location.verticalGap, 0
         end
         button:SetPoint("TOPLEFT", self.frequentRow, "TOPLEFT", x, -y)
         x, rowHeight = x + width + Config.location.horizontalGap, math.max(rowHeight, height)
     end
-    firstRowHeight = firstRowHeight or rowHeight
-    self.frequentRow:SetHeight(visible > 0 and y + rowHeight or Config.location.baseHeight)
+    self.frequentRow:SetHeight(visible > 0 and y + rowHeight
+        or math.max(titleHeight, Config.location.baseHeight))
     self.frequentRow.title:ClearAllPoints()
-    self.frequentRow.title:SetPoint("TOPLEFT", 4,
-        -math.max(0, ((visible > 0 and firstRowHeight or Config.location.baseHeight)
-            - self.frequentRow.title:GetStringHeight()) / 2))
+    self.frequentRow.title:SetPoint("TOPLEFT", 4, 0)
     self.frequentEmpty:ClearAllPoints()
-    self.frequentEmpty:SetPoint("TOPLEFT", 60,
-        -math.max(0, (Config.location.baseHeight - self.frequentEmpty:GetStringHeight()) / 2))
+    self.frequentEmpty:SetPoint("LEFT", self.frequentRow.title, "RIGHT", 8, 0)
     for index = visible + 1, #self.frequentButtons do self.frequentButtons[index]:Hide() end
 end
 
@@ -153,10 +152,6 @@ function MainPanel:RefreshHeader()
     local mapID = SMK.MapContext:GetMapID()
     self.frame.mapName:SetText(mapID and string.format(SMK.L.MAP_FORMAT, SMK.Map:GetMapName(mapID), mapID)
         or SMK.L.UNKNOWN_MAP)
-    if self.frame.mapName.GetUnboundedStringWidth then
-        self.frame.mapName:SetWidth(math.min(Config.panel.layout.headerMapMaxWidth,
-            math.ceil(self.frame.mapName:GetUnboundedStringWidth())))
-    end
     self.frame.locationCount:SetText(string.format(SMK.L.LOCATION_COUNT,
         #SMK.MapContext:GetEntries(), SMK.MapContext:GetTotalLocationCount()))
     local scale = SMK.Settings:Get("locationScale")
@@ -290,14 +285,14 @@ function MainPanel:Create(searchBar, callbacks)
 
     frame.mapName = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     frame.mapName:SetPoint("TOPLEFT", 18, -17)
-    frame.mapName:SetWidth(Config.panel.layout.headerMapMaxWidth)
+    frame.mapName:SetPoint("RIGHT", frame, "TOPRIGHT", -190, -17)
     frame.mapName:SetJustifyH("LEFT")
     frame.mapName:SetWordWrap(false)
     frame.mapName:SetTextColor(unpack(Config.colors.gold))
     frame.locationCount = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    frame.locationCount:SetPoint("LEFT", frame.mapName, "RIGHT", 6, 0)
-    frame.locationCount:SetWidth(120)
-    frame.locationCount:SetJustifyH("LEFT")
+    frame.locationCount:SetPoint("TOPRIGHT", -44, -17)
+    frame.locationCount:SetWidth(140)
+    frame.locationCount:SetJustifyH("RIGHT")
     frame.locationCount:SetTextColor(unpack(Config.colors.gold))
 
     local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
@@ -309,7 +304,7 @@ function MainPanel:Create(searchBar, callbacks)
 
     local buttonGap = Config.panel.controls.buttonGap
     local settings = Widgets:CreatePanelButton(frame, SMK.L.SETTINGS)
-    settings:SetPoint("RIGHT", close, "LEFT", -buttonGap, 0)
+    settings:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -39)
     settings:SetScript("OnClick", function() self:ToggleSettings() end)
     local searchSettings = Widgets:CreatePanelButton(frame, SMK.L.SEARCH_BAR_SETTINGS)
     searchSettings:SetPoint("RIGHT", settings, "LEFT", -buttonGap, 0)

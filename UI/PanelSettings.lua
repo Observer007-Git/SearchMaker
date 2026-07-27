@@ -43,6 +43,31 @@ function PanelSettings:ChangePinNameOffset(axis, delta)
     self:Refresh()
 end
 
+function PanelSettings:OpenPinTextColor()
+    local previous = SMK.Settings:Get("mapPinTextColor")
+    previous = { r = previous.r, g = previous.g, b = previous.b }
+    ColorPickerFrame:Hide()
+    ColorPickerFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    ColorPickerFrame:SetFrameLevel(self.frame:GetFrameLevel() + 20)
+    ColorPickerFrame:SetClampedToScreen(true)
+    self.colorPickerOpen = true
+    ColorPickerFrame:SetupColorPickerAndShow({
+        r = previous.r,
+        g = previous.g,
+        b = previous.b,
+        hasOpacity = false,
+        swatchFunc = function()
+            local r, g, b = ColorPickerFrame:GetColorRGB()
+            SMK.Settings:Set("mapPinTextColor", { r = r, g = g, b = b })
+            self.pinTextColorButton.swatch:SetColorTexture(r, g, b)
+        end,
+        cancelFunc = function()
+            SMK.Settings:Set("mapPinTextColor", previous)
+            self.pinTextColorButton.swatch:SetColorTexture(previous.r, previous.g, previous.b)
+        end,
+    })
+end
+
 function PanelSettings:Refresh()
     local pinsAvailable = SMK.MapPins:IsAvailable()
     local showTextures = SMK.Settings:Get("showPinTextures")
@@ -64,6 +89,12 @@ function PanelSettings:Refresh()
     SetLabelEnabled(self.showPinNamesLabel, pinsAvailable)
 
     local nameControlsEnabled = pinsAvailable and showNames
+    local textColor = SMK.Settings:Get("mapPinTextColor")
+    self.pinTextColorButton.swatch:SetColorTexture(textColor.r, textColor.g, textColor.b)
+    self.pinTextColorButton:SetEnabled(nameControlsEnabled)
+    self.pinTextColorButton.swatch:SetAlpha(nameControlsEnabled and 1 or 0.3)
+    SetLabelEnabled(self.pinTextColorLabel, nameControlsEnabled)
+
     local textScale = SMK.Settings:Get("mapPinTextScale") or Config.mapPins.defaultTextScale
     self.pinTextScaleValue:SetText(string.format("%d%%", math.floor(textScale * 100 + 0.5)))
     self.pinTextScaleMinus:SetEnabled(nameControlsEnabled and textScale > (Config.mapPins.minTextScale or 0))
@@ -97,14 +128,15 @@ function PanelSettings:IsShown()
 end
 
 function PanelSettings:ContainsMouseFocus(foci)
-    return false
+    return self.colorPickerOpen and ColorPickerFrame and ColorPickerFrame:IsShown()
+        and DoesAncestryIncludeAny and DoesAncestryIncludeAny(ColorPickerFrame, foci)
 end
 
 function PanelSettings:Create(anchor)
     local controls = Config.panel.controls
     local frame = CreateFrame("Frame", SMK.name .. "PanelSettings", UIParent)
     self.frame = frame
-    frame:SetSize(controls.settingsWidth, 300)
+    frame:SetSize(controls.settingsWidth, 335)
     frame:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -4)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:SetFrameLevel(anchor:GetFrameLevel() + 10)
@@ -178,10 +210,19 @@ function PanelSettings:Create(anchor)
         self:Refresh()
     end)
 
+    -- 全局标记文字颜色；单地点可在编辑器中覆盖。
+    self.pinTextColorLabel = CreateRowLabel(SMK.L.PIN_COLOR_LABEL, -153, 26)
+    self.pinTextColorButton = Widgets:CreatePanelButton(frame, "", { width = 42 })
+    self.pinTextColorButton:SetPoint("TOPLEFT", 220, -146)
+    self.pinTextColorButton.swatch = self.pinTextColorButton:CreateTexture(nil, "ARTWORK")
+    self.pinTextColorButton.swatch:SetPoint("TOPLEFT", 8, -6)
+    self.pinTextColorButton.swatch:SetPoint("BOTTOMRIGHT", -8, 6)
+    self.pinTextColorButton:SetScript("OnClick", function() self:OpenPinTextColor() end)
+
     -- 名称文字大小
-    self.pinTextScaleLabel = CreateRowLabel(SMK.L.PIN_TEXT_SIZE, -153, 26)
+    self.pinTextScaleLabel = CreateRowLabel(SMK.L.PIN_TEXT_SIZE, -188, 26)
     self.pinTextScaleMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
-    self.pinTextScaleMinus:SetPoint("TOPLEFT", 164, -146)
+    self.pinTextScaleMinus:SetPoint("TOPLEFT", 164, -181)
     self.pinTextScaleMinus:SetScript("OnClick", function()
         self:ChangePinTextScale(-Config.mapPins.textScaleStep)
     end)
@@ -198,9 +239,9 @@ function PanelSettings:Create(anchor)
     SetControlTooltip(self.pinTextScalePlus, SMK.L.PIN_TEXT_SIZE)
 
     -- 名称水平偏移
-    self.pinNameOffsetXLabel = CreateRowLabel(SMK.L.PIN_NAME_OFFSET_X, -188, 26)
+    self.pinNameOffsetXLabel = CreateRowLabel(SMK.L.PIN_NAME_OFFSET_X, -223, 26)
     self.pinNameOffsetXMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
-    self.pinNameOffsetXMinus:SetPoint("TOPLEFT", 164, -181)
+    self.pinNameOffsetXMinus:SetPoint("TOPLEFT", 164, -216)
     self.pinNameOffsetXMinus:SetScript("OnClick", function()
         self:ChangePinNameOffset("X", -1)
     end)
@@ -215,9 +256,9 @@ function PanelSettings:Create(anchor)
     end)
 
     -- 名称垂直偏移
-    self.pinNameOffsetYLabel = CreateRowLabel(SMK.L.PIN_NAME_OFFSET_Y, -223, 26)
+    self.pinNameOffsetYLabel = CreateRowLabel(SMK.L.PIN_NAME_OFFSET_Y, -258, 26)
     self.pinNameOffsetYMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
-    self.pinNameOffsetYMinus:SetPoint("TOPLEFT", 164, -216)
+    self.pinNameOffsetYMinus:SetPoint("TOPLEFT", 164, -251)
     self.pinNameOffsetYMinus:SetScript("OnClick", function()
         self:ChangePinNameOffset("Y", -1)
     end)
@@ -232,6 +273,10 @@ function PanelSettings:Create(anchor)
     end)
 
     frame:HookScript("OnHide", function()
+        if self.colorPickerOpen and ColorPickerFrame and ColorPickerFrame:IsShown() then
+            ColorPickerFrame:Hide()
+        end
+        self.colorPickerOpen = false
         if self.shortcutButton and self.shortcutButton.isCapturing and SMK.SearchBar then
             SMK.SearchBar:StopShortcutCapture()
         end

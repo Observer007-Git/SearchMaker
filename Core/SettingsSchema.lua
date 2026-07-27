@@ -19,8 +19,14 @@ local definitions = {
     mapPinNameOffsetY = {
         kind = "number", min = Config.mapPins.nameOffsetYMin, max = Config.mapPins.nameOffsetYMax,
     },
-    searchBarScale = { kind = "number", min = 0.5, max = 2, decimals = 1 },
-    searchBarOpacity = { kind = "number", min = 0.2, max = 1, decimals = 1 },
+    searchBarScale = {
+        kind = "number", min = Config.search.appearance.minScale,
+        max = Config.search.appearance.maxScale, decimals = 1,
+    },
+    searchBarOpacity = {
+        kind = "number", min = Config.search.appearance.minOpacity,
+        max = Config.search.appearance.maxOpacity, decimals = 1,
+    },
     shortcutSearchVisible = { kind = "boolean" },
     showMapPinNames = { kind = "boolean" },
     showPinTextures = { kind = "boolean" },

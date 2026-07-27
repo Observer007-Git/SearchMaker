@@ -26,7 +26,8 @@ end
 function Editor:UpdateCategory()
     local catInfo = Config.categoryByKey[self.categoryKey]
     self.dropdown.Text:SetText(catInfo and (SMK.L[catInfo.nameKey] or catInfo.key) or self.categoryKey)
-    self.dropdown.categoryIcon:SetAtlas(catInfo and catInfo.atlas or "Waypoint-MapPin-Tracked", false)
+    self.dropdown.categoryIcon:SetAtlas(
+        catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas, false)
 end
 
 --- 处理来自下拉框的类别选择。
@@ -37,9 +38,32 @@ function Editor:SelectCategory(categoryKey)
 end
 
 function Editor:SelectPinTexture(textureID)
+    textureID = tonumber(textureID)
     if not SMK.PinTextureByID[textureID] then return end
     self.pinTextureID = textureID
     self:UpdatePinTexturePanel()
+    self.pinTexturePicker:Hide()
+end
+
+function Editor:SelectCustomIcon(iconID)
+    if not SMK.IconCatalog:Get(iconID) then return end
+    self.customIconID = tonumber(iconID)
+    self:UpdateCustomIconControl()
+    self.customIconPicker:Hide()
+end
+
+function Editor:UpdateCustomIconControl()
+    local checked = self.customIconCheck:GetChecked()
+    self.customIconButton:SetEnabled(checked)
+    self.customIconLabel:SetTextColor(unpack(
+        checked and Config.colors.gold or Config.colors.disabled))
+    self.customIconButton.preview:SetAlpha(checked and 1 or 0.35)
+    self.customIconButton.preview:SetDesaturated(not checked)
+    SMK.IconCatalog:Apply(self.customIconButton.preview,
+        self.customIconID or SMK.DefaultCustomIconID)
+    self.customIconGrid:SetSelected(self.customIconID)
+    self.customIconGrid:SetEnabled(checked)
+    if not checked then self.customIconPicker:Hide() end
 end
 
 --- 验证输入并保存地点。
@@ -54,11 +78,12 @@ function Editor:Save()
         y = tonumber(Util.Trim(self.inputs.y:GetText())),
         name = Util.Trim(self.inputs.name:GetText()),
         categoryKey = self.categoryKey,
-        showPin = (self.pinColorCheck:GetChecked() or self.pinCheck:GetChecked()) and 1 or 0,
-        showPinName = self.pinColorCheck:GetChecked() and 1 or 0,
+        showPinName = self.pinNameCheck:GetChecked() and 1 or 0,
         showPinTexture = self.pinCheck:GetChecked() and 1 or 0,
-        pinTextureID = tonumber(self.pinTextureID) or SMK.DefaultPinTextureID,
-        pinColor = self.pinColor,
+        pinTextureID = self.pinTextureID or SMK.DefaultPinTextureID,
+        pinColor = self.pinColorOverrideCheck:GetChecked() and self.pinColor or nil,
+        customIconID = self.customIconCheck:GetChecked()
+            and tonumber(self.customIconID) or nil,
     }
     if not mapID then
         return self:SetError(SMK.L.ERROR_NO_MAP_ID)
@@ -71,10 +96,6 @@ function Editor:Save()
     local nameWidth = Util.GetTextWidth(values.name)
     if not nameWidth or nameWidth > Config.location.maxNameWidth then
         return self:SetError(SMK.L.ERROR_NAME_TOO_LONG)
-    end
-    local dupEntry, dupMessage = SMK.Store:FindDuplicate(values, frame.entry)
-    if dupEntry then
-        return self:SetError(dupMessage)
     end
     local success, message = self.callbacks.onSave(frame.mode, frame.entry, values)
     if success == false then
@@ -132,7 +153,7 @@ function Editor:Create(parent, callbacks)
     categoryLabel:SetText(SMK.L.CATEGORY_LABEL)
     self.dropdown = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
     self.dropdown:SetSize(EditorConfig.inputWidth, EditorConfig.buttonHeight)
-    self.dropdown:SetPoint("LEFT", categoryLabel, "RIGHT", EditorConfig.labelGap, 0)
+    self.dropdown:SetPoint("RIGHT", frame, "TOPRIGHT", -18, EditorConfig.categoryRowY)
     self.dropdown:SetDefaultText(SMK.L.CAT_OTHER or Config.defaultCategoryKey)
     local _, fontSize = self.dropdown.Text:GetFont()
     local iconSize = math.max(10, math.floor((fontSize or 12) + 0.5))
@@ -166,6 +187,52 @@ function Editor:Create(parent, callbacks)
         end
     end)
 
+    -- 自定义地点图标；未启用时继续使用分组或来源的默认图标。
+    self.customIconCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    self.customIconCheck:SetSize(24, 24)
+    self.customIconCheck:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.customIconRowY)
+    local customIconLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    self.customIconLabel = customIconLabel
+    customIconLabel:SetPoint("LEFT", self.customIconCheck, "RIGHT", 4, 0)
+    customIconLabel:SetText(SMK.L.CUSTOM_ICON)
+    customIconLabel:SetTextColor(unpack(Config.colors.gold))
+    self.customIconButton = Widgets:CreatePanelButton(frame, "",
+        { width = EditorConfig.previewButtonSize, height = EditorConfig.previewButtonSize })
+    self.customIconButton:SetPoint("RIGHT", frame, "TOPRIGHT", -18, EditorConfig.customIconRowY)
+    self.customIconButton.preview = self.customIconButton:CreateTexture(nil, "ARTWORK")
+    self.customIconButton.preview:SetPoint("TOPLEFT", 3, -3)
+    self.customIconButton.preview:SetPoint("BOTTOMRIGHT", -3, 3)
+
+    self.customIconGrid = SMK.IconGridPicker:Create(frame, {
+        entries = SMK.IconCatalog.all,
+        columns = EditorConfig.customIconPickerColumns,
+        cellSize = EditorConfig.customIconPickerCellSize,
+        gap = EditorConfig.customIconPickerGap,
+        padding = EditorConfig.customIconPickerPadding,
+        alpha = 0.96,
+        showKind = true,
+        onSelect = function(iconID) self:SelectCustomIcon(iconID) end,
+    })
+    self.customIconPicker = self.customIconGrid.frame
+    self.customIconPicker:SetPoint("TOPLEFT", frame, "TOPRIGHT", 4,
+        EditorConfig.customIconRowY + EditorConfig.previewButtonSize / 2)
+    self.customIconPicker:SetFrameStrata("FULLSCREEN_DIALOG")
+    self.customIconPicker:SetFrameLevel(frame:GetFrameLevel() + 10)
+    self.customIconPicker:SetClampedToScreen(true)
+    self.customIconPicker:Hide()
+    self.customIconButton:SetScript("OnClick", function()
+        if not self.customIconCheck:GetChecked() then return end
+        if self.pinTexturePicker then self.pinTexturePicker:Hide() end
+        self.customIconPicker:SetShown(not self.customIconPicker:IsShown())
+    end)
+    self.customIconCheck:SetScript("OnClick", function()
+        if self.customIconCheck:GetChecked()
+            and not SMK.IconCatalog:Get(self.customIconID) then
+            self.customIconID = SMK.DefaultCustomIconID
+        end
+        self:UpdateCustomIconControl()
+    end)
+
     -- Name: label left of input
     local nameLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     nameLabel:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.nameRowY)
@@ -173,7 +240,7 @@ function Editor:Create(parent, callbacks)
     nameLabel:SetText(SMK.L.NAME_LABEL)
     local nameInput = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
     nameInput:SetSize(EditorConfig.inputWidth, EditorConfig.buttonHeight)
-    nameInput:SetPoint("LEFT", nameLabel, "RIGHT", EditorConfig.labelGap, 0)
+    nameInput:SetPoint("RIGHT", frame, "TOPRIGHT", -18, EditorConfig.nameRowY)
     nameInput:SetAutoFocus(false)
     nameInput:SetMaxLetters(Config.location.maxNameLength)
     nameInput:SetTextColor(1, 1, 1)
@@ -185,7 +252,7 @@ function Editor:Create(parent, callbacks)
     xLabel:SetText(SMK.L.X_LABEL)
     local xInput = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
     xInput:SetSize(EditorConfig.inputWidth, EditorConfig.buttonHeight)
-    xInput:SetPoint("LEFT", xLabel, "RIGHT", EditorConfig.labelGap, 0)
+    xInput:SetPoint("RIGHT", frame, "TOPRIGHT", -18, EditorConfig.xRowY)
     xInput:SetAutoFocus(false)
     xInput:SetMaxLetters(Config.location.maxCoordinateLength)
     xInput:SetTextColor(1, 1, 1)
@@ -197,7 +264,7 @@ function Editor:Create(parent, callbacks)
     yLabel:SetText(SMK.L.Y_LABEL)
     local yInput = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
     yInput:SetSize(EditorConfig.inputWidth, EditorConfig.buttonHeight)
-    yInput:SetPoint("LEFT", yLabel, "RIGHT", EditorConfig.labelGap, 0)
+    yInput:SetPoint("RIGHT", frame, "TOPRIGHT", -18, EditorConfig.yRowY)
     yInput:SetAutoFocus(false)
     yInput:SetMaxLetters(Config.location.maxCoordinateLength)
     yInput:SetTextColor(1, 1, 1)
@@ -218,23 +285,47 @@ function Editor:Create(parent, callbacks)
     coordinateButton:SetScript("OnClick", function() self:FillCoordinates() end)
     frame.error = frame:CreateFontString(nil, "OVERLAY", "GameFontRedSmall")
     frame.error:SetPoint("TOP", frame, "TOP", 0, EditorConfig.errorY)
-    -- 显示标记文字复选框
-    self.pinColorCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-    self.pinColorCheck:SetSize(24, 24)
-    self.pinColorCheck:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.pinColorRowY)
-    self.pinColorCheck:SetChecked(false)
-    local pinColorCheckLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    pinColorCheckLabel:SetPoint("LEFT", self.pinColorCheck, "RIGHT", 4, 0)
-    pinColorCheckLabel:SetText(SMK.L.PIN_TEXT_COLOR)
-    pinColorCheckLabel:SetTextColor(unpack(Config.colors.gold))
-    self.pinColorButton = Widgets:CreatePanelButton(frame, "", { width = 42 })
-    self.pinColorButton:SetPoint("LEFT", pinColorCheckLabel, "RIGHT", EditorConfig.labelGap, 0)
+    local pinSettingsLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    pinSettingsLabel:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.pinSettingsLabelY)
+    pinSettingsLabel:SetText(SMK.L.MAP_PIN_SETTINGS_LABEL)
+    pinSettingsLabel:SetTextColor(unpack(Config.colors.gold))
+    -- 是否显示该地点的标记名称。
+    self.pinNameCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    self.pinNameCheck:SetSize(24, 24)
+    self.pinNameCheck:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.pinNameRowY)
+    self.pinNameCheck:SetChecked(false)
+    local pinNameLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    pinNameLabel:SetPoint("LEFT", self.pinNameCheck, "RIGHT", 4, 0)
+    pinNameLabel:SetText(SMK.L.PIN_TEXT_COLOR)
+    pinNameLabel:SetTextColor(unpack(Config.colors.gold))
+    self.pinNameCheck:SetScript("OnClick", function()
+        local checked = self.pinNameCheck:GetChecked()
+        self.pinColorOverrideCheck:SetEnabled(checked)
+        SMK.MapPins:UpdatePinVisibility(frame.entry, checked, self.pinCheck:GetChecked())
+        self:UpdatePinColorControl()
+    end)
+
+    -- 可选的单地点文字颜色；未启用时跟随全局颜色。
+    self.pinColorOverrideCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    self.pinColorOverrideCheck:SetSize(24, 24)
+    self.pinColorOverrideCheck:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.pinColorRowY)
+    self.pinColorOverrideCheck:SetChecked(false)
+    local pinColorLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    self.pinColorLabel = pinColorLabel
+    pinColorLabel:SetPoint("LEFT", self.pinColorOverrideCheck, "RIGHT", 4, 0)
+    pinColorLabel:SetText(SMK.L.CUSTOM_PIN_COLOR)
+    pinColorLabel:SetTextColor(unpack(Config.colors.gold))
+    self.pinColorButton = Widgets:CreatePanelButton(frame, "", {
+        width = EditorConfig.previewButtonSize,
+        height = EditorConfig.previewButtonSize,
+    })
+    self.pinColorButton:SetPoint("RIGHT", frame, "TOPRIGHT", -18, EditorConfig.pinColorRowY)
     self.pinColorButton.swatch = self.pinColorButton:CreateTexture(nil, "ARTWORK")
-    self.pinColorButton.swatch:SetPoint("TOPLEFT", 8, -6)
-    self.pinColorButton.swatch:SetPoint("BOTTOMRIGHT", -8, 6)
+    self.pinColorButton.swatch:SetPoint("TOPLEFT", 6, -6)
+    self.pinColorButton.swatch:SetPoint("BOTTOMRIGHT", -6, 6)
     self.pinColor = { r = Config.colors.gold[1], g = Config.colors.gold[2], b = Config.colors.gold[3] }
     self.pinColorButton:SetScript("OnClick", function()
-        if not self.pinColorCheck:GetChecked() then return end
+        if not self.pinColorOverrideCheck:GetChecked() then return end
         local previous = { r = self.pinColor.r, g = self.pinColor.g, b = self.pinColor.b }
         ColorPickerFrame:Hide()
         ColorPickerFrame:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -261,12 +352,19 @@ function Editor:Create(parent, callbacks)
             end,
         })
     end)
-    self.pinColorCheck:SetScript("OnClick", function()
-        local checked = self.pinColorCheck:GetChecked()
+    function self:UpdatePinColorControl()
+        local enabled = self.pinNameCheck:GetChecked()
+        local checked = enabled and self.pinColorOverrideCheck:GetChecked()
+        self.pinColorOverrideCheck:SetEnabled(enabled)
         self.pinColorButton:SetEnabled(checked)
-        pinColorCheckLabel:SetTextColor(unpack(checked and Config.colors.gold or Config.colors.disabled))
+        pinColorLabel:SetTextColor(unpack(enabled and Config.colors.gold or Config.colors.disabled))
         self.pinColorButton.swatch:SetAlpha(checked and 1 or 0.3)
-        SMK.MapPins:UpdatePinVisibility(frame.entry, checked, self.pinCheck:GetChecked())
+        if frame.entry then
+            SMK.MapPins:UpdatePinPreviewColor(frame.entry, checked and self.pinColor or nil)
+        end
+    end
+    self.pinColorOverrideCheck:SetScript("OnClick", function()
+        self:UpdatePinColorControl()
     end)
     if ColorPickerFrame then
         ColorPickerFrame:HookScript("OnHide", function()
@@ -292,61 +390,53 @@ function Editor:Create(parent, callbacks)
     pinCheckLabel:SetPoint("LEFT", self.pinCheck, "RIGHT", 4, 0)
     pinCheckLabel:SetText(SMK.L.SHOW_PIN_TEXTURES)
     pinCheckLabel:SetTextColor(unpack(Config.colors.gold))
-    -- 标记材质单选面板
-    local pinTexLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    pinTexLabel:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.pinTextureLabelY)
-    pinTexLabel:SetTextColor(unpack(Config.colors.gold))
-    pinTexLabel:SetText(SMK.L.PIN_TEXTURE_LABEL)
-    self.pinTexturePanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    self.pinTexturePanel:SetSize(180, 136)
-    self.pinTexturePanel:SetPoint("TOP", frame, "TOP", 0, EditorConfig.pinTexturePanelY)
-    self.pinTexturePanel:SetBackdrop(Config.resultBackdrop)
-    self.pinTexturePanel:SetBackdropColor(0.04, 0.03, 0.02, 0.7)
-    self.pinTexturePanel:SetBackdropBorderColor(unpack(Config.colors.panelBorder))
-    self.pinTextureButtons = {}
-    for index, texture in ipairs(SMK.PinTextures) do
-        local button = CreateFrame("Button", nil, self.pinTexturePanel)
-        button:SetSize(28, 28)
-        local column = (index - 1) % 5
-        local row = math.floor((index - 1) / 5)
-        button:SetPoint("TOPLEFT", 8 + column * 34, -7 - row * 31)
-        button.textureID = texture.id
-        button.atlas = texture.atlas
-        button.selection = button:CreateTexture(nil, "BACKGROUND")
-        button.selection:SetAllPoints(button)
-        button.selection:SetColorTexture(unpack(Config.colors.gold))
-        button.selection:SetAlpha(0.45)
-        button.icon = button:CreateTexture(nil, "ARTWORK")
-        button.icon:SetPoint("TOPLEFT", 3, -3)
-        button.icon:SetPoint("BOTTOMRIGHT", -3, 3)
-        button.icon:SetAtlas(button.atlas, false)
-        button.highlight = button:CreateTexture(nil, "HIGHLIGHT")
-        button.highlight:SetAllPoints(button)
-        button.highlight:SetColorTexture(1, 1, 1, 0.2)
-        button:SetScript("OnClick", function() self:SelectPinTexture(button.textureID) end)
-        button:SetScript("OnEnter", function()
-            GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
-            GameTooltip:SetText(button.atlas)
-            GameTooltip:Show()
-        end)
-        button:SetScript("OnLeave", GameTooltip_Hide)
-        self.pinTextureButtons[#self.pinTextureButtons + 1] = button
-    end
+    self.pinTextureButton = Widgets:CreatePanelButton(frame, "",
+        { width = EditorConfig.previewButtonSize, height = EditorConfig.previewButtonSize })
+    self.pinTextureButton:SetPoint("RIGHT", frame, "TOPRIGHT", -18, EditorConfig.pinTextureRowY)
+    self.pinTextureButton.preview = self.pinTextureButton:CreateTexture(nil, "ARTWORK")
+    self.pinTextureButton.preview:SetPoint("TOPLEFT", 3, -3)
+    self.pinTextureButton.preview:SetPoint("BOTTOMRIGHT", -3, 3)
+    self.pinTextureGrid = SMK.IconGridPicker:Create(frame, {
+        entries = SMK.PinTextures,
+        columns = EditorConfig.pinTexturePickerColumns,
+        cellSize = EditorConfig.pinTexturePickerCellSize,
+        columnGap = EditorConfig.pinTexturePickerColumnGap,
+        rowGap = EditorConfig.pinTexturePickerRowGap,
+        padding = EditorConfig.pinTexturePickerPadding,
+        alpha = 0.96,
+        getValue = function(texture) return texture.id end,
+        applyIcon = function(icon, texture) icon:SetAtlas(texture.atlas, false) end,
+        getTooltip = function(texture) return texture.atlas end,
+        onSelect = function(textureID) self:SelectPinTexture(textureID) end,
+    })
+    self.pinTexturePicker = self.pinTextureGrid.frame
+    self.pinTexturePicker:SetPoint("TOPLEFT", frame, "TOPRIGHT", 4,
+        EditorConfig.pinTextureRowY + EditorConfig.previewButtonSize / 2)
+    self.pinTexturePicker:SetFrameStrata("FULLSCREEN_DIALOG")
+    self.pinTexturePicker:SetFrameLevel(frame:GetFrameLevel() + 10)
+    self.pinTexturePicker:SetClampedToScreen(true)
+    self.pinTexturePicker:Hide()
+    self.pinTextureButton:SetScript("OnClick", function()
+        if not self.pinCheck:GetChecked() then return end
+        self.customIconPicker:Hide()
+        self.pinTexturePicker:SetShown(not self.pinTexturePicker:IsShown())
+    end)
     local function UpdatePinTexturePanel()
         local checked = self.pinCheck:GetChecked()
-        pinTexLabel:SetTextColor(unpack(checked and Config.colors.gold or Config.colors.disabled))
-        for _, button in ipairs(self.pinTextureButtons) do
-            button:SetEnabled(checked)
-            button.icon:SetDesaturated(not checked)
-            button.icon:SetAlpha(checked and 1 or 0.45)
-            button.selection:SetShown(button.textureID
-                == tonumber(self.pinTextureID or SMK.DefaultPinTextureID))
-        end
+        local texture = SMK.PinTextureByID[self.pinTextureID]
+            or SMK.PinTextureByID[SMK.DefaultPinTextureID]
+        self.pinTextureButton:SetEnabled(checked)
+        self.pinTextureButton.preview:SetAtlas(texture.atlas, false)
+        self.pinTextureButton.preview:SetAlpha(checked and 1 or 0.35)
+        self.pinTextureButton.preview:SetDesaturated(not checked)
+        self.pinTextureGrid:SetSelected(texture.id)
+        self.pinTextureGrid:SetEnabled(checked)
+        if not checked then self.pinTexturePicker:Hide() end
     end
     self.UpdatePinTexturePanel = UpdatePinTexturePanel
     self.pinCheck:SetScript("OnClick", function()
         self:UpdatePinTexturePanel()
-        SMK.MapPins:UpdatePinVisibility(frame.entry, self.pinColorCheck:GetChecked(), self.pinCheck:GetChecked())
+        SMK.MapPins:UpdatePinVisibility(frame.entry, self.pinNameCheck:GetChecked(), self.pinCheck:GetChecked())
     end)
 
     local save = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
@@ -365,6 +455,8 @@ function Editor:Create(parent, callbacks)
     cancel:SetText(SMK.L.CANCEL)
     cancel:SetScript("OnClick", function() frame:Hide() end)
     frame:SetScript("OnHide", function()
+        self.customIconPicker:Hide()
+        self.pinTexturePicker:Hide()
         if self.colorPickerOpen and ColorPickerFrame and ColorPickerFrame:IsShown() then
             if not self.saved then self.colorPickerCancelled = true end
             ColorPickerFrame:Hide()
@@ -381,29 +473,51 @@ function Editor:Create(parent, callbacks)
     return frame
 end
 
+--- 计算地图点位附近的编辑器位置。
+-- 优先选择点位到地图左右边缘空间更大且能完整容纳面板的一侧。
+function Editor:CalculateMapPointPlacement(position, mapLeft, mapRight, screenWidth, screenHeight)
+    local panelWidth, panelHeight = EditorConfig.width, EditorConfig.height
+    local gap = EditorConfig.positionGap
+    local pointX = tonumber(position and position.x) or screenWidth / 2
+    local pointY = tonumber(position and position.y) or screenHeight / 2
+    mapLeft = tonumber(mapLeft) or 0
+    mapRight = tonumber(mapRight) or screenWidth
+
+    local leftSpace = pointX - mapLeft
+    local rightSpace = mapRight - pointX
+    local leftFits = leftSpace >= panelWidth + gap
+    local rightFits = rightSpace >= panelWidth + gap
+    local placeRight
+    if rightFits ~= leftFits then
+        placeRight = rightFits
+    else
+        placeRight = rightSpace >= leftSpace
+    end
+
+    local panelX = placeRight and pointX + gap or pointX - gap - panelWidth
+    panelX = math.max(0, math.min(screenWidth - panelWidth, panelX))
+    local panelY = math.max(0, math.min(screenHeight - panelHeight,
+        pointY - panelHeight / 2))
+    return panelX, panelY, placeRight and "RIGHT" or "LEFT"
+end
+
 --- 打开编辑器对话框，编辑现有条目时预填字段。
 -- @param mode string "add" 或 "edit"。
 -- @param entry table|nil 现有条目（编辑模式）。
--- @param position table|nil 屏幕坐标 {x, y}，从 Alt+点击地图时传入，用于动态定位面板。
+-- @param position table|nil 地图点击的屏幕坐标 {x, y}，用于避开点位动态定位面板。
 function Editor:Open(mode, entry, position)
     local frame = self.frame
     frame:ClearAllPoints()
     if position then
         local screenWidth = UIParent:GetWidth()
         local screenHeight = UIParent:GetHeight()
-        local panelWidth, panelHeight = EditorConfig.width, EditorConfig.height
-        local gap = EditorConfig.positionGap
-        local cursorX, cursorY = position.x, position.y
-        -- 面板纵向居中于光标，并限制在屏幕范围内
-        local panelY = cursorY - panelHeight / 2
-        if panelY < 0 then panelY = 0 end
-        if panelY + panelHeight > screenHeight then panelY = screenHeight - panelHeight end
-        -- 优先放在右侧，空间不足时放左侧
-        if cursorX + gap + panelWidth <= screenWidth then
-            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", cursorX + gap, panelY)
-        else
-            frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", cursorX - gap, panelY)
-        end
+        local mapCanvas = WorldMapFrame and WorldMapFrame:IsShown()
+            and (WorldMapFrame.ScrollContainer or WorldMapFrame) or nil
+        local mapLeft = mapCanvas and mapCanvas:GetLeft() or 0
+        local mapRight = mapCanvas and mapCanvas:GetRight() or screenWidth
+        local panelX, panelY = self:CalculateMapPointPlacement(
+            position, mapLeft, mapRight, screenWidth, screenHeight)
+        frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", panelX, panelY)
     else
         frame:SetPoint("CENTER")
     end
@@ -420,6 +534,11 @@ function Editor:Open(mode, entry, position)
     self.categoryKey = entry and Config.GetCategoryKey(entry.categoryKey)
         or Config.defaultCategoryKey
     self:UpdateCategory()
+    local customIconID = entry and tonumber(entry.customIconID) or nil
+    local hasCustomIcon = customIconID and SMK.IconCatalog:Get(customIconID) ~= nil
+    self.customIconCheck:SetChecked(hasCustomIcon)
+    self.customIconID = hasCustomIcon and customIconID or SMK.DefaultCustomIconID
+    self:UpdateCustomIconControl()
     self.pinCheck:SetChecked(entry and entry.showPinTexture == 1 or false)
     self.pinTextureID = entry and tonumber(entry.pinTextureID) or SMK.DefaultPinTextureID
     if not SMK.PinTextureByID[self.pinTextureID] then
@@ -427,15 +546,16 @@ function Editor:Open(mode, entry, position)
     end
     self:UpdatePinTexturePanel()
     local showPinName = entry and entry.showPinName == 1 or false
-    self.pinColorCheck:SetChecked(showPinName)
-    local color = (entry and entry.pinColor) or Config.colors.gold
+    self.pinNameCheck:SetChecked(showPinName)
+    local hasPinColor = entry and type(entry.pinColor) == "table"
+    self.pinColorOverrideCheck:SetChecked(hasPinColor == true)
+    local color = (entry and entry.pinColor) or SMK.Settings:Get("mapPinTextColor")
     self.pinColor = { r = color.r or color[1], g = color.g or color[2], b = color.b or color[3] }
     self.originalPinColor = entry and entry.pinColor and
         { r = entry.pinColor.r, g = entry.pinColor.g, b = entry.pinColor.b } or nil
     self.saved = false
     self.pinColorButton.swatch:SetColorTexture(self.pinColor.r, self.pinColor.g, self.pinColor.b)
-    self.pinColorButton:SetEnabled(showPinName)
-    self.pinColorButton.swatch:SetAlpha(showPinName and 1 or 0.3)
+    self:UpdatePinColorControl()
     self.originalShowPinName = entry and entry.showPinName == 1 or false
     self.originalShowPinTexture = entry and entry.showPinTexture == 1 or false
     self:SetError()
@@ -454,6 +574,18 @@ end
 
 function Editor:IsMenuOpen()
     return self.dropdown and self.dropdown.IsMenuOpen and self.dropdown:IsMenuOpen() or false
+end
+
+function Editor:CloseTransientMenu(foci)
+    if not DoesAncestryIncludeAny then return end
+    local function ClosePicker(picker, button)
+        if not picker or not picker:IsShown()
+            or DoesAncestryIncludeAny(picker, foci)
+            or DoesAncestryIncludeAny(button, foci) then return end
+        picker:Hide()
+    end
+    ClosePicker(self.customIconPicker, self.customIconButton)
+    ClosePicker(self.pinTexturePicker, self.pinTextureButton)
 end
 
 SMK.LocationEditor = Editor

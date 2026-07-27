@@ -48,8 +48,10 @@ end
 
 local SMK = {}
 for _, path in ipairs({
-    "Core/Namespace.lua", "Config.lua", "Locales/init.lua", "Locales/enUS.lua", "Locales/zhCN.lua",
-    "Core/PinTextures.lua", "Core/LocationModel.lua", "Core/SettingsSchema.lua",
+    "Core/Namespace.lua", "Core/AtlasTextures.lua", "Core/PathTextures.lua", "Core/IconCatalog.lua",
+    "Core/PinTextures.lua",
+    "Config.lua", "Locales/init.lua", "Locales/enUS.lua", "Locales/zhCN.lua",
+    "Core/LocationModel.lua", "Core/SettingsSchema.lua",
     "Core/Database.lua", "Core/SettingsService.lua",
     "Core/LocationStore.lua", "Core/MapService.lua",
     "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/HandyNotesProvider.lua",
@@ -57,23 +59,68 @@ for _, path in ipairs({
     "Core/MapPinPoolAdapter.lua", "Core/MapPinProvider.lua",
     "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua", "UI/ModalManager.lua", "UI/BulkDeleteDialog.lua",
     "UI/PanelController.lua", "UI/HelpDialog.lua",
-    "UI/Widgets.lua", "UI/SearchResults.lua", "UI/SearchBar.lua",
+    "UI/Widgets.lua", "UI/IconGridPicker.lua", "UI/LocationEditor.lua",
+    "UI/SearchResults.lua", "UI/SearchBar.lua",
 }) do
     loadModule(SMK, path)
 end
 
 assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
+assert(#SMK.AtlasTextures == 42 and #SMK.PathTextures == 16
+    and #SMK.IconCatalog.all == 58
+    and SMK.IconCatalog.all[#SMK.AtlasTextures].id > 0
+    and SMK.IconCatalog.all[#SMK.AtlasTextures + 1].id < 0,
+    "custom icon texture catalogs are incomplete")
+for _, icon in ipairs(SMK.AtlasTextures) do
+    assert(icon.id > 0 and icon.atlas and icon.note and SMK.IconCatalog:Get(icon.id) == icon,
+        "Atlas custom icon IDs are not positive or stable")
+end
+for _, icon in ipairs(SMK.PathTextures) do
+    assert(icon.id < 0 and icon.texture and icon.note and SMK.IconCatalog:Get(icon.id) == icon,
+        "path custom icon IDs are not negative or stable")
+end
+assert(SMK.AtlasTextures[1].atlas == "AllianceSymbol"
+    and SMK.AtlasTextures[42].atlas == "CaveUnderground-Up"
+    and SMK.PathTextures[1].texture == "Interface\\ICONS\\UI_Profession_Alchemy"
+    and SMK.PathTextures[16].texture == "Interface\\ICONS\\ACHIEVEMENT_GUILDPERK_MOUNTUP"
+    and SMK.DefaultCustomIconID == 18,
+    "provided custom icon catalogs were not installed exactly")
+local expectedCategories = {
+    { "city_services", "ShipMissionIcon-Bonus-Map", "主城功能区域" },
+    { "class", "Class", "职业" },
+    { "profession", "Profession", "专业" },
+    { "raids", "Raid", "团队副本" },
+    { "dungeons", "Dungeon", "地下城" },
+    { "delves", "delves-bountiful", "地下堡" },
+    { "rares", "vignettekillboss-SuperTracked", "稀有怪物" },
+    { "treasures", "VignetteLoot", "宝箱" },
+    { "portals", "TaxiNode_Continent_Neutral", "传送门" },
+    { "teleport_beacons", "FlightMasterArgus", "传送道标" },
+    { "merchants", "SpellIcon-256x256-SellJunk", "商人" },
+    { "npc", "GM-icon-assistActive-hover", "NPC" },
+    { "other", "Waypoint-MapPin-Minimap-Tracked", "其他" },
+}
+assert(#SMK.Config.categories == #expectedCategories, "provided category list is incomplete")
+for index, expected in ipairs(expectedCategories) do
+    local category = SMK.Config.categories[index]
+    assert(category.id == index and category.key == expected[1]
+        and category.atlas == expected[2] and SMK.L[category.nameKey] == expected[3],
+        "provided category definition changed at index " .. index)
+end
 local panelLayout = SMK.Config.GetPanelLayout()
 local panelConfig = SMK.Config.panel.layout
 local panelControls = SMK.Config.panel.controls
-local columnsWidth = SMK.Config.location.baseWidth * panelConfig.targetColumns
+local columnsWidth = panelLayout.locationButtonWidth * panelConfig.targetColumns
     + SMK.Config.location.horizontalGap * (panelConfig.targetColumns - 1)
 assert(panelConfig.targetColumns == 5 and SMK.Config.panel.width == panelLayout.panelWidth
-    and panelLayout.sidePadding + columnsWidth <= panelLayout.contentWidth - panelLayout.sidePadding
-    and math.abs(panelLayout.sidePadding
+    and panelConfig.showLocationIcons
+    and panelLayout.locationButtonWidth
+        == SMK.Config.location.baseWidth + SMK.Config.location.baseHeight
+    and math.abs(panelLayout.sidePadding - panelLayout.iconFrameExpand
         - (panelLayout.contentWidth - panelLayout.sidePadding - columnsWidth)) <= 1,
     "main panel five-column margins are not symmetric")
 local firstColumnLeft = panelLayout.scrollLeftInset + panelLayout.sidePadding
+    - panelLayout.iconFrameExpand
 local fifthColumnRight = panelLayout.panelWidth
     - (panelLayout.scrollLeftInset + panelLayout.sidePadding + columnsWidth)
 assert(math.abs(firstColumnLeft - fifthColumnRight) <= 1
@@ -82,17 +129,43 @@ assert(math.abs(firstColumnLeft - fifthColumnRight) <= 1
     "main panel scrollbar reserve is not split symmetrically")
 assert(panelConfig.scrollbarReserve == 48 and panelLayout.scrollRightInset == 29,
     "main panel scrollbar is not inset from the border")
-assert(panelConfig.headerHeight == 40 and panelConfig.contentTopGap == 8
+assert(panelConfig.headerHeight == 68 and panelConfig.contentTopGap == 8
+    and panelConfig.frequentTitleHeight == 18
     and panelControls.buttonAtlas == "housefinder_neighborhood-list-item-highlight"
     and panelControls.buttonHeight == 24 and panelControls.settingsWidth == 330,
     "main panel controls are not configured")
+local editorLayout = SMK.Config.GetLocationEditorLayout()
+local previewRowGap = math.ceil((SMK.Config.locationEditor.previewButtonSize
+    + SMK.Config.locationEditor.buttonHeight) / 2) + 2
+assert(SMK.Config.locationEditor.width == 260 and SMK.Config.locationEditor.height == 430
+    and SMK.Config.locationEditor.previewButtonSize == 42
+    and editorLayout.categoryRowY - editorLayout.customIconRowY
+        == -previewRowGap
+    and editorLayout.pinNameRowY - editorLayout.pinSettingsLabelY
+        == -SMK.Config.locationEditor.rowGap - 1
+    and editorLayout.pinColorRowY - editorLayout.pinNameRowY
+        == -SMK.Config.locationEditor.rowGap
+    and editorLayout.pinTextureRowY - editorLayout.pinColorRowY
+        == -SMK.Config.locationEditor.previewButtonSize - 2
+    and SMK.IconGridPicker and SMK.IconGridPicker.Create,
+    "location editor flow layout or shared icon grid is unavailable")
+local editorX, editorY, editorSide = SMK.LocationEditor:CalculateMapPointPlacement(
+    { x = 200, y = 50 }, 100, 900, 1000, 800)
+assert(editorSide == "RIGHT" and editorX == 230 and editorY == 0,
+    "location editor did not avoid a map point near the left edge")
+editorX, editorY, editorSide = SMK.LocationEditor:CalculateMapPointPlacement(
+    { x = 800, y = 750 }, 100, 900, 1000, 800)
+assert(editorSide == "LEFT" and editorX == 510 and editorY == 370,
+    "location editor did not avoid a map point near the right edge")
 assert(SMK.Config.searchResultBackdrop.insets.left == 1
     and SMK.Config.searchResultBackdrop.insets.right == 1
     and SMK.Config.searchResultBackdrop.insets.top == 1
     and SMK.Config.searchResultBackdrop.insets.bottom == 1,
     "search result background does not fit its rounded border")
 assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
-    and SMK.Config.art.searchAllMapsIcon == "Interface\\ICONS\\Ability_Paladin_SavedByTheLight"
+    and SMK.Config.art.searchAllMapsIcon
+        == "Interface\\ICONS\\Ability_Paladin_SavedByTheLight"
+    and SMK.Config.art.mapPortalAtlas == "poi-islands-table"
     and SMK.Config.art.searchResultIconFrame == "Interface\\SPELLBOOK\\RotationIconFrame"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
@@ -124,16 +197,38 @@ local expectedPinAtlases = {
     "poi-door-left", "poi-door-right", "CrossedFlags", "Professions_Tracking_Fish_Special",
     "Map-MarkedDefeated", "ElementalStorm-Boss-Fire", "XMarksTheSpot", "MiniMap-DeadArrow",
 }
-for id, atlas in ipairs(expectedPinAtlases) do
-    assert(SMK.PinTextureByID[id].atlas == atlas, "new pin texture atlas IDs are unstable")
+for index, atlas in ipairs(expectedPinAtlases) do
+    assert(SMK.PinTextures[index].id == index
+        and SMK.PinTextures[index].atlas == atlas
+        and SMK.PinTextureByID[index] == SMK.PinTextures[index]
+        and SMK.PinTextureIDByAtlas[atlas] == index,
+        "independent pin texture list changed")
     assert(atlas ~= "Ping_Map_Whole_Danger" and atlas ~= "Ping_Map_Whole_Help",
         "removed pin textures are still available")
 end
 local defaultTextureEntry = assert(SMK.LocationModel:Normalize({
-    mapID = 100, x = 1, y = 2, name = "default", categoryKey = "other", pinTextureID = 999,
+    mapID = 100, x = 1, y = 2, name = "default", categoryKey = "other", pinTexture = "Missing",
 }))
-assert(defaultTextureEntry.pinTextureID == SMK.DefaultPinTextureID,
+assert(defaultTextureEntry.pinTextureID == SMK.DefaultPinTextureID
+    and defaultTextureEntry.pinTexture == nil,
     "location normalization did not use the default pin texture")
+local legacyTextureEntry = assert(SMK.LocationModel:Normalize({
+    mapID = 100, x = 1, y = 2, name = "legacy", categoryKey = "other",
+    pinTexture = "VignetteEvent-SuperTracked",
+}))
+assert(legacyTextureEntry.pinTextureID == 5 and legacyTextureEntry.pinTexture == nil,
+    "stored Atlas names were not converted to compact pin texture IDs")
+assert(defaultTextureEntry.customIconID == nil,
+    "location normalization stored a custom icon without opt-in")
+local customIconEntry = assert(SMK.LocationModel:Normalize({
+    mapID = 100, x = 1, y = 2, name = "custom", categoryKey = "other", customIconID = -3,
+}))
+assert(customIconEntry.customIconID == -3
+    and SMK.LocationModel:Normalize({
+        mapID = 100, x = 1, y = 2, name = "invalid icon",
+        categoryKey = "other", customIconID = -999,
+    }).customIconID == nil,
+    "custom icon normalization did not preserve valid IDs or discard invalid IDs")
 local function NormalizeNamedLocation(name)
     return SMK.LocationModel:Normalize({
         mapID = 100, x = 1, y = 2, name = name, categoryKey = "other",
@@ -214,20 +309,26 @@ SearchMakerDB = {
         mapPinNameOffsetY = 80,
     },
     locations = {
-        { id = "user:4", mapID = "100", x = "12.34", y = "56.78", name = "旧地点", categoryKey = "delves", showPin = true, pinTextureID = "5", futureExtension = "keep" },
-        { id = "user:4", mapID = 100, x = 20, y = 30, name = "重复ID", categoryKey = "npc" },
+        { id = 4, mapID = "100", x = "12.34", y = "56.78", name = "旧地点", categoryKey = "delves", showPinName = 1, showPinTexture = 1, pinTexture = "VignetteEvent-SuperTracked", customIconID = "-3", futureExtension = "drop" },
+        { id = 4, mapID = 100, x = 20, y = 30, name = "重复ID", categoryKey = "npc" },
         { id = "invalid", mapID = 0, x = 1, y = 2, name = "损坏地点", categoryKey = "other" },
     },
-    usageCounts = { ["id:user:4"] = 2, ["id:missing"] = 9 },
+    usageCounts = { [4] = 2, [999] = 9 },
 }
 SMK.DB:Initialize()
 assert(SearchMakerDB.schemaVersion == SMK.Config.databaseSchemaVersion, "database schema was not initialized")
 assert(SearchMakerDB.locations[1].categoryKey == "delves", "category normalization failed")
-assert(SearchMakerDB.locations[1].pinTextureID == 5, "pin texture normalization failed")
-assert(SearchMakerDB.locations[2].id ~= "user:4", "duplicate ID was not repaired")
-assert(#SearchMakerDB.locations == 2 and SearchMakerDB.usageCounts["id:missing"] == nil
-    and SearchMakerDB.usageCounts["id:user:4"] == 2,
+assert(SearchMakerDB.locations[1].pinTextureID == 5
+    and SearchMakerDB.locations[1].pinTexture == nil,
+    "pin texture ID normalization failed")
+assert(SearchMakerDB.locations[1].customIconID == -3, "custom icon normalization failed")
+assert(SearchMakerDB.locations[2].id ~= 4, "duplicate ID was not repaired")
+assert(#SearchMakerDB.locations == 2 and SearchMakerDB.usageCounts[999] == nil
+    and SearchMakerDB.usageCounts[4] == 2,
     "invalid locations or orphan usage counts were not pruned")
+assert(type(SearchMakerDB.locations[1].id) == "number"
+    and type(SearchMakerDB.nextLocationID) == "number",
+    "location IDs were not stored compactly as numbers")
 assert(SMK.Settings:Get("showPinTextures") and SMK.Settings:Get("locationScale") == 1.2,
     "nested settings were not initialized")
 assert(SMK.Settings:Get("searchBarScale") == 1.4
@@ -239,9 +340,10 @@ assert(SMK.Settings:Get("pinTextureScale") == SMK.Config.mapPins.maxTextureScale
     and SMK.Settings:Get("mapPinNameOffsetX") == SMK.Config.mapPins.nameOffsetXMin
     and SMK.Settings:Get("mapPinNameOffsetY") == SMK.Config.mapPins.nameOffsetYMax,
     "map pin appearance settings were not clamped")
-assert(SearchMakerDB.locations[1].showPinName == 1
+assert(SearchMakerDB.locations[1].showPin == nil
+    and SearchMakerDB.locations[1].showPinName == 1
     and SearchMakerDB.locations[1].showPinTexture == 1,
-    "legacy map pin visibility was not split into name and texture flags")
+    "canonical map pin visibility fields were not retained")
 assert(SearchMakerDB.settings.showFullPanel == nil, "removed panel setting was retained")
 assert(SMK.Settings:Get("showMapPinNames") == false, "pin name setting default was not initialized")
 local defaultTextColor = SMK.Settings:Get("mapPinTextColor")
@@ -273,10 +375,13 @@ local first = SMK.Store:GetAll()[1]
 assert(first.categoryKey == "delves" and first.categoryLabel == "地下堡", "display projection is not localized")
 assert(SMK.Store:Update(first, {
     mapID = first.mapID, x = first.x, y = first.y, name = first.name,
-    categoryKey = first.categoryKey, showPin = first.showPin, pinTextureID = first.pinTextureID,
+    categoryKey = first.categoryKey, showPinName = first.showPinName,
+    showPinTexture = first.showPinTexture, pinTextureID = first.pinTextureID,
+    customIconID = first.customIconID, pinColor = first.pinColor,
 }), "location update failed")
 assert(SearchMakerDB.locations[1].categoryKey == "delves", "editing changed the canonical category")
-assert(SearchMakerDB.locations[1].futureExtension == "keep", "editing discarded an unknown extension field")
+assert(SearchMakerDB.locations[1].futureExtension == nil,
+    "unknown location fields were retained in the canonical store")
 local sameNameDifferentPosition = {
     mapID = first.mapID, x = first.x + 1, y = first.y, name = first.name,
     categoryKey = first.categoryKey,
@@ -284,6 +389,10 @@ local sameNameDifferentPosition = {
 assert(not SMK.Store:FindDuplicate(sameNameDifferentPosition),
     "duplicate detection ignored coordinates")
 assert(SMK.Store:FindDuplicate(first), "duplicate detection missed the same location")
+local duplicateAdd, duplicateAddMessage = SMK.Store:Add(first)
+assert(not duplicateAdd
+    and duplicateAddMessage == string.format(SMK.L.DUPLICATE_NAME, first.name),
+    "Store:Add bypassed the duplicate invariant")
 
 local externalFavorite = {
     isExternal = true,
@@ -293,8 +402,8 @@ local externalFavorite = {
     y = 63.5,
     name = "绷带训练师",
 }
-local favorite = assert(SMK.Store:AddExternal(externalFavorite, "professions"))
-assert(favorite.source == "saved" and favorite.categoryKey == "professions"
+local favorite = assert(SMK.Store:AddExternal(externalFavorite, "profession"))
+assert(favorite.source == "saved" and favorite.categoryKey == "profession"
     and favorite.showPinName == 0 and favorite.showPinTexture == 0,
     "external favorite was not saved to its selected category")
 local duplicateFavorite, duplicateFavoriteError = SMK.Store:AddExternal(externalFavorite)
@@ -324,6 +433,18 @@ for index = 1, 25 do
     assert(SMK.Store:Add({ mapID = 100, x = index, y = index, name = "精确甲" .. index, categoryKey = "other" }))
 end
 assert(storeChangeReason == "locations", "store mutation did not announce a data change")
+local batchNotifications = 0
+SMK.Store:SetChangeHandler(function(reason)
+    if reason == "locations" then batchNotifications = batchNotifications + 1 end
+end)
+local batchResult = assert(SMK.Store:AddMany({
+    { mapID = 300, x = 1, y = 1, name = "批次甲", categoryKey = "other" },
+    { mapID = 300, x = 2, y = 2, name = "批次乙", categoryKey = "other" },
+    { mapID = 300, x = 1, y = 1, name = "批次甲", categoryKey = "other" },
+}))
+assert(batchResult.imported == 2 and batchResult.duplicates == 1
+    and batchNotifications == 1,
+    "batch import did not enforce duplicates with one refresh")
 SMK.Store:SetChangeHandler(nil)
 assert(SMK.Store:Add({ mapID = 100, x = 90, y = 90, name = "精确", categoryKey = "other" }))
 local matches = SMK.Search:Find(SMK.Store:GetAll(), "精确", true)
@@ -348,8 +469,7 @@ local coordinateResult = SMK.Search:Find({}, "12.3,45.67", false, 100)[1]
 assert(coordinateResult.entry.x == 12.3 and coordinateResult.entry.y == 45.67
     and coordinateResult.entry.name == "坐标：12.3，45.67",
     "coordinate result values or display text are incorrect")
-assert(not SMK.Store:RecordUsage(coordinateResult.entry)
-    and SearchMakerDB.usageCounts["id:nil"] == nil,
+assert(not SMK.Store:RecordUsage(coordinateResult.entry),
     "temporary coordinate result was written to usage storage")
 assert(SMK.Map:SetWaypoint(coordinateResult.entry)
     and waypoint.uiMapID == 100
@@ -437,6 +557,8 @@ assert(portalEntry and portalEntry.name == "传送门：奥格瑞玛"
 assert(#SMK.Search:Find({}, "English", false, 100, handyNotesEntries) == 0
     and #SMK.Search:Find({}, "9876", false, 100, handyNotesEntries) == 0,
     "non-Chinese HandyNotes fields were searchable in a Chinese locale")
+assert(#SMK.Search:Find({}, "绷带", true, 100, handyNotesEntries) == 0,
+    "all-map search included a current-map-only HandyNotes cache")
 SMK.HandyNotesProvider:RebuildCache(85)
 assert(#SMK.Search:Find({}, "绷带", false, 100,
     SMK.HandyNotesProvider:GetByMap(85)) == 0,
@@ -465,8 +587,18 @@ assert(fakeIcon.atlas == SMK.Config.categoryByKey.other.atlas,
     "HandyNotes search result did not use the other-category fallback icon")
 fakeIcon.atlas = nil
 SMK.Widgets:SetLocationIcon(fakeIcon, { isMapPortal = true })
-assert(fakeIcon.atlas == "poi-islands-table",
+assert(fakeIcon.atlas == SMK.Config.art.mapPortalAtlas,
     "map portal search result did not use its contained icon atlas")
+fakeIcon.texture = nil
+fakeIcon.atlas = nil
+SMK.Widgets:SetLocationIcon(fakeIcon, { categoryKey = "other", customIconID = -3 })
+assert(fakeIcon.texture == "Interface\\ICONS\\UI_Profession_Cooking",
+    "saved location did not use its custom path icon")
+fakeIcon.texture = nil
+fakeIcon.atlas = nil
+SMK.Widgets:SetLocationIcon(fakeIcon, { categoryKey = "other", customIconID = 19 })
+assert(fakeIcon.atlas == "Professions-Crafting-Orders-Icon",
+    "saved location did not use its custom Atlas icon")
 HandyNotes = nil
 
 local shareEntry = assert(SMK.LocationModel:Normalize({
@@ -479,15 +611,24 @@ local shareEntry = assert(SMK.LocationModel:Normalize({
     showPinTexture = 1,
     pinTextureID = first.pinTextureID,
     pinColor = { r = 0.2, g = 0.4, b = 0.6 },
+    customIconID = -3,
 }))
 local encoded = SMK.ShareCodec:Encode({ shareEntry })
 assert(encoded:sub(1, 4) == "SMK|" and encoded:sub(1, 6) ~= "SMK|2|",
     "current share format does not use the unified SMK prefix")
+local _, commaCount = encoded:gsub(",", "")
+assert(commaCount == 8 and encoded:find("336699", 1, true),
+    "share record was not packed into nine fields with one RGB value")
+assert(encoded:find(",5,336699", 1, true)
+    and not encoded:find("VignetteEvent-SuperTracked", 1, true),
+    "share record did not encode the pin texture as a compact ID")
 assert(SMK.ShareCodec:FindShareText("chat " .. encoded) == encoded,
     "share text was not found in chat")
 local decoded, decodeError, invalid = SMK.ShareCodec:Decode(encoded)
 assert(not decodeError and invalid == 0 and #decoded == 1, "current share round trip failed")
-assert(decoded[1].categoryKey == "delves" and decoded[1].pinTextureID == 5
+assert(decoded[1].categoryKey == "delves"
+    and decoded[1].pinTextureID == 5
+    and decoded[1].customIconID == -3
     and math.abs(decoded[1].pinColor.r - 0.2) < 0.005
     and math.abs(decoded[1].pinColor.g - 0.4) < 0.005
     and math.abs(decoded[1].pinColor.b - 0.6) < 0.005,
@@ -511,9 +652,21 @@ for _, sample in ipairs({ "SMK3|x", "SMK2|x", "MLL2|x", "MLL1|x" }) do
     assert(not entries, "legacy share prefix was accepted: " .. sample)
 end
 local oldEntries, _, oldInvalid = SMK.ShareCodec:Decode(
-    "SMK|100,100,200,8,old,0,1,0,0")
+    "SMK|100,100,200,8,old,0,1,0,0,,,,")
 assert(oldEntries and #oldEntries == 0 and oldInvalid == 1,
     "obsolete field-count share records were accepted")
+local previousEntries, _, previousInvalid = SMK.ShareCodec:Decode(
+    "SMK|100,100,200,8,old,0,1")
+assert(previousEntries and #previousEntries == 0 and previousInvalid == 1,
+    "pre-custom-icon SMK record was accepted")
+local invalidIconEntries, _, invalidIconCount = SMK.ShareCodec:Decode(
+    "SMK|100,100,200,8,bad,0,1,,-999")
+assert(invalidIconEntries and #invalidIconEntries == 0 and invalidIconCount == 1,
+    "unknown custom icon ID was accepted")
+local invalidPinEntries, _, invalidPinCount = SMK.ShareCodec:Decode(
+    "SMK|100,100,200,8,bad,0,999,,")
+assert(invalidPinEntries and #invalidPinEntries == 0 and invalidPinCount == 1,
+    "unknown pin texture ID was accepted")
 
 local duplicateA = { mapID = 100, x = 1.234, y = 5.678, name = " Test Name " }
 local duplicateB = { mapID = 100, x = 1.2341, y = 5.6781, name = "testname" }
@@ -689,12 +842,19 @@ SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 1, "enabled map pin was not acquired")
 assert(fakeMap.pins[1].frameLevelType == "PIN_FRAME_LEVEL_AREA_POI",
     "persistent map pin frame level changed")
-assert(fakeMap.pins[1].icon.atlas == SMK.PinTextureByID[5].atlas, "selected pin texture was ignored")
+assert(fakeMap.pins[1].icon.atlas == "VignetteEvent-SuperTracked",
+    "selected pin texture was ignored")
 assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown,
     "enabled map pin name was not rendered")
 assert(fakeMap.pins[1].label.color.r == 0.2 and fakeMap.pins[1].label.color.g == 0.4
     and fakeMap.pins[1].label.color.b == 0.6 and fakeMap.pins[1].label.scale == 1.4,
     "pin text appearance settings were not rendered")
+SMK.MapPins:UpdatePinPreviewColor(first, { r = 0.9, g = 0.8, b = 0.7 })
+assert(fakeMap.pins[1].label.color.r == 0.9,
+    "active pin lookup did not update the matching preview directly")
+SMK.MapPins:UpdatePinPreviewColor(first, nil)
+assert(fakeMap.pins[1].label.color.r == SMK.Settings:Get("mapPinTextColor").r,
+    "active pin preview did not restore the global color")
 local highlightTimers = {}
 C_Timer = {
     After = function(_, callback) highlightTimers[#highlightTimers + 1] = callback end,
@@ -840,7 +1000,8 @@ assert(playerContextRequests == 1,
 local favoriteOptions = SMK.SearchResults:GetFavoriteOptions()
 assert(#favoriteOptions == #SMK.Config.categories
     and favoriteOptions[1].key == SMK.Config.categories[1].key
-    and favoriteOptions[#favoriteOptions].atlas == SMK.Config.categories[#SMK.Config.categories].atlas,
+    and favoriteOptions[#favoriteOptions].atlas
+        == SMK.Config.categories[#SMK.Config.categories].atlas,
     "HandyNotes favorite options do not follow the dynamic category configuration")
 assert(SMK.HelpDialog and SMK.HelpDialog.Create and SMK.HelpDialog.Open
     and SMK.L.HELP_TEXT ~= "",
@@ -849,6 +1010,23 @@ assert(SMK.Config.panel.layout.scrollbarOffsetX == -6,
     "main panel scrollbar offset changed")
 
 local panelExpanded, resultsUpdated, outsideRegistered = false, 0, false
+local pickerHidden, pinPickerHidden = false, false
+local transientEditor = setmetatable({
+    customIconPicker = {
+        IsShown = function() return true end,
+        Hide = function() pickerHidden = true end,
+    },
+    customIconButton = {},
+    pinTexturePicker = {
+        IsShown = function() return true end,
+        Hide = function() pinPickerHidden = true end,
+    },
+    pinTextureButton = {},
+}, { __index = SMK.LocationEditor })
+SMK.ModalManager:Register(transientEditor)
+SMK.ModalManager:CloseTransientMenus({ {} })
+assert(pickerHidden and pinPickerHidden,
+    "outside clicks did not close the transient icon or pin texture picker")
 local controllerSearchBar = {
     suppressPanelHidden = false,
     searchResults = {

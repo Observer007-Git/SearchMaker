@@ -5,25 +5,32 @@ local Config = SMK.Config
 local Widgets = SMK.Widgets
 
 function SearchBarSettings:Refresh()
-    local scale = math.max(0.5, SMK.Settings:Get("searchBarScale") or 1)
+    local appearance = Config.search.appearance
+    local scale = math.max(appearance.minScale,
+        SMK.Settings:Get("searchBarScale") or appearance.defaultScale)
     self.scaleValue:SetText(string.format("%d%%", math.floor(scale * 100 + 0.5)))
-    self.scaleMinus:SetEnabled(scale > 0.5)
-    self.scalePlus:SetEnabled(scale < 2)
-    local opacity = math.max(0.2, SMK.Settings:Get("searchBarOpacity") or 1)
+    self.scaleMinus:SetEnabled(scale > appearance.minScale)
+    self.scalePlus:SetEnabled(scale < appearance.maxScale)
+    local opacity = math.max(appearance.minOpacity,
+        SMK.Settings:Get("searchBarOpacity") or appearance.defaultOpacity)
     self.opacityValue:SetText(string.format("%d%%", math.floor(opacity * 100 + 0.5)))
-    self.opacityMinus:SetEnabled(opacity > 0.2)
-    self.opacityPlus:SetEnabled(opacity < 1)
+    self.opacityMinus:SetEnabled(opacity > appearance.minOpacity)
+    self.opacityPlus:SetEnabled(opacity < appearance.maxOpacity)
 end
 
 function SearchBarSettings:ChangeScale(delta)
-    local value = math.max(0.5, math.min(2, (SMK.Settings:Get("searchBarScale") or 1) + delta))
+    local appearance = Config.search.appearance
+    local value = math.max(appearance.minScale, math.min(appearance.maxScale,
+        (SMK.Settings:Get("searchBarScale") or appearance.defaultScale) + delta))
     local changed = SMK.Settings:Set("searchBarScale", math.floor(value * 10 + 0.5) / 10)
     if changed then SMK.SearchBar:ApplyScale() end
     self:Refresh()
 end
 
 function SearchBarSettings:ChangeOpacity(delta)
-    local value = math.max(0.2, math.min(1, (SMK.Settings:Get("searchBarOpacity") or 1) + delta))
+    local appearance = Config.search.appearance
+    local value = math.max(appearance.minOpacity, math.min(appearance.maxOpacity,
+        (SMK.Settings:Get("searchBarOpacity") or appearance.defaultOpacity) + delta))
     local changed = SMK.Settings:Set("searchBarOpacity", math.floor(value * 10 + 0.5) / 10)
     if changed then SMK.SearchBar:ApplyOpacity() end
     self:Refresh()
@@ -84,28 +91,36 @@ function SearchBarSettings:Create(anchor)
     self.scaleLabel = Label(SMK.L.SEARCH_BAR_SCALE, scaleY, 0)
     self.scaleMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
     self.scaleMinus:SetPoint("TOPLEFT", 164, scaleY + 3)
-    self.scaleMinus:SetScript("OnClick", function() self:ChangeScale(-0.1) end)
+    self.scaleMinus:SetScript("OnClick", function()
+        self:ChangeScale(-Config.search.appearance.scaleStep)
+    end)
     self.scaleValue = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.scaleValue:SetPoint("LEFT", self.scaleMinus, "RIGHT", 4, 0)
     self.scaleValue:SetWidth(52)
     self.scaleValue:SetJustifyH("CENTER")
     self.scalePlus = Widgets:CreatePanelButton(frame, "+", { width = 30 })
     self.scalePlus:SetPoint("LEFT", self.scaleValue, "RIGHT", 4, 0)
-    self.scalePlus:SetScript("OnClick", function() self:ChangeScale(0.1) end)
+    self.scalePlus:SetScript("OnClick", function()
+        self:ChangeScale(Config.search.appearance.scaleStep)
+    end)
 
     -- 搜索框背景透明度
     local opacityY = -88
     self.opacityLabel = Label(SMK.L.SEARCH_BAR_OPACITY, opacityY, 0)
     self.opacityMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
     self.opacityMinus:SetPoint("TOPLEFT", 164, opacityY + 3)
-    self.opacityMinus:SetScript("OnClick", function() self:ChangeOpacity(-0.1) end)
+    self.opacityMinus:SetScript("OnClick", function()
+        self:ChangeOpacity(-Config.search.appearance.opacityStep)
+    end)
     self.opacityValue = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.opacityValue:SetPoint("LEFT", self.opacityMinus, "RIGHT", 4, 0)
     self.opacityValue:SetWidth(52)
     self.opacityValue:SetJustifyH("CENTER")
     self.opacityPlus = Widgets:CreatePanelButton(frame, "+", { width = 30 })
     self.opacityPlus:SetPoint("LEFT", self.opacityValue, "RIGHT", 4, 0)
-    self.opacityPlus:SetScript("OnClick", function() self:ChangeOpacity(0.1) end)
+    self.opacityPlus:SetScript("OnClick", function()
+        self:ChangeOpacity(Config.search.appearance.opacityStep)
+    end)
 
     -- 呼出快捷键按钮
     local shortcutY = -123

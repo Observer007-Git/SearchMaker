@@ -23,6 +23,12 @@ function ModalManager:IsMenuOpen()
     return false
 end
 
+function ModalManager:CloseTransientMenus(foci)
+    for _, dialog in ipairs(self.dialogs) do
+        if dialog.CloseTransientMenu then dialog:CloseTransientMenu(foci) end
+    end
+end
+
 function ModalManager:ContainsMouseFocus(foci)
     if not foci or not DoesAncestryIncludeAny then return false end
     for _, dialog in ipairs(self.dialogs) do

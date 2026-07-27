@@ -1,6 +1,6 @@
 local _, SMK = ...
 
-local MapPins = {}
+local MapPins = { activePins = {} }
 local TEMPLATE = "SearchMakerMapPinTemplate"
 local HIGHLIGHT_TEMPLATE = "SearchMakerTargetHighlightPinTemplate"
 
@@ -18,6 +18,7 @@ local function CreatePinMixin()
             self:OnLoad()
         end
         self.entry = entry
+        if entry.id then MapPins.activePins[entry.id] = self end
         self:SetPosition(entry.x / 100, entry.y / 100)
         local textureScale = SMK.Settings:Get("pinTextureScale")
         local pinSize = SMK.Config.mapPins.size * textureScale
@@ -40,9 +41,9 @@ local function CreatePinMixin()
             self.label:SetTextColor(textColor.r, textColor.g, textColor.b)
         end
         self.label:SetScale(SMK.Settings:Get("mapPinTextScale"))
-        local texture = SMK.PinTextureByID[tonumber(entry.pinTextureID)]
+        local pinTexture = SMK.PinTextureByID[tonumber(entry.pinTextureID)]
             or SMK.PinTextureByID[SMK.DefaultPinTextureID]
-        self.icon:SetAtlas(texture and texture.atlas or SMK.Config.art.fallbackLocationAtlas, true)
+        self.icon:SetAtlas(pinTexture.atlas, true)
         self.icon:SetVertexColor(1, 1, 1)
         self.label:SetText(entry.name)
         local showName = entry.showPinName == 1
@@ -53,6 +54,9 @@ local function CreatePinMixin()
     end
 
     function mixin:OnReleased()
+        if self.entry and self.entry.id and MapPins.activePins[self.entry.id] == self then
+            MapPins.activePins[self.entry.id] = nil
+        end
         self.entry = nil
         if self.icon then self.icon:Hide() end
         if self.label then
@@ -81,8 +85,11 @@ local function CreatePinMixin()
     function mixin:OnClick(button)
         if button == "LeftButton" and self.entry and MapPins.callbacks.onEdit then
             GameTooltip_Hide()
-            local screenX = (self:GetLeft() + self:GetRight()) / 2
-            local screenY = (self:GetBottom() + self:GetTop()) / 2
+            local screenX, screenY = SMK.Map:GetCursorScreenPosition()
+            if not screenX or not screenY then
+                screenX = (self:GetLeft() + self:GetRight()) / 2
+                screenY = (self:GetBottom() + self:GetTop()) / 2
+            end
             MapPins.callbacks.onEdit(self.entry, screenX, screenY)
         end
     end
@@ -159,6 +166,7 @@ function MapPins:Initialize(map, callbacks)
 
     local provider = CreateFromMixins(MapCanvasDataProviderMixin)
     function provider:RemoveAllData()
+        MapPins.activePins = {}
         self:GetMap():RemoveAllPinsByTemplate(TEMPLATE)
         self:GetMap():RemoveAllPinsByTemplate(HIGHLIGHT_TEMPLATE)
     end
@@ -259,18 +267,13 @@ function MapPins:UpdatePinPreviewColor(entry, color)
     if not self.provider or not entry then return end
     local map = self.provider:GetMap()
     if not map or not map:IsShown() or map:GetMapID() ~= entry.mapID then return end
-    local canvas = map:GetCanvas()
-    if not canvas then return end
-    for _, child in ipairs({canvas:GetChildren()}) do
-        if child.isSearchMakerMapPin and child.entry == entry and child.label then
-            if color then
-                child.label:SetTextColor(color.r, color.g, color.b)
-            else
-                local textColor = SMK.Settings:Get("mapPinTextColor")
-                child.label:SetTextColor(textColor.r, textColor.g, textColor.b)
-            end
-            return
-        end
+    local pin = self.activePins[entry.id]
+    if not pin or not pin.label then return end
+    if color then
+        pin.label:SetTextColor(color.r, color.g, color.b)
+    else
+        local textColor = SMK.Settings:Get("mapPinTextColor")
+        pin.label:SetTextColor(textColor.r, textColor.g, textColor.b)
     end
 end
 
@@ -278,22 +281,13 @@ function MapPins:UpdatePinVisibility(entry, showPinName, showPinTexture)
     if not self.provider or not entry then return end
     local map = self.provider:GetMap()
     if not map or not map:IsShown() or map:GetMapID() ~= entry.mapID then return end
-    local canvas = map:GetCanvas()
-    if not canvas then return end
-    for _, child in ipairs({canvas:GetChildren()}) do
-        if child.isSearchMakerMapPin and child.entry == entry then
-            local nameVisible = SMK.Settings:Get("showMapPinNames") and showPinName
-            local textureVisible = SMK.Settings:Get("showPinTextures") and showPinTexture
-            if child.label then
-                child.label:SetShown(nameVisible)
-            end
-            if child.icon then
-                child.icon:SetShown(textureVisible)
-            end
-            child:SetShown(nameVisible or textureVisible)
-            return
-        end
-    end
+    local pin = self.activePins[entry.id]
+    if not pin then return end
+    local nameVisible = SMK.Settings:Get("showMapPinNames") and showPinName
+    local textureVisible = SMK.Settings:Get("showPinTextures") and showPinTexture
+    if pin.label then pin.label:SetShown(nameVisible) end
+    if pin.icon then pin.icon:SetShown(textureVisible) end
+    pin:SetShown(nameVisible or textureVisible)
 end
 
 SMK.MapPins = MapPins

@@ -5,29 +5,33 @@ local Config = SMK.Config
 local Util = SMK.Util
 
 Model.persistentKeys = {
-    "mapID", "x", "y", "name", "categoryKey", "showPin", "showPinName", "showPinTexture", "pinTextureID", "pinColor",
+    "mapID", "x", "y", "name", "categoryKey", "showPinName", "showPinTexture", "pinTextureID", "pinColor",
+    "customIconID",
 }
 
 function Model:Normalize(values)
     if type(values) ~= "table" then return nil, "INVALID_LOCATION" end
-    local legacyShowPin = values.showPin == true or tonumber(values.showPin) == 1
-    local showPinName = values.showPinName == nil and legacyShowPin
-        or values.showPinName == true or tonumber(values.showPinName) == 1
-    local showPinTexture = values.showPinTexture == nil and legacyShowPin
-        or values.showPinTexture == true or tonumber(values.showPinTexture) == 1
+    local showPinName = values.showPinName == true or tonumber(values.showPinName) == 1
+    local showPinTexture = values.showPinTexture == true or tonumber(values.showPinTexture) == 1
     local entry = {
         mapID = tonumber(values.mapID),
         x = tonumber(values.x),
         y = tonumber(values.y),
         name = Util.Trim(values.name),
         categoryKey = Config.GetCategoryKey(values.categoryKey),
-        showPin = (showPinName or showPinTexture) and 1 or 0,
         showPinName = showPinName and 1 or 0,
         showPinTexture = showPinTexture and 1 or 0,
     }
     local pinTextureID = tonumber(values.pinTextureID)
-    entry.pinTextureID = pinTextureID and SMK.PinTextureByID[pinTextureID]
+    if not SMK.PinTextureByID[pinTextureID]
+        and type(values.pinTexture) == "string" then
+        pinTextureID = SMK.PinTextureIDByAtlas[values.pinTexture]
+    end
+    entry.pinTextureID = SMK.PinTextureByID[pinTextureID]
         and pinTextureID or SMK.DefaultPinTextureID
+    local customIconID = tonumber(values.customIconID)
+    entry.customIconID = customIconID and SMK.IconCatalog:Get(customIconID)
+        and customIconID or nil
     local pinColor = type(values.pinColor) == "table" and values.pinColor or nil
     if pinColor and tonumber(pinColor.r) and tonumber(pinColor.g) and tonumber(pinColor.b) then
         entry.pinColor = {
@@ -47,6 +51,14 @@ function Model:Normalize(values)
         return nil, "INVALID_LOCATION"
     end
     return entry
+end
+
+function Model:CopyPersistent(entry)
+    local copy = {}
+    for _, key in ipairs(self.persistentKeys) do
+        copy[key] = entry[key]
+    end
+    return copy
 end
 
 function Model:GetDuplicateKey(values)

@@ -256,10 +256,6 @@ function MapPins:ClearHoverHighlight()
     if self.highlightMode == "hover" then self:ClearTargetHighlight() end
 end
 
-function MapPins:Clear()
-    if self.provider then self.provider:RemoveAllData() end
-end
-
 --- 实时更新地图上指定条目标记的文字颜色（颜色选择预览用）。
 -- @param entry table 地点条目。
 -- @param color table|nil {r, g, b} 或 nil 表示恢复默认颜色。
@@ -274,6 +270,16 @@ function MapPins:UpdatePinPreviewColor(entry, color)
     else
         local textColor = SMK.Settings:Get("mapPinTextColor")
         pin.label:SetTextColor(textColor.r, textColor.g, textColor.b)
+    end
+end
+
+--- 实时预览全局标记文字颜色；单地点颜色覆盖不受影响。
+function MapPins:PreviewDefaultPinTextColor(color)
+    if type(color) ~= "table" then return end
+    for _, pin in pairs(self.activePins) do
+        if pin.label and pin.entry and not pin.entry.pinColor then
+            pin.label:SetTextColor(color.r, color.g, color.b)
+        end
     end
 end
 

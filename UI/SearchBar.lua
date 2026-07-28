@@ -91,10 +91,6 @@ function SearchBar:ApplyPosition(mode)
     self.positionController:Apply(mode)
 end
 
-function SearchBar:SavePosition()
-    self.positionController:Save()
-end
-
 function SearchBar:StartDrag()
     self.positionController:StartDrag()
 end
@@ -114,12 +110,18 @@ function SearchBar:SetQuery(text)
 end
 
 function SearchBar:CancelPendingSearch()
-    if self.searchTimer then self.searchTimer:Cancel() self.searchTimer = nil end
+    self.searchToken = (self.searchToken or 0) + 1
+    if self.searchTimer then
+        self.searchTimer:Cancel()
+        self.searchTimer = nil
+    end
 end
 
 function SearchBar:ScheduleResults()
     self:CancelPendingSearch()
-    self.searchTimer = C_Timer.After(0.05, function()
+    local token = self.searchToken
+    self.searchTimer = C_Timer.NewTimer(0.05, function()
+        if self.searchToken ~= token then return end
         self.searchTimer = nil
         self:UpdateResults()
     end)
@@ -194,10 +196,6 @@ end
 
 function SearchBar:StopShortcutCapture()
     if self.shortcutController then self.shortcutController:StopCapture() end
-end
-
-function SearchBar:StartShortcutCapture()
-    if self.shortcutController then self.shortcutController:StartCapture() end
 end
 
 function SearchBar:AttachPanel(panel)

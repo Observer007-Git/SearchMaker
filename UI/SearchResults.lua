@@ -134,14 +134,11 @@ end
 function SearchResults:Hide()
     self:CancelHoverHighlight()
     self.selectedIndex, self.visibleCount = 0, 0
+    self.matches = {}
     self.frame:Hide()
     self.empty:Hide()
     for _, button in ipairs(self.widgets) do
-        button.isSearchSelected = false
-        button.highlight:Hide()
-        local color = button.isPinned and SMK.Config.colors.locationPinned or SMK.Config.colors.locationNormal
-        button.label:SetTextColor(unpack(color))
-        button:Hide()
+        SMK.Widgets:ReleaseLocationButton(button)
     end
     self:NotifyVisibilityChanged()
 end
@@ -194,7 +191,9 @@ function SearchResults:Render(source, query, allMaps)
     local visible = #matches
     if visible == 0 then
         self.selectedIndex, self.visibleCount = 0, 0
-        for _, button in ipairs(self.widgets) do button:Hide() end
+        for _, button in ipairs(self.widgets) do
+            SMK.Widgets:ReleaseLocationButton(button)
+        end
         self.empty:Show()
         local frameInset = SMK.Config.search.resultFrameInset
         self.frame:SetWidth(math.max(1, self.box:GetWidth() - frameInset * 2))
@@ -245,8 +244,7 @@ function SearchResults:Render(source, query, allMaps)
         y = y + button:GetHeight() + SMK.Config.location.verticalGap
     end
     for index = visible + 1, #self.widgets do
-        self.widgets[index].resultIndex = nil
-        self.widgets[index]:Hide()
+        SMK.Widgets:ReleaseLocationButton(self.widgets[index])
     end
     self.frame:SetWidth(maxWidth + 8)
     self.frame:SetHeight(math.max(1, y) + 2)

@@ -23,11 +23,10 @@ local function GetCategoryLabel(categoryKey)
         or (SMK.L.CAT_OTHER or Config.defaultCategoryKey)
 end
 
-local function BuildSavedEntry(entry, index)
+local function BuildSavedEntry(entry)
     local display = Model:CopyPersistent(entry)
     display.id = entry.id
     display.source = "saved"
-    display.sourceIndex = index
     display.categoryLabel = GetCategoryLabel(display.categoryKey)
     display.normalizedName = Util.Normalize(display.name)
     display.normalizedSearchable = display.normalizedName
@@ -41,7 +40,7 @@ local function RebuildCache()
     local newStorageIndexByID = {}
     local newDuplicateIndexByMap = {}
     for index, entry in ipairs(SMK.DB:Get().locations) do
-        local display = BuildSavedEntry(entry, index)
+        local display = BuildSavedEntry(entry)
         if display then
             entries[#entries + 1] = display
             local map = newMapIndex[display.mapID]
@@ -66,6 +65,40 @@ local function RebuildCache()
     storageIndexByID = newStorageIndexByID
     duplicateIndexByMap = newDuplicateIndexByMap
     cacheDirty = false
+end
+
+local function AddCachedEntry(entry, index)
+    local display = BuildSavedEntry(entry)
+    cachedEntries[#cachedEntries + 1] = display
+    local map = mapIndex[display.mapID]
+    if not map then
+        map = {}
+        mapIndex[display.mapID] = map
+    end
+    map[#map + 1] = display
+    entryByID[display.id] = display
+    storageIndexByID[display.id] = index
+    local duplicates = duplicateIndexByMap[display.mapID]
+    if not duplicates then
+        duplicates = {}
+        duplicateIndexByMap[display.mapID] = duplicates
+    end
+    duplicates[Model:GetDuplicateKey(display)] = display
+    return display
+end
+
+local function RemoveCachedEntryFromMap(display)
+    local map = display and mapIndex[display.mapID]
+    if not map then return end
+    local writeIndex = 1
+    for readIndex = 1, #map do
+        local candidate = map[readIndex]
+        if candidate.id ~= display.id then
+            map[writeIndex] = candidate
+            writeIndex = writeIndex + 1
+        end
+    end
+    for index = #map, writeIndex, -1 do map[index] = nil end
 end
 
 function Store:InvalidateCache()
@@ -100,8 +133,7 @@ function Store:Add(values)
     local database = SMK.DB:Get()
     entry.id = SMK.DB:NextLocationID()
     database.locations[#database.locations + 1] = entry
-    self:InvalidateCache()
-    local display = BuildSavedEntry(entry, #database.locations)
+    local display = AddCachedEntry(entry, #database.locations)
     NotifyChanged("locations")
     return display
 end
@@ -124,31 +156,27 @@ function Store:AddExternal(entry, categoryKey)
 end
 
 --- 批量写入导入地点，只构建一次重复索引并只触发一次刷新。
-function Store:AddMany(valuesList, invalid)
+function Store:AddMany(valuesList, invalid, alreadyNormalized)
     if SMK.DB:IsReadOnly() then return nil, "READ_ONLY" end
     if cacheDirty then RebuildCache() end
     local database = SMK.DB:Get()
-    local existing = {}
-    for _, entry in ipairs(cachedEntries) do
-        existing[Model:GetDuplicateKey(entry)] = true
-    end
     local result = { imported = 0, duplicates = 0, invalid = invalid or 0 }
     for _, values in ipairs(valuesList or {}) do
-        local entry = Model:Normalize(values)
+        local entry = alreadyNormalized and values or Model:Normalize(values)
         local key = entry and Model:GetDuplicateKey(entry) or nil
+        local storedDuplicates = entry and duplicateIndexByMap[entry.mapID]
         if not entry then
             result.invalid = result.invalid + 1
-        elseif existing[key] then
+        elseif storedDuplicates and storedDuplicates[key] then
             result.duplicates = result.duplicates + 1
         else
             entry.id = SMK.DB:NextLocationID()
             database.locations[#database.locations + 1] = entry
-            existing[key] = true
+            AddCachedEntry(entry, #database.locations)
             result.imported = result.imported + 1
         end
     end
     if result.imported > 0 then
-        self:InvalidateCache()
         NotifyChanged("locations")
     end
     return result
@@ -165,31 +193,75 @@ function Store:Update(entry, values)
     if not normalized then return false, errorMessage end
     local duplicate, duplicateMessage = self:FindDuplicate(normalized, entry)
     if duplicate then return false, duplicateMessage end
+    local index = storageIndexByID[entry.id]
+    local previousDisplay = entryByID[entry.id]
+    local previousDuplicates = duplicateIndexByMap[previousDisplay.mapID]
+    if previousDuplicates then
+        previousDuplicates[Model:GetDuplicateKey(previousDisplay)] = nil
+    end
+    RemoveCachedEntryFromMap(previousDisplay)
     for _, key in ipairs(Model.persistentKeys) do target[key] = normalized[key] end
-    self:InvalidateCache()
+    local replacement = BuildSavedEntry(target)
+    cachedEntries[index] = replacement
+    entryByID[replacement.id] = replacement
+    local map = mapIndex[replacement.mapID]
+    if not map then
+        map = {}
+        mapIndex[replacement.mapID] = map
+    end
+    map[#map + 1] = replacement
+    local duplicates = duplicateIndexByMap[replacement.mapID]
+    if not duplicates then
+        duplicates = {}
+        duplicateIndexByMap[replacement.mapID] = duplicates
+    end
+    duplicates[Model:GetDuplicateKey(replacement)] = replacement
     NotifyChanged("locations")
     return true
 end
 
 function Store:DeleteMany(entries)
     if SMK.DB:IsReadOnly() then return 0, "READ_ONLY" end
+    if cacheDirty then RebuildCache() end
     local database = SMK.DB:Get()
     local requestedIDs = {}
     for _, entry in ipairs(entries or {}) do
         if type(entry) == "table" and entry.id then requestedIDs[entry.id] = true end
     end
-    local deleted, retained = 0, {}
-    for _, entry in ipairs(database.locations) do
-        if type(entry) == "table" and requestedIDs[entry.id] then
-            database.usageCounts[entry.id] = nil
+    local deleted, retainedStorage, retainedDisplays = 0, {}, {}
+    local affectedMaps = {}
+    local newStorageIndexByID = {}
+    for _, stored in ipairs(database.locations) do
+        local display = entryByID[stored.id]
+        if type(stored) == "table" and requestedIDs[stored.id] then
+            database.usageCounts[stored.id] = nil
+            affectedMaps[display.mapID] = true
+            local duplicates = duplicateIndexByMap[display.mapID]
+            if duplicates then duplicates[Model:GetDuplicateKey(display)] = nil end
+            entryByID[stored.id] = nil
             deleted = deleted + 1
         else
-            retained[#retained + 1] = entry
+            retainedStorage[#retainedStorage + 1] = stored
+            retainedDisplays[#retainedDisplays + 1] = display
+            newStorageIndexByID[stored.id] = #retainedStorage
         end
     end
     if deleted > 0 then
-        database.locations = retained
-        self:InvalidateCache()
+        for mapID in pairs(affectedMaps) do
+            local map = mapIndex[mapID]
+            local writeIndex = 1
+            for readIndex = 1, #(map or {}) do
+                local display = map[readIndex]
+                if not requestedIDs[display.id] then
+                    map[writeIndex] = display
+                    writeIndex = writeIndex + 1
+                end
+            end
+            for index = #(map or {}), writeIndex, -1 do map[index] = nil end
+        end
+        database.locations = retainedStorage
+        cachedEntries = retainedDisplays
+        storageIndexByID = newStorageIndexByID
         NotifyChanged("locations")
     end
     return deleted

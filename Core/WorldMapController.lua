@@ -13,18 +13,36 @@ local function IsCursorOverCanvas()
     return container:IsMouseOver()
 end
 
-function Controller:BuildMapIndex()
-    if SMK.MapIndex:Rebuild() then return end
+function Controller:ScheduleMapIndexRetry()
     self.rebuildAttempts = (self.rebuildAttempts or 0) + 1
     if self.rebuildAttempts < 10 then
         C_Timer.After(1, function() self:BuildMapIndex() end)
     end
 end
 
+function Controller:BuildMapIndex()
+    local accepted, building = SMK.MapIndex:Rebuild()
+    if accepted then
+        if not building then self.rebuildAttempts = 0 end
+        return
+    end
+    self:ScheduleMapIndexRetry()
+end
+
 function Controller:Initialize(callbacks)
     if self.initialized then return end
     self.initialized = true
     self.callbacks = callbacks or {}
+    SMK.MapIndex:SetBuildHandler(function(success)
+        if success then
+            self.rebuildAttempts = 0
+            if self.callbacks.onMapIndexReady then
+                self.callbacks.onMapIndexReady()
+            end
+        else
+            self:ScheduleMapIndexRetry()
+        end
+    end)
 
     WorldMapFrame:HookScript("OnShow", function()
         SMK.MapIndex:Rebuild()
@@ -53,7 +71,7 @@ function Controller:Initialize(callbacks)
     mouseFrame:SetScript("OnEvent", function(_, event, button)
         if event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
             if self.callbacks.onMapChanged then
-                self.callbacks.onMapChanged(SMK.Map:GetPlayerMapID(), true)
+                self.callbacks.onMapChanged(SMK.Map:GetPlayerMapID(), false)
             end
             return
         end

@@ -2,7 +2,7 @@ local _, SMK = ...
 
 -- 常用尺寸、视觉和限制集中在本文件；修改后 /reload 即可生效。
 local Config = {
-    databaseSchemaVersion = 7,
+    databaseSchemaVersion = 8,
     panel = {
         height = 512,
         backgroundAtlas = "catalog-list-preview-bg",
@@ -65,6 +65,7 @@ local Config = {
         maxNameWidth = 20,
         maxCoordinateLength = 6,
         maxFrequent = 5,
+        geometryCacheMaxEntries = 1500,
         defaultScale = 1,
         minScale = 0.5,
         maxScale = 2,
@@ -104,10 +105,18 @@ local Config = {
     share = {
         prefix = "SMK|",
         portalSoundID = 875,
-        chatScanMessageCount = 50,
+        whisperInboxMaxEntries = 50,
+    },
+    handyNotes = {
+        npcCacheMaxEntries = 512,
+        npcRetrySeconds = 30,
+        buildBatchSize = 20,
+        buildTimeBudgetMs = 2,
+        maxSearchFieldBytes = 160,
+        maxSearchTextBytes = 512,
     },
     mapPins = {
-        size = 18,
+        size = 30,
         minScale = 0.8,
         maxScale = 1.2,
         defaultTextScale = 1,
@@ -136,6 +145,8 @@ local Config = {
         roots = { 946, 947, 1, 2, 13, 197, 4080 },
         maxDepth = 20,
         maxResults = 5,
+        buildBatchSize = 50,
+        buildTimeBudgetMs = 2,
     },
     art = {
         searchIcon = "Interface\\ICONS\\VAS_NameChange",

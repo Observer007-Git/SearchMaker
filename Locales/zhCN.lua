@@ -37,6 +37,65 @@ local translations = {
     CUSTOM_ICON = "自定义图标",
     CUSTOM_ICON_ATLAS = "Atlas 材质",
     CUSTOM_ICON_PATH = "路径材质",
+    ICON_NOTES = {
+        alliance = "联盟",
+        horde = "部落",
+        great_vault = "宝库",
+        horde_icon = "部落图标",
+        alliance_icon = "联盟图标",
+        bank = "银行",
+        auction_house = "拍卖",
+        mailbox = "邮箱",
+        innkeeper = "旅店",
+        flight_master = "飞行管理员",
+        stable_master = "兽栏管理员",
+        barber = "理发师",
+        transmogrifier = "幻化师",
+        trading_post = "商栈",
+        merchant = "商人",
+        class_trainer = "职业训练师",
+        profession_trainer = "专业训练师",
+        other = "其他",
+        crafting_orders = "订单",
+        timewalking_vendor = "漫游商人",
+        item_upgrade = "物品升级",
+        alliance_portal = "联盟传送门",
+        horde_portal = "部落传送门",
+        chromie = "克罗米",
+        alliance_portal_alt = "联盟传送门2",
+        horde_portal_alt = "部落传送门2",
+        quest = "任务",
+        alliance_pvp = "联盟PVP",
+        horde_pvp = "部落PVP",
+        coordinate_selected = "坐标选中",
+        coordinate_unselected = "坐标未选中",
+        class = "职业",
+        profession = "专业",
+        raid = "团队副本",
+        dungeon = "地下城",
+        delve = "地下堡",
+        rare_creature = "稀有怪物",
+        treasure = "宝箱",
+        portal = "传送门",
+        teleport_beacon = "传送道标",
+        cave_entrance = "山洞进",
+        cave_exit = "山洞出",
+        alchemy = "炼金",
+        blacksmithing = "锻造",
+        cooking = "烹饪",
+        enchanting = "附魔",
+        engineering = "工程",
+        fishing = "钓鱼",
+        herbalism = "草药",
+        inscription = "铭文",
+        jewelcrafting = "珠宝",
+        leatherworking = "皮革",
+        mining = "采矿",
+        skinning = "剥皮",
+        tailoring = "裁缝",
+        archaeology = "考古",
+        mount = "马",
+    },
     PIN_NAME_OFFSET_X = "名称水平偏移",
     PIN_NAME_OFFSET_Y = "名称垂直偏移",
     PIN_TEXTURE_SIZE = "标记材质大小",
@@ -45,7 +104,7 @@ local translations = {
     HELP_TEXT = [[
 |cffffd100搜索与打开|r
 • 左键搜索框开始搜索，右键打开主面板，中键打开或关闭世界地图；按住 Shift 拖动可移动搜索框。
-• 按 Tab 切换“当前地图/全图”。地图打开时搜索正在浏览的地图，关闭时搜索角色所在地图。
+• 按 Tab 切换“当前地图/搜索 宇宙”。地图打开时搜索正在浏览的地图，关闭时搜索角色所在地图。
 • 输入地点名称进行搜索；输入“45.2, 63.8”一类坐标可直接创建游戏路径点。
 
 |cffffd100地点与标记|r
@@ -55,7 +114,7 @@ local translations = {
 • HandyNotes_MapNotes 结果可直接定位，右键可收藏到指定分组。
 
 |cffffd100分享与数据|r
-• “导出/导入”用于复制或粘贴 SMK 文本；“更多”可扫描聊天编码或批量删除。
+• “导出/导入”用于复制、粘贴 SMK 文本，或从本次登录、/reload 后收发的角色与战网密语导入；不会扫描其他频道。
 • 地点和设置保存在账号存档中，大量修改前建议先导出备份。
 ]],
 
@@ -97,7 +156,7 @@ local translations = {
     ERROR_INVALID_COORDINATES = "X、Y 坐标必须是 0 到 100 之间的数字。",
     ERROR_INVALID_SETTING = "该设置值无效。",
     ERROR_EMPTY_NAME = "请输入地点名字。",
-    ERROR_NAME_TOO_LONG = "地点名字最多支持 10 个汉字或 20 个英文字母。",
+    ERROR_NAME_TOO_LONG = "地点名字过长，最多支持 10 个宽字符或 20 个窄字符。",
 
     -- BulkDeleteDialog
     BULK_DELETE_TITLE = "批量删除",
@@ -112,11 +171,8 @@ local translations = {
     DELETE_MAP_DESC = "地图 ID %d 的全部地点",
 
     -- ShareDialog
-    CHAT_IMPORT = "密语导入",
-    CHAT_IMPORT_NONE = "未在聊天记录中发现 SMK 编码。",
-    CHAT_IMPORT_ALL_DUPLICATES = "聊天中发现 SMK 编码，但都已存在。",
-    CHAT_IMPORT_TRUNCATED = "（部分坐标记录不完整，已跳过。）",
-    CHAT_IMPORT_SUCCESS = "从聊天中成功导入 %d 个地点。",
+    CHAT_IMPORT = "从密语导入",
+    CHAT_IMPORT_NONE = "本次登录或 /reload 后的密语中没有 SMK 编码。",
     SHARE_TITLE = "导入 / 导出",
     EXPORT_CURRENT_ONLY = "只导出当前地图",
     EXPORT_BATCH_SIZE = "最大单次导出数量",

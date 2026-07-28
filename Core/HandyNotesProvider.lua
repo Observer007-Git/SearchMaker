@@ -6,15 +6,48 @@ local cachedMapID
 local cachedEntries = {}
 local cacheReady = false
 local npcInfoCache = {}
+local npcInfoCacheSize = 0
+local changeHandler
+local updateHooked = false
+local buildGeneration = 0
+local buildingMapID
+
+local function Now()
+    return type(GetTime) == "function" and GetTime() or 0
+end
+
+local function ResetMissingNpcRetries()
+    for _, cached in pairs(npcInfoCache) do
+        if not cached.name or not cached.title then
+            cached.retryAt = 0
+            cached.partialRetried = false
+        end
+    end
+end
+
+local function CacheNpcInfo(key, name, title, retryAt, partialRetried)
+    local existing = npcInfoCache[key]
+    local limit = math.max(1, tonumber(SMK.Config.handyNotes.npcCacheMaxEntries) or 1)
+    if not existing and npcInfoCacheSize >= limit then
+        local evictedKey = next(npcInfoCache)
+        if evictedKey then
+            npcInfoCache[evictedKey] = nil
+            npcInfoCacheSize = npcInfoCacheSize - 1
+        end
+    end
+    if not existing then npcInfoCacheSize = npcInfoCacheSize + 1 end
+    npcInfoCache[key] = {
+        name = name,
+        title = title,
+        retryAt = retryAt,
+        partialRetried = partialRetried == true,
+    }
+end
 
 local function ParseCoord(coord)
     local x = math.floor(coord / 10000) / 10000 * 100
     local y = (coord % 10000) / 10000 * 100
     return x, y
-end
-
-local function ContainsHan(text)
-    return tostring(text or ""):find("[\228-\233][\128-\191][\128-\191]") ~= nil
 end
 
 local function CleanText(text)
@@ -30,7 +63,7 @@ end
 
 local function IsLocalizedText(text)
     if SMK.locale == "zhCN" then
-        return ContainsHan(text)
+        return SMK.Util.ContainsHan(text)
     end
     return text ~= nil and text ~= ""
 end
@@ -63,8 +96,15 @@ end
 local function GetNpcInfo(npcID)
     local key = tostring(SMK.locale) .. ":" .. tostring(npcID)
     local cached = npcInfoCache[key]
-    if cached then return cached.name, cached.title end
+    local now = Now()
+    if cached and (not cached.retryAt or cached.retryAt > now) then
+        return cached.name, cached.title, cached.retryAt
+    end
 
+    local previousName = cached and cached.name
+    local previousTitle = cached and cached.title
+    local retryingPartial = cached and (cached.name or cached.title)
+        and cached.retryAt ~= nil
     local name, title = ReadMapNotesNpcCache(npcID)
     if not name or not title then
         local tooltipName, tooltipTitle = ReadNpcTooltip(npcID)
@@ -77,17 +117,59 @@ local function GetNpcInfo(npcID)
     if name == _G.RETRIEVING_DATA or name == _G.UNKNOWNOBJECT then
         name, title = nil, nil
     end
-    if name then
-        npcInfoCache[key] = { name = name, title = title }
+    name, title = name or previousName, title or previousTitle
+    local retrySeconds = tonumber(SMK.Config.handyNotes.npcRetrySeconds) or 30
+    local retryAt, partialRetried
+    if not name and not title then
+        retryAt = now + retrySeconds
+    elseif not name or not title then
+        partialRetried = retryingPartial or (cached and cached.partialRetried)
+        if not partialRetried then retryAt = now + retrySeconds end
     end
-    return name, title
+    CacheNpcInfo(key, name, title, retryAt, partialRetried)
+    return name, title, retryAt
 end
 
-local function AddSearchText(parts, seen, text)
+function HandyNotesProvider:Invalidate(resetMissingRetries)
+    local invalidatedMapID = cachedMapID or buildingMapID
+    if resetMissingRetries then ResetMissingNpcRetries() end
+    buildGeneration = buildGeneration + 1
+    buildingMapID = nil
+    cachedMapID, cachedEntries, cacheReady = nil, {}, false
+    return invalidatedMapID
+end
+
+local function EnsureUpdateHook()
+    if updateHooked or not HandyNotes or type(HandyNotes.SendMessage) ~= "function"
+        or type(hooksecurefunc) ~= "function" then
+        return
+    end
+    updateHooked = true
+    hooksecurefunc(HandyNotes, "SendMessage", function(_, message, source)
+        if message ~= "HandyNotes_NotifyUpdate" or source ~= pluginName then return end
+        local mapID = HandyNotesProvider:Invalidate(true)
+        if changeHandler then changeHandler("invalidated", mapID) end
+    end)
+end
+
+function HandyNotesProvider:SetChangeHandler(callback)
+    changeHandler = callback
+    EnsureUpdateHook()
+end
+
+local function AddSearchText(parts, seen, text, budget)
     local value = CleanText(text)
-    if not value or not IsLocalizedText(value) or seen[value] then return end
+    if not value or not IsLocalizedText(value) then return end
+    local fieldLimit = tonumber(SMK.Config.handyNotes.maxSearchFieldBytes) or 160
+    local totalLimit = tonumber(SMK.Config.handyNotes.maxSearchTextBytes) or 512
+    local separatorBytes = #parts > 0 and 1 or 0
+    local remaining = totalLimit - budget.bytes - separatorBytes
+    if remaining <= 0 then return end
+    value = SMK.Util.TruncateUTF8(value, math.min(fieldLimit, remaining))
+    if value == "" or seen[value] then return end
     seen[value] = true
     parts[#parts + 1] = value
+    budget.bytes = budget.bytes + #value + separatorBytes
 end
 
 local function GetTypeDisplay(nodeData)
@@ -100,31 +182,27 @@ local function GetTypeDisplay(nodeData)
 end
 
 local function BuildNodeText(nodeData)
-    local parts, seen = {}, {}
+    local parts, seen, budget = {}, {}, { bytes = 0 }
     local directNames = {
         CleanText(nodeData.name) or false,
         CleanText(nodeData.label) or false,
         CleanText(nodeData.dnID) or false,
     }
     for _, value in ipairs(directNames) do
-        AddSearchText(parts, seen, value)
-    end
-
-    if SMK.locale == "zhCN" then
-        for _, value in pairs(nodeData) do
-            if type(value) == "string" then
-                AddSearchText(parts, seen, value)
-            end
-        end
+        AddSearchText(parts, seen, value, budget)
     end
 
     local npcNames, npcTitles = {}, {}
+    local nextRetryAt
     local function AddNpc(npcID)
         if not npcID then return end
-        local name, title = GetNpcInfo(npcID)
+        local name, title, retryAt = GetNpcInfo(npcID)
+        if retryAt and (not nextRetryAt or retryAt < nextRetryAt) then
+            nextRetryAt = retryAt
+        end
         title = title and (title:match("^<(.+)>$") or title)
-        AddSearchText(parts, seen, name)
-        AddSearchText(parts, seen, title)
+        AddSearchText(parts, seen, name, budget)
+        AddSearchText(parts, seen, title, budget)
         if title and IsLocalizedText(title) then
             npcTitles[#npcTitles + 1] = title
         end
@@ -138,8 +216,20 @@ local function BuildNodeText(nodeData)
     end
 
     local typeLabel, typeDisplay = GetTypeDisplay(nodeData)
-    AddSearchText(parts, seen, typeLabel)
-    AddSearchText(parts, seen, typeDisplay)
+    AddSearchText(parts, seen, typeLabel, budget)
+    AddSearchText(parts, seen, typeDisplay, budget)
+
+    -- 只接收 MapNotes 的用户可见补充字段，避免布尔配置、链接和内部备注进入搜索。
+    if SMK.locale == "zhCN" then
+        for _, key in ipairs({ "TransportName", "title", "info", "wwwName" }) do
+            AddSearchText(parts, seen, nodeData[key], budget)
+        end
+        for index = 1, 10 do
+            AddSearchText(parts, seen, nodeData["wwwNames" .. index], budget)
+            AddSearchText(parts, seen, nodeData["mnIDText" .. index], budget)
+            AddSearchText(parts, seen, nodeData["npcIDs" .. index .. "Info"], budget)
+        end
+    end
 
     local displayName = npcTitles[1]
     for _, value in ipairs(directNames) do
@@ -153,34 +243,52 @@ local function BuildNodeText(nodeData)
         displayName = CleanText(nodeData.type)
             or (nodeData.npcID and "NPC:" .. tostring(nodeData.npcID))
     end
-    AddSearchText(parts, seen, displayName)
-    return displayName, table.concat(parts, " ")
+    AddSearchText(parts, seen, displayName, budget)
+    return displayName, table.concat(parts, " "), nextRetryAt
 end
 
 function HandyNotesProvider:RebuildCache(mapID, force)
+    EnsureUpdateHook()
     mapID = tonumber(mapID) or SMK.Map:GetContextMapID()
     if not mapID then
+        buildGeneration = buildGeneration + 1
+        buildingMapID = nil
         cachedMapID, cachedEntries, cacheReady = nil, {}, false
         return cachedEntries
     end
     if cacheReady and cachedMapID == mapID and not force then return cachedEntries end
+    if buildingMapID == mapID and not force then return cachedEntries end
 
-    cachedMapID, cachedEntries, cacheReady = mapID, {}, true
+    buildGeneration = buildGeneration + 1
+    local generation = buildGeneration
+    buildingMapID = mapID
+    cachedMapID, cachedEntries, cacheReady = mapID, {}, false
     if not HandyNotes or not HandyNotes.plugins or not HandyNotes.plugins[pluginName] then
+        buildingMapID = nil
         return cachedEntries
     end
     local plugin = HandyNotes.plugins[pluginName]
-    if not plugin.GetNodes2 then return cachedEntries end
+    if not plugin.GetNodes2 then
+        buildingMapID = nil
+        return cachedEntries
+    end
 
     local ok, iterFunc, tbl = pcall(plugin.GetNodes2, plugin, mapID, false)
-    if not ok or not iterFunc or not tbl or not tbl.data then return cachedEntries end
+    if not ok or not iterFunc or not tbl or not tbl.data then
+        buildingMapID = nil
+        return cachedEntries
+    end
 
     local nodes = {}
-    local coord, _, iconTexture = iterFunc(tbl, nil)
-    while coord do
+    local nextRetryAt
+    local previousCoord
+    local function AddNode(coord, iconTexture)
         local nodeData = tbl.data[coord]
         if nodeData then
-            local displayName, searchable = BuildNodeText(nodeData)
+            local displayName, searchable, retryAt = BuildNodeText(nodeData)
+            if retryAt and (not nextRetryAt or retryAt < nextRetryAt) then
+                nextRetryAt = retryAt
+            end
             if displayName and searchable ~= "" then
                 local x, y = ParseCoord(coord)
                 if x and y and x >= 0 and x <= 100 and y >= 0 and y <= 100 then
@@ -202,14 +310,63 @@ function HandyNotesProvider:RebuildCache(mapID, force)
                 end
             end
         end
-        coord, _, iconTexture = iterFunc(tbl, coord)
     end
-    cachedEntries = nodes
+
+    local function Finish()
+        if generation ~= buildGeneration then return end
+        cachedEntries = nodes
+        cacheReady = true
+        buildingMapID = nil
+        if nextRetryAt and C_Timer and type(C_Timer.After) == "function" then
+            local delay = math.max(0, nextRetryAt - Now())
+            C_Timer.After(delay, function()
+                if generation ~= buildGeneration or not cacheReady
+                    or cachedMapID ~= mapID then return end
+                local invalidatedMapID = HandyNotesProvider:Invalidate(false)
+                if changeHandler then changeHandler("invalidated", invalidatedMapID) end
+            end)
+        end
+    end
+
+    local function ProcessBatch()
+        if generation ~= buildGeneration then return end
+        local batchSize = math.max(1,
+            tonumber(SMK.Config.handyNotes.buildBatchSize) or 1)
+        local budget = math.max(0,
+            tonumber(SMK.Config.handyNotes.buildTimeBudgetMs) or 0)
+        local canProfile = type(debugprofilestop) == "function"
+        local startedAt = canProfile and debugprofilestop() or 0
+        for _ = 1, batchSize do
+            local coord, _, iconTexture = iterFunc(tbl, previousCoord)
+            if not coord then
+                Finish()
+                if changeHandler then changeHandler("ready", mapID) end
+                return
+            end
+            previousCoord = coord
+            AddNode(coord, iconTexture)
+            if canProfile and debugprofilestop() - startedAt >= budget then break end
+        end
+        C_Timer.After(0, ProcessBatch)
+    end
+
+    if C_Timer and type(C_Timer.After) == "function" then
+        C_Timer.After(0, ProcessBatch)
+        return cachedEntries
+    end
+
+    local coord, _, iconTexture = iterFunc(tbl, previousCoord)
+    while coord do
+        previousCoord = coord
+        AddNode(coord, iconTexture)
+        coord, _, iconTexture = iterFunc(tbl, previousCoord)
+    end
+    Finish()
     return cachedEntries
 end
 
 function HandyNotesProvider:GetByMap(mapID)
-    return tonumber(mapID) == cachedMapID and cachedEntries or {}
+    return cacheReady and tonumber(mapID) == cachedMapID and cachedEntries or {}
 end
 
 SMK.HandyNotesProvider = HandyNotesProvider

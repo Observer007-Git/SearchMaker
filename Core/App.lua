@@ -23,7 +23,8 @@ local RefreshProfiles = {
     scale = { panel = true, search = true },
     pins = { pins = true },
     scope = { searchIcon = true, instructions = true, search = true },
-    usage = { panel = true },
+    external = { context = true, instructions = true, search = true },
+    usage = { frequent = true },
 }
 
 function App:GetRefreshCoordinator()
@@ -51,7 +52,13 @@ function App:FlushRefresh(flags)
     if flags.pins then SMK.MapPins:Refresh() end
     if not self.initialized then return end
 
-    if flags.panel and SMK.MainPanel:IsExpanded() then SMK.MainPanel:Refresh() end
+    if SMK.MainPanel:IsExpanded() then
+        if flags.panel then
+            SMK.MainPanel:Refresh()
+        elseif flags.frequent then
+            SMK.MainPanel:RenderFrequent()
+        end
+    end
     if flags.searchIcon then SMK.SearchBar:UpdateSearchIcon() end
     if not SMK.SearchBar:IsVisible() then return end
     if flags.resetSearch then
@@ -66,6 +73,15 @@ function App:RequestMapRefresh(mapID, forceExternal)
     self.pendingContextMapID = tonumber(mapID) or self.pendingContextMapID
     self.pendingForceExternal = self.pendingForceExternal or forceExternal == true
     self:RequestRefresh("map")
+end
+
+--- 外部地点缓存失效或构建完成时刷新当前上下文，不清空现有搜索词。
+function App:ExternalDataChanged(mapID)
+    local currentMapID = SMK.MapContext:GetMapID()
+    mapID = tonumber(mapID)
+    if mapID and currentMapID and mapID ~= currentMapID then return end
+    self.pendingContextMapID = currentMapID or mapID
+    self:RequestRefresh("external")
 end
 
 function App:StoreChanged(reason)
@@ -214,6 +230,9 @@ function App:CreateUI()
     SMK.DB:Initialize()
     SMK.Store:SetChangeHandler(function(reason) self:StoreChanged(reason) end)
     SMK.Settings:SetChangeHandler(function(key) self:SettingChanged(key) end)
+    SMK.HandyNotesProvider:SetChangeHandler(function(_, mapID)
+        self:ExternalDataChanged(mapID)
+    end)
     local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
     if readOnlyMessage and not self.warnedReadOnlyDatabase then
         self.warnedReadOnlyDatabase = true
@@ -249,14 +268,17 @@ function App:CreateUI()
     SMK.WorldMapController:Initialize({
         onShown = function(mapID)
             SMK.SearchBar:ShowForMap()
-            self:RequestMapRefresh(mapID, true)
+            self:RequestMapRefresh(mapID, false)
         end,
         onHidden = function(mapID)
             SMK.SearchBar:HandleWorldMapHidden()
-            self:RequestMapRefresh(mapID, true)
+            self:RequestMapRefresh(mapID, false)
         end,
         onMapChanged = function(mapID, forceExternal)
             self:RequestMapRefresh(mapID, forceExternal)
+        end,
+        onMapIndexReady = function()
+            self:RequestRefresh("search")
         end,
         onReady = function() SMK.SearchBar:RestoreVisibility() end,
         onAltClick = function(mapID, x, y, screenX, screenY)
@@ -289,70 +311,6 @@ function App:ToggleSearch()
 end
 
 
-function App:ScanChatForImports()
-    local collected = {}
-    local invalidTotal = 0
-    local sawTruncated = false
-    local sawShareCode = false
-    for i = 1, NUM_CHAT_WINDOWS or 7 do
-        local cf = _G["ChatFrame" .. i]
-        if cf then
-            local num = cf:GetNumMessages()
-            local start = math.max(1, num - SMK.Config.share.chatScanMessageCount + 1)
-            for j = start, num do
-                -- cf:GetMessageInfo returns different formats across WoW versions:
-                -- old: first return = string message; new: returns include a table with message data
-                local allReturns = { cf:GetMessageInfo(j) }
-                local sharePart
-                for _, val in ipairs(allReturns) do
-                    if type(val) == "string" then
-                        sharePart = SMK.ShareCodec:FindShareText(val)
-                        if sharePart then break end
-                    elseif type(val) == "table" then
-                        for _, field in ipairs(val) do
-                            if type(field) == "string" then
-                                sharePart = SMK.ShareCodec:FindShareText(field)
-                                if sharePart then break end
-                            end
-                        end
-                        if sharePart then break end
-                    end
-                end
-                if sharePart then
-                    sawShareCode = true
-                    local entries, _, invalid = SMK.ShareCodec:Decode(sharePart)
-                    if entries then
-                        invalidTotal = invalidTotal + (invalid or 0)
-                        if invalid and invalid > 0 then sawTruncated = true end
-                        for _, entry in ipairs(entries) do collected[#collected + 1] = entry end
-                    else
-                        invalidTotal = invalidTotal + 1
-                        sawTruncated = true
-                    end
-                end
-            end
-        end
-    end
-    if not sawShareCode then
-        SMK:Print(SMK.L.CHAT_IMPORT_NONE)
-        return SMK.L.CHAT_IMPORT_NONE
-    end
-    local result, importError = SMK.Import:ImportEntries(collected, invalidTotal)
-    if not result then
-        SMK:Print(importError)
-        return importError
-    end
-    local truncMsg = sawTruncated and " " .. SMK.L.CHAT_IMPORT_TRUNCATED or ""
-    local msg
-    if result.imported > 0 then
-        msg = string.format(SMK.L.CHAT_IMPORT_SUCCESS, result.imported) .. truncMsg
-    else
-        msg = SMK.L.CHAT_IMPORT_ALL_DUPLICATES .. truncMsg
-    end
-    SMK:Print(msg)
-    return msg
-end
-
 SMK.App = App
 
 function SearchMaker_ToggleSearch()
@@ -361,8 +319,14 @@ end
 
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
+for event in pairs(SMK.WhisperInbox.events) do loader:RegisterEvent(event) end
 local loadedSearchMaker = false
-loader:SetScript("OnEvent", function(self, _, addonName)
+loader:SetScript("OnEvent", function(self, event, firstArgument)
+    if SMK.WhisperInbox.events[event] then
+        SMK.WhisperInbox:Capture(firstArgument)
+        return
+    end
+    local addonName = firstArgument
     if addonName == SMK.name then
         loadedSearchMaker = true
         SMK.DB:Initialize()

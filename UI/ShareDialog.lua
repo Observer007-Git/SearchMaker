@@ -2,6 +2,7 @@ local _, SMK = ...
 
 local Dialog = {}
 local Config = SMK.Config
+local MAX_RETAINED_TEXT_LENGTH = 65536
 
 --- 更新对话框底部的状态文字。
 -- @param message string|nil
@@ -18,9 +19,12 @@ local function SortEntries(entries)
         local ac = Config.categoryOrder[a.categoryKey] or #Config.categories
         local bc = Config.categoryOrder[b.categoryKey] or #Config.categories
         if ac ~= bc then return ac < bc end
-        if a.name ~= b.name then return a.name < b.name end
+        local nameA = a.normalizedName or SMK.Util.SortKey(a.name)
+        local nameB = b.normalizedName or SMK.Util.SortKey(b.name)
+        if nameA ~= nameB then return nameA < nameB end
         if a.x ~= b.x then return a.x < b.x end
-        return a.y < b.y
+        if a.y ~= b.y then return a.y < b.y end
+        return (a.id or 0) < (b.id or 0)
     end)
 end
 
@@ -77,6 +81,13 @@ function Dialog:SetBatchSize(batchSize)
     if self.exportEntries then self:Export() end
 end
 
+function Dialog:ReleaseExportState()
+    self.exportEntries, self.exportRanges = nil, nil
+    self.currentRangeStart, self.currentRangeEnd = 1, 0
+    if self.rangeLabel then self.rangeLabel:Hide() end
+    if self.rangeDropdown then self.rangeDropdown:Hide() end
+end
+
 --- 以 SMK| 共享格式导出条目（仅当前地图或全部）。
 -- 如果总数超过用户选择的单次导出数量，用户选择范围。
 function Dialog:Export()
@@ -118,10 +129,29 @@ end
 function Dialog:Import()
     local result, errorMessage = SMK.Import:ImportText(self.textBox:GetText())
     if not result then return self:SetStatus(errorMessage, true) end
+    self.textBox:SetText("")
+    self:ShowImportResult(result)
+end
+
+function Dialog:ShowImportResult(result)
     local summary = string.format(SMK.L.IMPORT_RESULT,
         result.imported, result.duplicates, result.invalid)
     self:SetStatus(summary, result.imported == 0 and result.invalid > 0)
     SMK:Print(summary)
+    return summary
+end
+
+function Dialog:ImportWhispers()
+    local text = SMK.WhisperInbox:GetImportText()
+    if not text then
+        self:SetStatus(SMK.L.CHAT_IMPORT_NONE, true)
+        return SMK:Print(SMK.L.CHAT_IMPORT_NONE)
+    end
+    self.textBox:SetText(text)
+    local result, errorMessage = SMK.Import:ImportText(text)
+    if not result then return self:SetStatus(errorMessage, true) end
+    self:ShowImportResult(result)
+    return result
 end
 
 function Dialog:Create(parent)
@@ -235,25 +265,36 @@ function Dialog:Create(parent)
     scroll:SetScrollChild(self.textBox)
 
     local export = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    export:SetSize(120, 24)
-    export:SetPoint("BOTTOM", -130, 24)
+    export:SetSize(112, 24)
+    export:SetPoint("BOTTOMLEFT", 59, 24)
     export:SetText(SMK.L.EXPORT_BUTTON)
     export:SetScript("OnClick", function() self:Export() end)
     local import = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    import:SetSize(120, 24)
-    import:SetPoint("BOTTOM", 0, 24)
+    import:SetSize(122, 24)
+    import:SetPoint("LEFT", export, "RIGHT", 8, 0)
     import:SetText(SMK.L.IMPORT_BUTTON)
     import:SetScript("OnClick", function() self:Import() end)
+    local whisperImport = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    whisperImport:SetSize(144, 24)
+    whisperImport:SetPoint("LEFT", import, "RIGHT", 8, 0)
+    whisperImport:SetText(SMK.L.CHAT_IMPORT)
+    whisperImport:SetScript("OnClick", function() self:ImportWhispers() end)
     local cancel = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    cancel:SetSize(90, 24)
-    cancel:SetPoint("BOTTOM", 115, 24)
+    cancel:SetSize(80, 24)
+    cancel:SetPoint("LEFT", whisperImport, "RIGHT", 8, 0)
     cancel:SetText(SMK.L.CLOSE)
     cancel:SetScript("OnClick", function() frame:Hide() end)
     self.status = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.status:SetPoint("BOTTOMLEFT", 24, 8)
     self.status:SetPoint("BOTTOMRIGHT", -24, 8)
     self.status:SetJustifyH("CENTER")
-    frame:SetScript("OnHide", function() self.textBox:ClearFocus() end)
+    frame:SetScript("OnHide", function()
+        self.textBox:ClearFocus()
+        if #(self.textBox:GetText() or "") > MAX_RETAINED_TEXT_LENGTH then
+            self.textBox:SetText("")
+        end
+        self:ReleaseExportState()
+    end)
     frame:Hide()
     return frame
 end

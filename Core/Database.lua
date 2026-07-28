@@ -8,6 +8,30 @@ local rootKeys = {
     schemaVersion = true, locations = true, usageCounts = true, settings = true, nextLocationID = true,
 }
 
+-- Schema 8 removes duplicate Atlas entries and compacts their positive IDs.
+local customIconIDsV8 = {
+    [1] = 1, [2] = 2, [3] = 3, [4] = 4, [5] = 5, [6] = 6,
+    [7] = 7, [8] = 8, [9] = 9, [10] = 10, [11] = 11, [12] = 12,
+    [13] = 13, [14] = 14, [15] = 15, [16] = 16, [17] = 17,
+    [18] = 29, [19] = 18, [20] = 19, [21] = 20, [22] = 21,
+    [23] = 22, [24] = 23, [25] = 24, [26] = 25, [27] = 26,
+    [28] = 27, [29] = 28, [30] = 29, [31] = 30, [32] = 16,
+    [33] = 17, [34] = 31, [35] = 32, [36] = 33, [37] = 34,
+    [38] = 35, [39] = 36, [40] = 37, [41] = 38, [42] = 39,
+}
+
+local function MigrateCustomIconIDs(database, schemaVersion)
+    if schemaVersion >= 8 then return end
+    for _, entry in ipairs(database.locations) do
+        if type(entry) == "table" then
+            local iconID = tonumber(entry.customIconID)
+            if iconID and iconID > 0 then
+                entry.customIconID = customIconIDsV8[iconID]
+            end
+        end
+    end
+end
+
 local function AssignLocationIDs(database)
     database.nextLocationID = math.max(1, math.floor(tonumber(database.nextLocationID) or 1))
     local used = {}
@@ -75,7 +99,6 @@ function DB:Initialize()
     SearchMakerDB = type(SearchMakerDB) == "table" and SearchMakerDB or {}
     local database = SearchMakerDB
     local schemaVersion = math.max(0, math.floor(tonumber(database.schemaVersion) or 0))
-    self.savedData = database
     self.futureSchemaVersion = nil
     if schemaVersion > Config.databaseSchemaVersion then
         self.readOnly = true
@@ -85,10 +108,11 @@ function DB:Initialize()
     end
 
     self.readOnly = false
-    database.schemaVersion = Config.databaseSchemaVersion
     database.locations = type(database.locations) == "table" and database.locations or {}
     database.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
     database.settings = SettingsSchema:NormalizeAll(database.settings)
+    MigrateCustomIconIDs(database, schemaVersion)
+    database.schemaVersion = Config.databaseSchemaVersion
     for key in pairs(database) do
         if not rootKeys[key] then database[key] = nil end
     end

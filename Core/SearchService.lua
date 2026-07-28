@@ -50,6 +50,110 @@ function Search:GetScore(entry, query)
     end
 end
 
+local function ResolveMapSortKey(match)
+    if match.includeMapName and not match.mapName then
+        match.mapName = SMK.Map:GetMapName(match.entry.mapID)
+    end
+    if match.includeMapName and not match.mapSortKey then
+        match.mapSortKey = Util.SortKey(match.mapName)
+    end
+    return match.mapSortKey or ""
+end
+
+local function IsBetterValues(entry, score, mapName, isMapPortal, includeMapName, b)
+    if score ~= b.score then return score < b.score, mapName end
+    local portalA, portalB = isMapPortal == true, b.isMapPortal == true
+    if portalA ~= portalB then return not portalA, mapName end
+    local nameA = entry.normalizedName or Util.Normalize(entry.name)
+    local nameB = b.entry.normalizedName or Util.Normalize(b.entry.name)
+    if nameA ~= nameB then return nameA < nameB, mapName end
+    if includeMapName then
+        mapName = mapName or SMK.Map:GetMapName(entry.mapID)
+        local mapKeyA = Util.SortKey(mapName)
+        local mapKeyB = ResolveMapSortKey(b)
+        if mapKeyA ~= mapKeyB then return mapKeyA < mapKeyB, mapName end
+    end
+    local mapIDA, mapIDB = tonumber(entry.mapID) or 0, tonumber(b.entry.mapID) or 0
+    if mapIDA ~= mapIDB then return mapIDA < mapIDB, mapName end
+    local xA, xB = tonumber(entry.x) or 0, tonumber(b.entry.x) or 0
+    if xA ~= xB then return xA < xB, mapName end
+    return (tonumber(entry.y) or 0) < (tonumber(b.entry.y) or 0), mapName
+end
+
+local function IsBetterMatch(a, b)
+    if a.score ~= b.score then return a.score < b.score end
+    local portalA, portalB = a.isMapPortal == true, b.isMapPortal == true
+    if portalA ~= portalB then return not portalA end
+    local nameA = a.entry.normalizedName or Util.Normalize(a.entry.name)
+    local nameB = b.entry.normalizedName or Util.Normalize(b.entry.name)
+    if nameA ~= nameB then return nameA < nameB end
+    local mapKeyA, mapKeyB = ResolveMapSortKey(a), ResolveMapSortKey(b)
+    if mapKeyA ~= mapKeyB then return mapKeyA < mapKeyB end
+    local mapIDA = tonumber(a.entry.mapID) or 0
+    local mapIDB = tonumber(b.entry.mapID) or 0
+    if mapIDA ~= mapIDB then return mapIDA < mapIDB end
+    local xA, xB = tonumber(a.entry.x) or 0, tonumber(b.entry.x) or 0
+    if xA ~= xB then return xA < xB end
+    return (tonumber(a.entry.y) or 0) < (tonumber(b.entry.y) or 0)
+end
+
+local function SiftUp(heap, index)
+    while index > 1 do
+        local parent = math.floor(index / 2)
+        if not IsBetterMatch(heap[parent], heap[index]) then break end
+        heap[parent], heap[index] = heap[index], heap[parent]
+        index = parent
+    end
+end
+
+local function SiftDown(heap, index)
+    while true do
+        local left = index * 2
+        if left > #heap then return end
+        local right = left + 1
+        local worse = left
+        if right <= #heap and IsBetterMatch(heap[left], heap[right]) then
+            worse = right
+        end
+        if not IsBetterMatch(heap[index], heap[worse]) then return end
+        heap[index], heap[worse] = heap[worse], heap[index]
+        index = worse
+    end
+end
+
+local function SetCandidate(candidate, entry, score, mapName, isMapPortal,
+    isCoordinateResult, isExternal, includeMapName)
+    candidate.entry = entry
+    candidate.score = score
+    candidate.mapName = mapName
+    candidate.mapSortKey = nil
+    candidate.isMapPortal = isMapPortal
+    candidate.isCoordinateResult = isCoordinateResult
+    candidate.isExternal = isExternal
+    candidate.includeMapName = includeMapName == true
+end
+
+local function AddBounded(matches, entry, score, limit, mapName,
+    isMapPortal, isCoordinateResult, isExternal, includeMapName)
+    local accepted, resolvedMapName = true, mapName
+    if #matches >= limit then
+        accepted, resolvedMapName = IsBetterValues(entry, score, mapName,
+            isMapPortal, includeMapName, matches[1])
+    end
+    if not accepted then return end
+    if #matches < limit then
+        local candidate = {}
+        SetCandidate(candidate, entry, score, resolvedMapName, isMapPortal,
+            isCoordinateResult, isExternal, includeMapName)
+        matches[#matches + 1] = candidate
+        SiftUp(matches, #matches)
+    else
+        SetCandidate(matches[1], entry, score, resolvedMapName, isMapPortal,
+            isCoordinateResult, isExternal, includeMapName)
+        SiftDown(matches, 1)
+    end
+end
+
 --- 搜索条目列表并返回带分数的结果。
 -- 始终追加地图索引匹配结果（不受 allMaps 参数影响）。
 -- @param entries table 待搜索的地点条目数组。
@@ -68,8 +172,7 @@ function Search:Find(entries, query, allMaps, currentMapID, externalEntries)
     local maxResults = Config.search.maxResults
     currentMapID = tonumber(currentMapID)
     if coordinateX and currentMapID and currentMapID > 0 then
-        matches[#matches + 1] = {
-            entry = {
+        local entry = {
                 mapID = currentMapID,
                 x = coordinateX,
                 y = coordinateY,
@@ -77,54 +180,36 @@ function Search:Find(entries, query, allMaps, currentMapID, externalEntries)
                     FormatCoordinate(coordinateX), FormatCoordinate(coordinateY)),
                 categoryKey = Config.defaultCategoryKey,
                 isCoordinateResult = true,
-            },
-            score = -1,
-            isCoordinateResult = true,
-        }
+            }
+        AddBounded(matches, entry, -1, maxResults, nil, nil, true)
     end
     for _, entry in ipairs(entries or {}) do
         local score = self:GetScore(entry, query)
         if score then
-            local mapName = allMaps and SMK.Map:GetMapName(entry.mapID) or nil
-            matches[#matches + 1] = { entry = entry, score = score, mapName = mapName }
+            AddBounded(matches, entry, score, maxResults,
+                nil, nil, nil, nil, allMaps)
         end
     end
     -- Include map portal matches (always)
     if SMK.MapIndex then
         local mapMatches = SMK.MapIndex:Search(query)
         for _, m in ipairs(mapMatches) do
-            matches[#matches + 1] = m
+            AddBounded(matches, m.entry, m.score, maxResults,
+                m.mapName, true)
         end
     end
     -- HandyNotes 只维护当前地图的惰性缓存，不能在全图模式中冒充全图数据。
     for _, entry in ipairs(not allMaps and externalEntries or {}) do
         local score = entry.mapID == currentMapID and self:GetScore(entry, query) or nil
         if score then
-            matches[#matches + 1] = {
-                entry = entry, score = score + 4,
-                isExternal = true,
-            }
+            AddBounded(matches, entry, score + 4, maxResults,
+                nil, nil, nil, true)
         end
     end
-    table.sort(matches, function(a, b)
-        if a.score ~= b.score then return a.score < b.score end
-        if a.isMapPortal ~= b.isMapPortal then return not a.isMapPortal end
-        local nameA = a.entry.normalizedName or Util.Normalize(a.entry.name)
-        local nameB = b.entry.normalizedName or Util.Normalize(b.entry.name)
-        if nameA ~= nameB then return nameA < nameB end
-        local mapNameA, mapNameB = a.mapName or "", b.mapName or ""
-        if mapNameA ~= mapNameB then return mapNameA < mapNameB end
-        local mapIDA, mapIDB = tonumber(a.entry.mapID) or 0, tonumber(b.entry.mapID) or 0
-        if mapIDA ~= mapIDB then return mapIDA < mapIDB end
-        local xA, xB = tonumber(a.entry.x) or 0, tonumber(b.entry.x) or 0
-        if xA ~= xB then return xA < xB end
-        return (tonumber(a.entry.y) or 0) < (tonumber(b.entry.y) or 0)
-    end)
-    if #matches > maxResults then
-        for i = maxResults + 1, #matches do
-            matches[i] = nil
-        end
+    for _, match in ipairs(matches) do
+        if match.includeMapName then ResolveMapSortKey(match) end
     end
+    table.sort(matches, IsBetterMatch)
     return matches
 end
 

@@ -46,11 +46,14 @@ end
 function PanelSettings:OpenPinTextColor()
     local previous = SMK.Settings:Get("mapPinTextColor")
     previous = { r = previous.r, g = previous.g, b = previous.b }
+    self.colorPickerOpen = false
     ColorPickerFrame:Hide()
     ColorPickerFrame:SetFrameStrata("FULLSCREEN_DIALOG")
     ColorPickerFrame:SetFrameLevel(self.frame:GetFrameLevel() + 20)
     ColorPickerFrame:SetClampedToScreen(true)
     self.colorPickerOpen = true
+    self.colorPickerCancelled = false
+    self.pendingPinTextColor = previous
     ColorPickerFrame:SetupColorPickerAndShow({
         r = previous.r,
         g = previous.g,
@@ -58,12 +61,15 @@ function PanelSettings:OpenPinTextColor()
         hasOpacity = false,
         swatchFunc = function()
             local r, g, b = ColorPickerFrame:GetColorRGB()
-            SMK.Settings:Set("mapPinTextColor", { r = r, g = g, b = b })
+            self.pendingPinTextColor = { r = r, g = g, b = b }
             self.pinTextColorButton.swatch:SetColorTexture(r, g, b)
+            SMK.MapPins:PreviewDefaultPinTextColor(self.pendingPinTextColor)
         end,
         cancelFunc = function()
-            SMK.Settings:Set("mapPinTextColor", previous)
+            self.colorPickerCancelled = true
+            self.pendingPinTextColor = previous
             self.pinTextColorButton.swatch:SetColorTexture(previous.r, previous.g, previous.b)
+            SMK.MapPins:PreviewDefaultPinTextColor(previous)
         end,
     })
 end
@@ -218,6 +224,23 @@ function PanelSettings:Create(anchor)
     self.pinTextColorButton.swatch:SetPoint("TOPLEFT", 8, -6)
     self.pinTextColorButton.swatch:SetPoint("BOTTOMRIGHT", -8, 6)
     self.pinTextColorButton:SetScript("OnClick", function() self:OpenPinTextColor() end)
+    ColorPickerFrame:HookScript("OnHide", function()
+        if not self.colorPickerOpen then return end
+        self.colorPickerOpen = false
+        local color = self.pendingPinTextColor
+        self.pendingPinTextColor = nil
+        if not self.colorPickerCancelled and color then
+            local changed, message = SMK.Settings:Set("mapPinTextColor", color)
+            if not changed then
+                SMK:Print(message)
+                local saved = SMK.Settings:Get("mapPinTextColor")
+                self.pinTextColorButton.swatch:SetColorTexture(saved.r, saved.g, saved.b)
+                SMK.MapPins:PreviewDefaultPinTextColor(saved)
+            end
+        end
+        self.colorPickerCancelled = false
+        self:Refresh()
+    end)
 
     -- 名称文字大小
     self.pinTextScaleLabel = CreateRowLabel(SMK.L.PIN_TEXT_SIZE, -188, 26)

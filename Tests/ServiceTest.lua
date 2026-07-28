@@ -54,7 +54,8 @@ for _, path in ipairs({
     "Core/LocationModel.lua", "Core/SettingsSchema.lua",
     "Core/Database.lua", "Core/SettingsService.lua",
     "Core/LocationStore.lua", "Core/MapService.lua",
-    "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/HandyNotesProvider.lua",
+    "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/WhisperInbox.lua",
+    "Core/HandyNotesProvider.lua",
     "Core/MapContextService.lua", "Core/ImportService.lua",
     "Core/MapPinPoolAdapter.lua", "Core/MapPinProvider.lua",
     "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua", "UI/ModalManager.lua", "UI/BulkDeleteDialog.lua",
@@ -66,24 +67,34 @@ for _, path in ipairs({
 end
 
 assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
-assert(#SMK.AtlasTextures == 42 and #SMK.PathTextures == 16
-    and #SMK.IconCatalog.all == 58
+assert(#SMK.AtlasTextures == 39 and #SMK.PathTextures == 16
+    and #SMK.IconCatalog.all == 55
     and SMK.IconCatalog.all[#SMK.AtlasTextures].id > 0
     and SMK.IconCatalog.all[#SMK.AtlasTextures + 1].id < 0,
     "custom icon texture catalogs are incomplete")
-for _, icon in ipairs(SMK.AtlasTextures) do
-    assert(icon.id > 0 and icon.atlas and icon.note and SMK.IconCatalog:Get(icon.id) == icon,
+local atlasNames = {}
+for index, icon in ipairs(SMK.AtlasTextures) do
+    assert(icon.id == index and icon.atlas and icon.note
+        and SMK.IconCatalog:Get(icon.id) == icon
+        and SMK.IconCatalog:GetNote(icon),
         "Atlas custom icon IDs are not positive or stable")
+    assert(not atlasNames[icon.atlas], "duplicate Atlas custom icon: " .. icon.atlas)
+    atlasNames[icon.atlas] = true
 end
 for _, icon in ipairs(SMK.PathTextures) do
-    assert(icon.id < 0 and icon.texture and icon.note and SMK.IconCatalog:Get(icon.id) == icon,
+    assert(icon.id < 0 and icon.texture and icon.note
+        and SMK.IconCatalog:Get(icon.id) == icon
+        and SMK.IconCatalog:GetNote(icon),
         "path custom icon IDs are not negative or stable")
 end
+assert(SMK.IconGridPicker:GetEntryTooltip(SMK.AtlasTextures[1]) == "联盟"
+    and SMK.IconGridPicker:GetEntryTooltip(SMK.PathTextures[3]) == "烹饪",
+    "custom icon picker did not use localized note tooltips")
 assert(SMK.AtlasTextures[1].atlas == "AllianceSymbol"
-    and SMK.AtlasTextures[42].atlas == "CaveUnderground-Up"
+    and SMK.AtlasTextures[39].atlas == "CaveUnderground-Up"
     and SMK.PathTextures[1].texture == "Interface\\ICONS\\UI_Profession_Alchemy"
     and SMK.PathTextures[16].texture == "Interface\\ICONS\\ACHIEVEMENT_GUILDPERK_MOUNTUP"
-    and SMK.DefaultCustomIconID == 18,
+    and SMK.DefaultCustomIconID == 29,
     "provided custom icon catalogs were not installed exactly")
 local expectedCategories = {
     { "city_services", "ShipMissionIcon-Bonus-Map", "主城功能区域" },
@@ -176,7 +187,29 @@ assert(SMK.Config.search.resultFrameInset == 5
     and SMK.Config.search.hoverHighlightDelay == 0.08
     and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
     "search result frame is not aligned inside the search box border")
-assert(SMK.Config.mapPins.targetHighlight.atlas == "MonsterEnemy"
+assert(SMK.Config.handyNotes.npcCacheMaxEntries == 512
+    and SMK.Config.handyNotes.npcRetrySeconds == 30
+    and SMK.Config.handyNotes.buildBatchSize == 20
+    and SMK.Config.handyNotes.buildTimeBudgetMs == 2
+    and SMK.Config.handyNotes.maxSearchFieldBytes == 160
+    and SMK.Config.handyNotes.maxSearchTextBytes == 512
+    and SMK.Config.mapIndex.buildBatchSize == 50
+    and SMK.Config.mapIndex.buildTimeBudgetMs == 2
+    and SMK.Config.location.geometryCacheMaxEntries == 1500,
+    "external data and map index work budgets are not configured")
+assert(SMK.Util.ContainsHan("㐀") and SMK.Util.ContainsHan("\240\160\128\128")
+    and not SMK.Util.ContainsHan("English"),
+    "Han detection does not cover extension characters")
+assert(SMK.Util.Normalize(" ÉCOLE ÜBER İSTANBUL ẞ ΟΣ Я ") == "écoleüberistanbulßοσя"
+    and SMK.Util.SortKey("ÉCOLE") == "école",
+    "common non-ASCII case folding is not stable")
+assert(SMK.Util.GetTextWidth("e\204\129") == 1
+    and SMK.Util.GetTextWidth("👨‍👩‍👧") == 2
+    and SMK.Util.GetTextWidth("🇨🇳") == 2
+    and SMK.Util.TruncateUTF8("中文", 4) == "中",
+    "grapheme width or UTF-8 truncation is incorrect")
+assert(SMK.Config.mapPins.size == 30
+    and SMK.Config.mapPins.targetHighlight.atlas == "MonsterEnemy"
     and SMK.Config.mapPins.targetHighlight.ringTexture == "Interface\\Cooldown\\starburst"
     and SMK.Config.mapPins.targetHighlight.size == 32
     and SMK.Config.mapPins.targetHighlight.ringSize == 80
@@ -191,11 +224,13 @@ assert(locationSign.atlas == "housing-woodsign" and locationSign.width == 136
 assert(SMK.DefaultPinTextureID == 1 and SMK.PinTextures[1].atlas == "MonsterEnemy",
     "MonsterEnemy is not the first and default pin texture")
 local expectedPinAtlases = {
-    "MonsterEnemy", "Ping_Map_Whole_OnMyWay", "Ping_Map_Whole_Warning", "Ping_Map_Whole_Assist",
-    "VignetteEvent-SuperTracked", "ElementalStorm-Lesser-Fire", "MonsterFriend", "PlayerPartyBlip",
+    "MonsterEnemy", "MonsterFriend", "PlayerPartyBlip", "Ping_Map_Whole_Assist",
+    "VignetteEvent-SuperTracked", "groupfinder-icon-class-color-deathknight",
+    "groupfinder-icon-class-color-priest", "MiniMap-DeadArrow",
     "vignettekillboss-SuperTracked", "poi-traveldirections-arrow2", "poi-door-up", "poi-door-down",
-    "poi-door-left", "poi-door-right", "CrossedFlags", "Professions_Tracking_Fish_Special",
-    "Map-MarkedDefeated", "ElementalStorm-Boss-Fire", "XMarksTheSpot", "MiniMap-DeadArrow",
+    "poi-door-left", "poi-door-right", "CaveUnderground-Down", "CaveUnderground-Up",
+    "friendslist-recentallies-Pin", "friendslist-recentallies-Pin-yellow",
+    "XMarksTheSpot", "Ping_Map_Whole_OnMyWay",
 }
 for index, atlas in ipairs(expectedPinAtlases) do
     assert(SMK.PinTextures[index].id == index
@@ -238,6 +273,16 @@ assert(NormalizeNamedLocation("一二三四五六七八九十"), "ten-character 
 assert(not NormalizeNamedLocation("一二三四五六七八九十一"), "eleven-character Chinese name was accepted")
 assert(NormalizeNamedLocation("abcdefghijklmnopqrst"), "twenty-letter English name was rejected")
 assert(not NormalizeNamedLocation("abcdefghijklmnopqrstu"), "twenty-one-letter English name was accepted")
+assert(NormalizeNamedLocation("éééééééééééééééééééé"),
+    "twenty narrow non-ASCII characters were rejected")
+assert(not NormalizeNamedLocation("ééééééééééééééééééééé"),
+    "twenty-one narrow non-ASCII characters were accepted")
+assert(NormalizeNamedLocation(string.rep("e\204\129", 20))
+    and not NormalizeNamedLocation(string.rep("e\204\129", 21)),
+    "combining-character names were not measured by displayed width")
+assert(NormalizeNamedLocation(string.rep("👨‍👩‍👧", 10))
+    and not NormalizeNamedLocation(string.rep("👨‍👩‍👧", 11)),
+    "joined emoji names were not measured by displayed width")
 
 local popupHiddenID, dialogHidden
 local popup = { IsShown = function() return true end }
@@ -294,6 +339,25 @@ assert(not SMK.Settings:Set("showPinTextures", true), "future database setting w
 assert(futureDatabase.settings == nil, "future database settings were written through runtime data")
 assert(not SMK.Store:Add({ mapID = 100, x = 1, y = 2, name = "blocked", categoryKey = "other" }),
     "future database accepted a write")
+
+SearchMakerDB = {
+    schemaVersion = 7,
+    locations = {
+        { id = 1, mapID = 100, x = 1, y = 2, name = "旧18", categoryKey = "other", customIconID = 18 },
+        { id = 2, mapID = 100, x = 3, y = 4, name = "旧30", categoryKey = "other", customIconID = 30 },
+        { id = 3, mapID = 100, x = 5, y = 6, name = "旧32", categoryKey = "other", customIconID = 32 },
+        { id = 4, mapID = 100, x = 7, y = 8, name = "旧33", categoryKey = "other", customIconID = 33 },
+        { id = 5, mapID = 100, x = 9, y = 10, name = "路径", categoryKey = "other", customIconID = -3 },
+    },
+}
+SMK.DB:Initialize()
+assert(SearchMakerDB.schemaVersion == 8
+    and SearchMakerDB.locations[1].customIconID == 29
+    and SearchMakerDB.locations[2].customIconID == 29
+    and SearchMakerDB.locations[3].customIconID == 16
+    and SearchMakerDB.locations[4].customIconID == 17
+    and SearchMakerDB.locations[5].customIconID == -3,
+    "schema 8 did not preserve reindexed custom icon meanings")
 
 SearchMakerDB = {
     schemaVersion = SMK.Config.databaseSchemaVersion,
@@ -393,6 +457,26 @@ local duplicateAdd, duplicateAddMessage = SMK.Store:Add(first)
 assert(not duplicateAdd
     and duplicateAddMessage == string.format(SMK.L.DUPLICATE_NAME, first.name),
     "Store:Add bypassed the duplicate invariant")
+local allCacheBeforeIncremental = SMK.Store:GetAll()
+local mapCacheBeforeIncremental = SMK.Store:GetByMap(first.mapID)
+local retainedDisplayBeforeIncremental = SMK.Store:GetByID(first.id)
+local incrementalEntry = assert(SMK.Store:Add({
+    mapID = first.mapID, x = 70, y = 71, name = "增量缓存", categoryKey = "other",
+}))
+assert(SMK.Store:GetAll() == allCacheBeforeIncremental
+    and SMK.Store:GetByMap(first.mapID) == mapCacheBeforeIncremental
+    and SMK.Store:GetByID(first.id) == retainedDisplayBeforeIncremental,
+    "adding a location rebuilt unaffected store caches")
+assert(SMK.Store:Update(incrementalEntry, {
+    mapID = 201, x = 72, y = 73, name = "增量缓存更新", categoryKey = "other",
+}))
+assert(SMK.Store:GetAll() == allCacheBeforeIncremental
+    and SMK.Store:GetByMap(first.mapID) == mapCacheBeforeIncremental
+    and SMK.Store:GetByID(first.id) == retainedDisplayBeforeIncremental
+    and SMK.Store:GetByMap(201)[1].name == "增量缓存更新",
+    "updating a location rebuilt unaffected store caches")
+assert(SMK.Store:Delete(SMK.Store:GetByMap(201)[1]) == 1,
+    "incremental cache test location could not be removed")
 
 local externalFavorite = {
     isExternal = true,
@@ -450,6 +534,63 @@ assert(SMK.Store:Add({ mapID = 100, x = 90, y = 90, name = "精确", categoryKey
 local matches = SMK.Search:Find(SMK.Store:GetAll(), "精确", true)
 assert(#matches == SMK.Config.search.maxResults, "search result limit failed")
 assert(matches[1].entry.name == "精确" and matches[1].score == 0, "late exact match was not ranked first")
+local originalGetMapName = SMK.Map.GetMapName
+local mapNameLookups = 0
+SMK.Map.GetMapName = function(self, mapID)
+    mapNameLookups = mapNameLookups + 1
+    return originalGetMapName(self, mapID)
+end
+local lazyMapEntries = {}
+for index = 1, 100 do
+    local name = string.format("lazy%03d", index)
+    lazyMapEntries[index] = {
+        mapID = 2000 + index,
+        x = index % 100,
+        y = index % 100,
+        name = name,
+        normalizedName = name,
+        normalizedSearchable = name,
+    }
+end
+local lazyMapMatches = SMK.Search:Find(lazyMapEntries, "lazy", true)
+mapNameLookups = 0
+local reverseLazyEntries = {}
+for index = #lazyMapEntries, 1, -1 do
+    reverseLazyEntries[#reverseLazyEntries + 1] = lazyMapEntries[index]
+end
+local reverseLazyMatches = SMK.Search:Find(reverseLazyEntries, "lazy", true)
+SMK.Map.GetMapName = originalGetMapName
+assert(#lazyMapMatches == SMK.Config.search.maxResults
+    and #reverseLazyMatches == SMK.Config.search.maxResults
+    and reverseLazyMatches[1].entry.name == "lazy001"
+    and mapNameLookups == SMK.Config.search.maxResults,
+    "all-map search resolved map names for rejected candidates")
+
+local searchTimers = {}
+C_Timer = {
+    NewTimer = function(_, callback)
+        local timer = { callback = callback, cancelled = false }
+        function timer:Cancel() self.cancelled = true end
+        searchTimers[#searchTimers + 1] = timer
+        return timer
+    end,
+}
+local originalUpdateResults = SMK.SearchBar.UpdateResults
+local debouncedUpdates = 0
+SMK.SearchBar.UpdateResults = function() debouncedUpdates = debouncedUpdates + 1 end
+SMK.SearchBar.searchToken, SMK.SearchBar.searchTimer = nil, nil
+SMK.SearchBar:ScheduleResults()
+SMK.SearchBar:ScheduleResults()
+assert(#searchTimers == 2 and searchTimers[1].cancelled and not searchTimers[2].cancelled,
+    "search debounce did not cancel the superseded timer")
+for _, timer in ipairs(searchTimers) do
+    if not timer.cancelled then timer.callback() end
+end
+assert(debouncedUpdates == 1 and SMK.SearchBar.searchTimer == nil,
+    "search debounce ran a stale update")
+SMK.SearchBar.UpdateResults = originalUpdateResults
+SMK.SearchBar.searchToken, SMK.SearchBar.searchTimer = nil, nil
+C_Timer = nil
 
 for _, query in ipairs({
     "12 34", "12,34", "12，34", "12.3 34.56", "00.0, 99.99",
@@ -501,10 +642,21 @@ WorldMapFrame = {
 }
 assert(SMK.Map:GetPlayerMapID() == 100 and SMK.Map:GetContextMapID() == 100,
     "hidden world map did not use the player's current map")
+assert(SMK.LocationEditor:CanReadPlayerCoordinates(100)
+    and not SMK.LocationEditor:CanReadPlayerCoordinates(200)
+    and not SMK.LocationEditor:CanReadPlayerCoordinates(nil),
+    "location editor coordinate button did not follow the player map ID")
 mapInfo[85] = { mapID = 85, name = "奥格瑞玛" }
 local externalNodes = {
-    [12345678] = { name = "English Internal Name", npcID = 9876 },
+    [12345678] = {
+        name = "English Internal Name",
+        npcID = 9876,
+        info = string.rep("冗", 200),
+        internalDeveloperNote = "不应搜索的内部关键字",
+    },
     [22334455] = { name = "", type = "Portal", mnID = 85 },
+    [32345678] = { name = "English Missing NPC", npcID = 9999 },
+    [42345678] = { name = "", npcID = 7777 },
 }
 local externalIcons = {
     [12345678] = "Interface\\AddOns\\HandyNotes_MapNotes\\Images\\FirstAid",
@@ -513,11 +665,29 @@ HandyNotes_MapNotesRetailNpcCacheDB = {
     names = {
         zhCN = {
             [9876] = "卡娜莉亚\031<绷带训练师>",
+            [7777] = "测试商人\031",
         },
     },
 }
 local handyNotesBuilds = 0
+local fakeNow = 100
+local npcTooltipLookups = 0
+function GetTime() return fakeNow end
+C_TooltipInfo = {
+    GetHyperlink = function()
+        npcTooltipLookups = npcTooltipLookups + 1
+        return nil
+    end,
+}
+function hooksecurefunc(target, method, callback)
+    local original = target[method]
+    target[method] = function(...)
+        original(...)
+        callback(...)
+    end
+end
 HandyNotes = {
+    SendMessage = function() end,
     plugins = {
         MapNotes = {
             GetNodes2 = function()
@@ -530,23 +700,50 @@ HandyNotes = {
         },
     },
 }
+local handyNotesUpdates = 0
+SMK.HandyNotesProvider:SetChangeHandler(function()
+    handyNotesUpdates = handyNotesUpdates + 1
+end)
 SMK.HandyNotesProvider:RebuildCache(100, true)
 local handyNotesEntries = SMK.HandyNotesProvider:GetByMap(100)
 assert(SMK.HandyNotesProvider:RebuildCache(100) == handyNotesEntries
     and handyNotesBuilds == 1,
     "HandyNotes rebuilt an unchanged current-map cache")
+assert(npcTooltipLookups == 2,
+    "missing or partial HandyNotes NPC data was not queried once")
+SMK.HandyNotesProvider:RebuildCache(100, true)
+assert(handyNotesBuilds == 2 and npcTooltipLookups == 2,
+    "HandyNotes NPC cache did not suppress an immediate retry")
+fakeNow = fakeNow + SMK.Config.handyNotes.npcRetrySeconds + 1
+SMK.HandyNotesProvider:RebuildCache(100, true)
+assert(handyNotesBuilds == 3 and npcTooltipLookups == 4,
+    "expired missing or partial NPC data was not retried")
+HandyNotes:SendMessage("HandyNotes_NotifyUpdate", "Other")
+assert(handyNotesUpdates == 0,
+    "an unrelated HandyNotes update invalidated the MapNotes cache")
+HandyNotes:SendMessage("HandyNotes_NotifyUpdate", "MapNotes")
+assert(handyNotesUpdates == 1
+    and #SMK.HandyNotesProvider:GetByMap(100) == 0,
+    "MapNotes update did not invalidate and announce its cache")
+SMK.HandyNotesProvider:RebuildCache(100)
+assert(handyNotesBuilds == 4 and npcTooltipLookups == 6,
+    "MapNotes update did not retry incomplete NPC data")
+handyNotesEntries = SMK.HandyNotesProvider:GetByMap(100)
 local trainerEntry, portalEntry
 for _, entry in ipairs(handyNotesEntries) do
     if entry.x == 12.34 then trainerEntry = entry end
     if entry.x == 22.33 then portalEntry = entry end
 end
-assert(#handyNotesEntries == 2 and trainerEntry
+assert(#handyNotesEntries == 3 and trainerEntry
     and trainerEntry.mapID == 100 and trainerEntry.y == 56.78
     and trainerEntry.name == "绷带训练师"
     and trainerEntry.externalSource == "HandyNotes_MapNotes"
     and trainerEntry.normalizedSearchable:find("绷带", 1, true)
     and trainerEntry.iconTexture == externalIcons[12345678],
     "HandyNotes did not cache the player's map while WorldMapFrame was unopened")
+assert(#trainerEntry.normalizedSearchable <= SMK.Config.handyNotes.maxSearchTextBytes
+    and #SMK.Search:Find({}, "内部关键字", false, 100, handyNotesEntries) == 0,
+    "HandyNotes search text exceeded its budget or included an internal field")
 local bandageMatches = SMK.Search:Find({}, "绷带", false, 100, handyNotesEntries)
 assert(#bandageMatches == 1 and bandageMatches[1].entry == trainerEntry,
     "localized HandyNotes NPC title was not searchable")
@@ -567,6 +764,45 @@ SMK.HandyNotesProvider:RebuildCache(100)
 handyNotesEntries = SMK.HandyNotesProvider:GetByMap(100)
 assert(#SMK.Search:Find({}, "绷带", false, 100, handyNotesEntries) == 1,
     "HandyNotes cache did not return to the player's current map")
+local asyncCallbacks = {}
+C_Timer = {
+    After = function(delay, callback)
+        asyncCallbacks[#asyncCallbacks + 1] = {
+            delay = delay,
+            callback = callback,
+        }
+    end,
+}
+local profileTime = 0
+debugprofilestop = function()
+    profileTime = profileTime + 3
+    return profileTime
+end
+SMK.HandyNotesProvider:Invalidate()
+local updatesBeforeAsyncBuild = handyNotesUpdates
+assert(#SMK.HandyNotesProvider:RebuildCache(100) == 0 and #asyncCallbacks == 1,
+    "HandyNotes cache build was not deferred")
+local deferredBatches = 0
+while true do
+    local callbackIndex
+    for index, scheduled in ipairs(asyncCallbacks) do
+        if scheduled.delay == 0 then
+            callbackIndex = index
+            break
+        end
+    end
+    if not callbackIndex then break end
+    local scheduled = table.remove(asyncCallbacks, callbackIndex)
+    deferredBatches = deferredBatches + 1
+    scheduled.callback()
+end
+assert(#SMK.HandyNotesProvider:GetByMap(100) == 3
+    and handyNotesUpdates == updatesBeforeAsyncBuild + 1
+    and deferredBatches > 1,
+    "time-budgeted HandyNotes cache was not published after multiple batches")
+C_Timer = nil
+debugprofilestop = nil
+handyNotesEntries = SMK.HandyNotesProvider:GetByMap(100)
 SMK.MapContext:Refresh(100)
 assert(SMK.MapContext:GetMapID() == 100
     and SMK.MapContext:GetExternalEntries() == handyNotesEntries
@@ -596,7 +832,7 @@ assert(fakeIcon.texture == "Interface\\ICONS\\UI_Profession_Cooking",
     "saved location did not use its custom path icon")
 fakeIcon.texture = nil
 fakeIcon.atlas = nil
-SMK.Widgets:SetLocationIcon(fakeIcon, { categoryKey = "other", customIconID = 19 })
+SMK.Widgets:SetLocationIcon(fakeIcon, { categoryKey = "other", customIconID = 18 })
 assert(fakeIcon.atlas == "Professions-Crafting-Orders-Icon",
     "saved location did not use its custom Atlas icon")
 HandyNotes = nil
@@ -624,6 +860,34 @@ assert(encoded:find(",5,336699", 1, true)
     "share record did not encode the pin texture as a compact ID")
 assert(SMK.ShareCodec:FindShareText("chat " .. encoded) == encoded,
     "share text was not found in chat")
+local whisperEvents, whisperEventCount = SMK.WhisperInbox.events, 0
+for _ in pairs(whisperEvents) do whisperEventCount = whisperEventCount + 1 end
+assert(whisperEventCount == 4
+    and whisperEvents.CHAT_MSG_WHISPER
+    and whisperEvents.CHAT_MSG_WHISPER_INFORM
+    and whisperEvents.CHAT_MSG_BN_WHISPER
+    and whisperEvents.CHAT_MSG_BN_WHISPER_INFORM
+    and not whisperEvents.CHAT_MSG_CHANNEL,
+    "whisper inbox listens outside character or Battle.net whispers")
+local originalWhisperLimit = SMK.Config.share.whisperInboxMaxEntries
+SMK.Config.share.whisperInboxMaxEntries = 2
+SMK.WhisperInbox.codes = {}
+assert(not SMK.WhisperInbox:Capture("ordinary whisper")
+    and SMK.WhisperInbox:Capture("prefix SMK|first")
+    and SMK.WhisperInbox:Capture("SMK|second")
+    and SMK.WhisperInbox:Capture("SMK|third")
+    and #SMK.WhisperInbox:GetAll() == 2
+    and SMK.WhisperInbox:GetAll()[1] == "SMK|second"
+    and SMK.WhisperInbox:GetAll()[2] == "SMK|third"
+    and SMK.WhisperInbox:GetImportText() == "SMK|second;third",
+    "whisper inbox did not filter or bound captured SMK codes")
+local originalIsSecretValue = issecretvalue
+issecretvalue = function(value) return value == "SMK|secret" end
+assert(not SMK.WhisperInbox:Capture("SMK|secret"),
+    "whisper inbox attempted to inspect a secret message")
+issecretvalue = originalIsSecretValue
+SMK.Config.share.whisperInboxMaxEntries = originalWhisperLimit
+SMK.WhisperInbox.codes = {}
 local decoded, decodeError, invalid = SMK.ShareCodec:Decode(encoded)
 assert(not decodeError and invalid == 0 and #decoded == 1, "current share round trip failed")
 assert(decoded[1].categoryKey == "delves"
@@ -640,9 +904,53 @@ local noColorDecoded, noColorError, noColorInvalid = SMK.ShareCodec:Decode(
 assert(not noColorError and noColorInvalid == 0 and #noColorDecoded == 1
     and noColorDecoded[1].pinColor == nil,
     "share records without a per-location color did not round trip")
+local originalNormalizeLocation = SMK.LocationModel.Normalize
+local importNormalizeCalls = 0
+SMK.LocationModel.Normalize = function(self, values)
+    importNormalizeCalls = importNormalizeCalls + 1
+    return originalNormalizeLocation(self, values)
+end
 local importResult = assert(SMK.Import:ImportText(encoded))
+SMK.LocationModel.Normalize = originalNormalizeLocation
 assert(importResult.imported == 0 and importResult.duplicates == 1,
     "shared import service did not filter duplicates")
+assert(importNormalizeCalls == 1,
+    "decoded share entries were normalized again during storage")
+local dialogText = encoded
+SMK.ShareDialog.textBox = {
+    GetText = function() return dialogText end,
+    SetText = function(_, value) dialogText = value end,
+}
+SMK.ShareDialog.status = {
+    SetText = function(self, value) self.text = value end,
+    SetTextColor = function(self, ...) self.color = { ... } end,
+}
+SMK.ShareDialog:Import()
+assert(dialogText == "", "successful share import retained the pasted text")
+local reportedWhisperText = "SMK|2393,6169,5147,13,打撒放大1,3,8,00FF0A,20;"
+    .. "2393,4170,4442,13,放大顺丰1,3,1,2FFF24,19;"
+    .. "2395,5359,7011,13,森林测试点,0,1,,29"
+local reportedEntries, reportedError, reportedInvalid =
+    SMK.ShareCodec:Decode(reportedWhisperText)
+assert(not reportedError and reportedInvalid == 0 and #reportedEntries == 3,
+    "reported whisper text did not decode all three complete records")
+local knownWhisperDuplicate = assert(SMK.Store:Add(reportedEntries[3]))
+SMK.WhisperInbox.codes = { reportedWhisperText }
+local reportedResult = assert(SMK.ShareDialog:ImportWhispers())
+assert(reportedResult.imported == 2
+    and reportedResult.duplicates == 1
+    and reportedResult.invalid == 0
+    and dialogText == reportedWhisperText
+    and SMK.ShareDialog.status.text == string.format(SMK.L.IMPORT_RESULT, 2, 1, 0),
+    "whisper import did not retain the source text or show complete import statistics")
+local importedWhisperFirst = SMK.Store:FindDuplicate(reportedEntries[1])
+local importedWhisperSecond = SMK.Store:FindDuplicate(reportedEntries[2])
+assert(importedWhisperFirst and importedWhisperSecond,
+    "reported complete whisper locations were not both imported")
+assert(SMK.Store:DeleteMany({
+    importedWhisperFirst, importedWhisperSecond, knownWhisperDuplicate,
+}) == 3, "whisper import regression fixtures were not removed")
+SMK.WhisperInbox.codes = {}
 local invalidImport = assert(SMK.Import:ImportEntries({ {} }))
 assert(invalidImport.invalid == 1 and invalidImport.imported == 0,
     "shared import service did not validate entries")
@@ -696,11 +1004,23 @@ SMK.ShareDialog.Export = originalExport
 SMK.ShareDialog.exportEntries = nil
 assert(exportRefreshes == 1,
     "changing export batch size did not refresh the filtered export entries")
+local rangeLabelHidden, rangeDropdownHidden = false, false
+SMK.ShareDialog.exportEntries = { shareEntry }
+SMK.ShareDialog.exportRanges = { { first = 1, last = 1 } }
+SMK.ShareDialog.currentRangeStart, SMK.ShareDialog.currentRangeEnd = 1, 1
+SMK.ShareDialog.rangeLabel = { Hide = function() rangeLabelHidden = true end }
+SMK.ShareDialog.rangeDropdown = { Hide = function() rangeDropdownHidden = true end }
+SMK.ShareDialog:ReleaseExportState()
+assert(not SMK.ShareDialog.exportEntries and not SMK.ShareDialog.exportRanges
+    and SMK.ShareDialog.currentRangeStart == 1
+    and SMK.ShareDialog.currentRangeEnd == 0
+    and rangeLabelHidden and rangeDropdownHidden,
+    "closing the share dialog did not release export state")
 
 mapInfo[946] = { name = "Cosmic", mapType = Enum.UIMapType.Cosmic }
 mapChildren[946] = {}
 assert(not SMK.MapIndex:Rebuild(true), "empty map index was marked ready")
-for index = 1, 8 do
+for _, index in ipairs({ 8, 2, 7, 1, 6, 3, 5, 4 }) do
     local mapID = 1000 + index
     mapInfo[mapID] = { name = "Map " .. index, mapType = Enum.UIMapType.Zone }
     mapChildren[946][#mapChildren[946] + 1] = { mapID = mapID }
@@ -711,10 +1031,78 @@ assert(SMK.MapIndex:Rebuild(true), "map index build failed")
 local mapMatches = SMK.MapIndex:Search("Map")
 assert(#mapMatches == 5, "map result limit failed")
 local seenMapIDs = {}
-for _, match in ipairs(mapMatches) do
+for resultIndex, match in ipairs(mapMatches) do
     assert(not seenMapIDs[match.entry.mapID], "map index contains duplicates")
+    assert(match.entry.mapID == 1000 + resultIndex,
+        "bounded map candidates changed deterministic ordering")
     seenMapIDs[match.entry.mapID] = true
 end
+local mapIndexCallbacks = {}
+local originalMapIndexBatchSize = SMK.Config.mapIndex.buildBatchSize
+SMK.Config.mapIndex.buildBatchSize = 2
+C_Timer = {
+    After = function(_, callback)
+        mapIndexCallbacks[#mapIndexCallbacks + 1] = callback
+    end,
+}
+local mapIndexBuildSucceeded
+SMK.MapIndex:SetBuildHandler(function(success) mapIndexBuildSucceeded = success end)
+local acceptedMapBuild, mapBuildPending = SMK.MapIndex:Rebuild(true)
+assert(acceptedMapBuild and mapBuildPending and SMK.MapIndex:IsBuilding()
+    and #mapIndexCallbacks == 1,
+    "map index was not started asynchronously")
+while #mapIndexCallbacks > 0 do
+    table.remove(mapIndexCallbacks, 1)()
+end
+assert(mapIndexBuildSucceeded and not SMK.MapIndex:IsBuilding()
+    and #SMK.MapIndex:Search("Map") == 5,
+    "asynchronous map index was not published")
+SMK.MapIndex:SetBuildHandler(nil)
+SMK.Config.mapIndex.buildBatchSize = originalMapIndexBatchSize
+C_Timer = nil
+
+local function ReadSource(path)
+    local file = assert(io.open(root .. "/" .. path, "r"))
+    local source = file:read("*a")
+    file:close()
+    return source
+end
+local appSource = ReadSource("Core/App.lua")
+local mapControllerSource = ReadSource("Core/WorldMapController.lua")
+local mainPanelSource = ReadSource("UI/MainPanel.lua")
+local shareDialogSource = ReadSource("UI/ShareDialog.lua")
+local widgetsSource = ReadSource("UI/Widgets.lua")
+local panelSettingsSource = ReadSource("UI/PanelSettings.lua")
+assert(appSource:find("HandyNotesProvider:SetChangeHandler", 1, true)
+    and appSource:find("RequestRefresh(\"external\")", 1, true)
+    and appSource:find("RequestMapRefresh(mapID, false)", 1, true)
+    and not appSource:find("RequestMapRefresh(mapID, true)", 1, true)
+    and mapControllerSource:find("GetPlayerMapID(), false", 1, true)
+    and not mapControllerSource:find("GetPlayerMapID(), true", 1, true),
+    "routine map lifecycle still forces HandyNotes cache rebuilds")
+assert(mapControllerSource:find("SetBuildHandler", 1, true)
+    and appSource:find("onMapIndexReady", 1, true),
+    "asynchronous map index completion is not connected to search refresh")
+assert(not appSource:find("local collected = {}", 1, true)
+    and not appSource:find("GetMessageInfo", 1, true)
+    and not appSource:find("function App:ImportWhispers", 1, true)
+    and not mainPanelSource:find("SMK.L.CHAT_IMPORT", 1, true)
+    and shareDialogSource:find("SMK.WhisperInbox:GetImportText", 1, true)
+    and shareDialogSource:find("SMK.Import:ImportText(text)", 1, true),
+    "whisper import is outside the share dialog or scans chat frames")
+assert(panelSettingsSource:find("PreviewDefaultPinTextColor", 1, true)
+    and panelSettingsSource:find("ColorPickerFrame:HookScript(\"OnHide\"", 1, true),
+    "global pin color preview is not committed once when the picker closes")
+assert(mainPanelSource:find("BuildListLayout", 1, true)
+    and mainPanelSource:find("RenderVisibleList", 1, true)
+    and mainPanelSource:find("widgetPools", 1, true)
+    and mainPanelSource:find("renderedFirst == first", 1, true)
+    and mainPanelSource:find("self.listLayoutCount = 0", 1, true)
+    and widgetsSource:find("ReleaseLocationButton", 1, true)
+    and widgetsSource:find("geometryCacheKeys", 1, true)
+    and appSource:find("usage = { frequent = true }", 1, true)
+    and appSource:find("SMK.MainPanel:RenderFrequent()", 1, true),
+    "main panel virtualization, bounded caches, or usage-only refresh regressed")
 
 waypoint = UiMapPoint.CreateFromCoordinates(200, 0.2, 0.3)
 superTracked = true
@@ -855,6 +1243,24 @@ assert(fakeMap.pins[1].label.color.r == 0.9,
 SMK.MapPins:UpdatePinPreviewColor(first, nil)
 assert(fakeMap.pins[1].label.color.r == SMK.Settings:Get("mapPinTextColor").r,
     "active pin preview did not restore the global color")
+local defaultColorLabel = NewFontString()
+local overriddenColorLabel = NewFontString()
+overriddenColorLabel:SetTextColor(0.1, 0.2, 0.3)
+SMK.MapPins.activePins[-1] = {
+    entry = { id = -1 },
+    label = defaultColorLabel,
+}
+SMK.MapPins.activePins[-2] = {
+    entry = { id = -2, pinColor = { r = 0.1, g = 0.2, b = 0.3 } },
+    label = overriddenColorLabel,
+}
+SMK.MapPins:PreviewDefaultPinTextColor({ r = 0.7, g = 0.6, b = 0.5 })
+assert(defaultColorLabel.color and defaultColorLabel.color.r == 0.7,
+    "global pin color preview missed a default color")
+assert(overriddenColorLabel.color.r == 0.1,
+    "global pin color preview changed an overridden color")
+SMK.MapPins.activePins[-1] = nil
+SMK.MapPins.activePins[-2] = nil
 local highlightTimers = {}
 C_Timer = {
     After = function(_, callback) highlightTimers[#highlightTimers + 1] = callback end,
@@ -1055,5 +1461,39 @@ assert(panelExpanded and resultsUpdated == 1 and outsideRegistered,
 panelController:Close()
 assert(not panelExpanded and not outsideRegistered,
     "panel controller did not close the panel and release its listener")
+
+local originalCreateFrame = CreateFrame
+local originalIsAddOnLoaded = C_AddOns.IsAddOnLoaded
+local whisperListener
+CreateFrame = function()
+    local frame = { registered = {} }
+    function frame:RegisterEvent(event) self.registered[event] = true end
+    function frame:UnregisterEvent(event) self.registered[event] = nil end
+    function frame:SetScript(script, callback) self[script] = callback end
+    whisperListener = frame
+    return frame
+end
+C_AddOns.IsAddOnLoaded = function() return false end
+loadModule(SMK, "Core/App.lua")
+CreateFrame = originalCreateFrame
+C_AddOns.IsAddOnLoaded = originalIsAddOnLoaded
+assert(whisperListener.registered.ADDON_LOADED
+    and whisperListener.registered.CHAT_MSG_WHISPER
+    and whisperListener.registered.CHAT_MSG_WHISPER_INFORM
+    and whisperListener.registered.CHAT_MSG_BN_WHISPER
+    and whisperListener.registered.CHAT_MSG_BN_WHISPER_INFORM
+    and not whisperListener.registered.CHAT_MSG_CHANNEL,
+    "app did not register exactly the supported whisper sources")
+local whisperEntry = assert(SMK.LocationModel:Normalize({
+    mapID = 9090, x = 12.34, y = 56.78, name = "Whisper Import",
+    categoryKey = "other",
+}))
+SMK.WhisperInbox.codes = {}
+whisperListener.OnEvent(whisperListener, "CHAT_MSG_WHISPER",
+    "sender: " .. SMK.ShareCodec:Encode({ whisperEntry }))
+assert(#SMK.WhisperInbox:GetAll() == 1, "whisper event did not capture an SMK code")
+SMK.ShareDialog:ImportWhispers()
+assert(SMK.Store:FindDuplicate(whisperEntry),
+    "captured whisper SMK code was not imported through the share dialog")
 
 print("SearchMaker service tests passed")

@@ -13,6 +13,9 @@ local function loadLocale(locale)
     activeLocale = locale
     local namespace = {}
     loadModule(namespace, "Core/Namespace.lua")
+    loadModule(namespace, "Core/AtlasTextures.lua")
+    loadModule(namespace, "Core/PathTextures.lua")
+    loadModule(namespace, "Core/IconCatalog.lua")
     loadModule(namespace, "Config.lua")
     loadModule(namespace, "Locales/init.lua")
     loadModule(namespace, "Locales/enUS.lua")
@@ -54,6 +57,23 @@ assert(english.L.CUSTOM_ICON == "Custom Icon" and chinese.L.CUSTOM_ICON == "自�
     and chinese.L.MAP_PIN_SETTINGS_LABEL == "地图标记设置："
     and chinese.L.CUSTOM_PIN_COLOR == "显示标记文字颜色",
     "custom icon locale is missing")
+for index, englishIcon in ipairs(english.IconCatalog.all) do
+    local chineseIcon = chinese.IconCatalog.all[index]
+    assert(chineseIcon and chineseIcon.id == englishIcon.id
+        and english.IconCatalog:GetNote(englishIcon)
+        and chinese.IconCatalog:GetNote(chineseIcon),
+        "custom icon tooltip locale is missing for ID " .. englishIcon.id)
+end
+for key in pairs(english.L.ICON_NOTES) do
+    assert(chinese.L.ICON_NOTES[key], "zhCN missing custom icon note: " .. key)
+end
+for key in pairs(chinese.L.ICON_NOTES) do
+    assert(english.L.ICON_NOTES[key], "enUS missing custom icon note: " .. key)
+end
+assert(english.IconCatalog:GetNote(1) == "Alliance"
+    and chinese.IconCatalog:GetNote(1) == "联盟"
+    and traditionalChinese.IconCatalog:GetNote(-3) == "Cooking",
+    "custom icon tooltip did not follow the active locale")
 assert(english.L.EXPORT_BATCH_SIZE == "Maximum per Export"
     and chinese.L.EXPORT_BATCH_SIZE == "最大单次导出数量",
     "export batch size locale is missing")
@@ -66,7 +86,12 @@ assert(english.L.SEARCH_BAR_SETTINGS == "Search Settings"
 assert(english.L.HELP == "How to Use" and chinese.L.HELP == "使用说明"
     and english.L.HELP_TITLE == "SearchMaker Guide"
     and chinese.L.HELP_TITLE == "SearchMaker 使用说明"
-    and english.L.HELP_TEXT and chinese.L.HELP_TEXT,
+    and english.L.HELP_TEXT and chinese.L.HELP_TEXT
+    and chinese.L.HELP_TEXT:find("搜索 宇宙", 1, true)
+    and chinese.L.HELP_TEXT:find("角色与战网密语", 1, true)
+    and chinese.L.HELP_TEXT:find("不会扫描其他频道", 1, true)
+    and english.L.HELP_TEXT:find("character and Battle.net whispers", 1, true)
+    and not chinese.L.HELP_TEXT:find("当前地图/全图", 1, true),
     "help dialog locale is missing")
 assert(english.Config.GetCategoryKey("delves") == "delves", "canonical category key failed")
 assert(english.Config.GetCategoryKey("地下堡") == "other", "localized category leaked into storage")

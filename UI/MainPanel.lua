@@ -14,14 +14,14 @@ end
 -- @param kind string "heading"、"button" 或 "message"。
 -- @return Frame 部件。
 function MainPanel:Acquire(kind)
-    for _, widget in ipairs(self.listWidgets) do
-        if not widget.inUse and widget.kind == kind then
-            widget.inUse = true
-            widget:Show()
-            return widget
-        end
+    local pool = self.widgetPools[kind]
+    local index = (self.widgetUseCounts[kind] or 0) + 1
+    self.widgetUseCounts[kind] = index
+    local widget = pool[index]
+    if widget then
+        widget:Show()
+        return widget
     end
-    local widget
     if kind == "heading" then
         widget = Widgets:CreateCategoryHeading(self.listContent)
     elseif kind == "message" then
@@ -29,86 +29,231 @@ function MainPanel:Acquire(kind)
     else
         widget = Widgets:CreateLocationButton(self.listContent, self.locationCallbacks)
     end
-    widget.kind, widget.inUse = kind, true
-    self.listWidgets[#self.listWidgets + 1] = widget
+    widget.kind = kind
+    pool[index] = widget
     return widget
 end
 
 --- 将所有池化部件恢复为空闲状态（隐藏、清除定位点）。
 function MainPanel:ReleaseWidgets()
-    for _, widget in ipairs(self.listWidgets) do
-        widget.inUse = false
-        widget:Hide()
-        widget:ClearAllPoints()
+    for kind, pool in pairs(self.widgetPools) do
+        for _, widget in ipairs(pool) do
+            if kind == "button" then
+                Widgets:ReleaseLocationButton(widget)
+            else
+                widget:Hide()
+                widget:ClearAllPoints()
+            end
+        end
+        self.widgetUseCounts[kind] = 0
     end
 end
 
---- 渲染当前地图上的所有地点，按类别分组，按名称排序。
--- 使用部件池（Acquire/Release）最小化框架创建。
-function MainPanel:RenderList()
-    self:ReleaseWidgets()
+local function IsVisible(item, top, bottom)
+    return item.y + item.height >= top and item.y <= bottom
+end
+
+function MainPanel:SetListContentHeight(height)
+    self.listContent:SetHeight(height)
+    if not self.scrollFrame then return end
+    local maximum = math.max(0, height - (self.scrollFrame:GetHeight() or 0))
+    self.scrollFrame:SetVerticalScroll(math.min(
+        self.scrollFrame:GetVerticalScroll() or 0, maximum))
+end
+
+function MainPanel:AddLayoutItem(kind, entry, categoryKey, displayName, x, y, width, height)
+    self.listLayoutCount = self.listLayoutCount + 1
+    local item = self.listLayout[self.listLayoutCount]
+    if not item then
+        item = {}
+        self.listLayout[self.listLayoutCount] = item
+    end
+    item.kind = kind
+    item.entry = entry
+    item.categoryKey = categoryKey
+    item.displayName = displayName
+    item.x, item.y = x, y
+    item.width, item.height = width, height
+end
+
+--- 构建当前地图的地点布局，只保存轻量几何数据，不为每个地点创建 Frame。
+function MainPanel:BuildListLayout()
+    self.buildingListLayout = true
+    self.listLayout = self.listLayout or {}
+    self.listLayoutCount = 0
     local entries = SMK.MapContext:GetEntries()
+    local groups = self.categoryGroups or {}
+    self.categoryGroups = groups
+    for _, categoryInfo in ipairs(Config.categories) do
+        local group = groups[categoryInfo.key]
+        if group then
+            for index = #group, 1, -1 do group[index] = nil end
+        else
+            groups[categoryInfo.key] = {}
+        end
+    end
     if #entries == 0 then
-        local empty = self:Acquire("message")
-        empty:SetTextColor(unpack(Config.colors.disabled))
-        empty:SetText(SMK.L.NO_LOCATIONS)
-        empty:SetPoint("TOP", self.listContent, "TOP", 0, -28)
-        self.listContent:SetHeight(90)
+        self:AddLayoutItem("message", nil, nil, nil,
+            nil, 28, nil, Config.location.baseHeight)
+        for index = self.listLayoutCount + 1, #self.listLayout do
+            local item = self.listLayout[index]
+            item.entry, item.categoryKey, item.displayName = nil, nil, nil
+        end
+        self:SetListContentHeight(90)
+        self.layoutVersion = (self.layoutVersion or 0) + 1
+        self.buildingListLayout = false
         return
     end
-    local groups = {}
     for _, entry in ipairs(entries) do
         local catKey = entry.categoryKey
-        groups[catKey] = groups[catKey] or {}
-        groups[catKey][#groups[catKey] + 1] = entry
+        local group = groups[catKey]
+        group[#group + 1] = entry
     end
     local y = 6
     local headingHeight = CategoryHeadingHeight()
     for _, categoryInfo in ipairs(Config.categories) do
         local categoryEntries = groups[categoryInfo.key]
-        if categoryEntries then
-            table.sort(categoryEntries, function(a, b) return a.name < b.name end)
-            local heading = self:Acquire("heading")
-            heading:SetSize(math.max(1,
-                self.listContent:GetWidth() - Config.panel.layout.contentInset * 2), headingHeight)
-            Widgets:SetCategory(heading, SMK.L[categoryInfo.nameKey] or categoryInfo.key, categoryInfo.key)
-            heading:SetPoint("TOPLEFT", self.listContent, "TOPLEFT", Config.panel.layout.contentInset, -y)
+        if #categoryEntries > 0 then
+            table.sort(categoryEntries, function(a, b)
+                local keyA = a.normalizedName or SMK.Util.SortKey(a.name)
+                local keyB = b.normalizedName or SMK.Util.SortKey(b.name)
+                if keyA ~= keyB then return keyA < keyB end
+                return a.id < b.id
+            end)
+            self:AddLayoutItem("heading", nil, categoryInfo.key,
+                SMK.L[categoryInfo.nameKey] or categoryInfo.key,
+                Config.panel.layout.contentInset, y,
+                math.max(1, self.listContent:GetWidth()
+                    - Config.panel.layout.contentInset * 2), headingHeight)
             local startX = PanelLayout.sidePadding
             local rowX = startX
             local rowY = y + headingHeight + Config.location.verticalGap
             local rowHeight = 0
             for _, entry in ipairs(categoryEntries) do
-                local button = self:Acquire("button")
-                button.background:Show()
-                Widgets:SetLocationEntry(button, entry, nil,
-                    Config.panel.layout.showLocationIcons)
-                local width, height = button:GetWidth(), button:GetHeight()
+                local width, height = Widgets:MeasureLocation(
+                    self.measureLabel, entry.name, Config.panel.layout.showLocationIcons)
                 if rowX > startX and rowX + width > self.listContent:GetWidth() - startX then
                     rowX = startX
                     rowY = rowY + rowHeight + Config.location.verticalGap
                     rowHeight = 0
                 end
-                button:SetPoint("TOPLEFT", self.listContent, "TOPLEFT", rowX, -rowY)
+                self:AddLayoutItem("button", entry, nil, nil,
+                    rowX, rowY, width, height)
                 rowX = rowX + width + Config.location.horizontalGap
                 rowHeight = math.max(rowHeight, height)
             end
             y = rowY + rowHeight + Config.location.groupGap
         end
     end
-    self.listContent:SetHeight(math.max(y, 100))
+    for index = self.listLayoutCount + 1, #self.listLayout do
+        local item = self.listLayout[index]
+        item.entry, item.categoryKey, item.displayName = nil, nil, nil
+    end
+    self:SetListContentHeight(math.max(y, 100))
+    self.layoutVersion = (self.layoutVersion or 0) + 1
+    self.buildingListLayout = false
+end
+
+--- 仅实例化滚动区域附近的地点部件。
+function MainPanel:RenderVisibleList(force)
+    local layout = self.listLayout or {}
+    local layoutCount = self.listLayoutCount or 0
+    local scrollTop = self.scrollFrame and self.scrollFrame:GetVerticalScroll() or 0
+    local viewHeight = self.scrollFrame and self.scrollFrame:GetHeight() or 0
+    if viewHeight <= 0 then viewHeight = Config.panel.height end
+    local buffer = Config.location.baseHeight * 2
+    local visibleTop = math.max(0, scrollTop - buffer)
+    local visibleBottom = scrollTop + viewHeight + buffer
+
+    local first, last = 1, layoutCount
+    while first <= last do
+        local middle = math.floor((first + last) / 2)
+        if layout[middle].y + layout[middle].height < visibleTop then
+            first = middle + 1
+        else
+            last = middle - 1
+        end
+    end
+    local visibleLast = first - 1
+    for index = first, layoutCount do
+        local item = layout[index]
+        if item.y > visibleBottom then break end
+        if IsVisible(item, visibleTop, visibleBottom) then visibleLast = index end
+    end
+    if not force and self.renderedLayoutVersion == self.layoutVersion
+        and self.renderedFirst == first and self.renderedLast == visibleLast then
+        return
+    end
+    self.renderedLayoutVersion = self.layoutVersion
+    self.renderedFirst, self.renderedLast = first, visibleLast
+    GameTooltip_Hide()
+    self:ReleaseWidgets()
+    for index = first, visibleLast do
+        local item = layout[index]
+        if IsVisible(item, visibleTop, visibleBottom) then
+            local widget = self:Acquire(item.kind)
+            if item.kind == "heading" then
+                widget:SetSize(item.width, item.height)
+                Widgets:SetCategory(widget, item.displayName, item.categoryKey)
+                widget:SetPoint("TOPLEFT", self.listContent, "TOPLEFT", item.x, -item.y)
+            elseif item.kind == "message" then
+                widget:SetTextColor(unpack(Config.colors.disabled))
+                widget:SetText(SMK.L.NO_LOCATIONS)
+                widget:SetPoint("TOP", self.listContent, "TOP", 0, -item.y)
+            else
+                Widgets:SetLocationEntry(widget, item.entry, nil,
+                    Config.panel.layout.showLocationIcons)
+                widget:SetPoint("TOPLEFT", self.listContent, "TOPLEFT", item.x, -item.y)
+            end
+        end
+    end
+end
+
+--- 渲染当前地图上的所有地点，按类别分组，按名称排序。
+function MainPanel:RenderList()
+    self:BuildListLayout()
+    self:RenderVisibleList(true)
 end
 
 --- 收集使用次数不为零的地点，按使用频率排序。
 -- @return table { entry, count } 数组。
 function MainPanel:GetFrequent()
     local frequent = {}
+    local limit = Config.location.maxFrequent
+    local function IsBetter(entry, count, candidate)
+        if count ~= candidate.count then return count > candidate.count end
+        local keyA = entry.normalizedName or SMK.Util.SortKey(entry.name)
+        local keyB = candidate.entry.normalizedName
+            or SMK.Util.SortKey(candidate.entry.name)
+        if keyA ~= keyB then return keyA < keyB end
+        return entry.id < candidate.entry.id
+    end
     for _, entry in ipairs(SMK.MapContext:GetEntries()) do
         local count = SMK.Store:GetUsage(entry)
-        if count > 0 then frequent[#frequent + 1] = { entry = entry, count = count } end
+        if count > 0 then
+            if #frequent < limit then
+                frequent[#frequent + 1] = { entry = entry, count = count }
+            else
+                local worst = 1
+                for index = 2, #frequent do
+                    if IsBetter(frequent[worst].entry, frequent[worst].count,
+                        frequent[index]) then
+                        worst = index
+                    end
+                end
+                if IsBetter(entry, count, frequent[worst]) then
+                    frequent[worst].entry = entry
+                    frequent[worst].count = count
+                end
+            end
+        end
     end
     table.sort(frequent, function(a, b)
         if a.count ~= b.count then return a.count > b.count end
-        return a.entry.name < b.entry.name
+        local keyA = a.entry.normalizedName or SMK.Util.SortKey(a.entry.name)
+        local keyB = b.entry.normalizedName or SMK.Util.SortKey(b.entry.name)
+        if keyA ~= keyB then return keyA < keyB end
+        return a.entry.id < b.entry.id
     end)
     return frequent
 end
@@ -145,7 +290,9 @@ function MainPanel:RenderFrequent()
     self.frequentRow.title:SetPoint("TOPLEFT", 4, 0)
     self.frequentEmpty:ClearAllPoints()
     self.frequentEmpty:SetPoint("LEFT", self.frequentRow.title, "RIGHT", 8, 0)
-    for index = visible + 1, #self.frequentButtons do self.frequentButtons[index]:Hide() end
+    for index = visible + 1, #self.frequentButtons do
+        Widgets:ReleaseLocationButton(self.frequentButtons[index])
+    end
 end
 
 function MainPanel:RefreshHeader()
@@ -259,7 +406,9 @@ end
 
 function MainPanel:Create(searchBar, callbacks)
     self.callbacks = callbacks or {}
-    self.listWidgets, self.frequentButtons = {}, {}
+    self.widgetPools = { heading = {}, button = {}, message = {} }
+    self.widgetUseCounts = { heading = 0, button = 0, message = 0 }
+    self.frequentButtons = {}
     self.locationCallbacks = {
         onActivate = self.callbacks.onActivate,
         onEdit = function(entry) self:OpenEditor("edit", entry) end,
@@ -353,23 +502,16 @@ function MainPanel:Create(searchBar, callbacks)
     moreFrame:SetBackdropColor(unpack(Config.colors.dialogBackground))
     moreFrame:SetBackdropBorderColor(unpack(Config.colors.panelBorder))
     moreFrame:SetPoint("TOPRIGHT", more, "BOTTOMRIGHT", 0, -4)
-    local scan = Widgets:CreatePanelButton(moreFrame, SMK.L.CHAT_IMPORT)
     local bulk = Widgets:CreatePanelButton(moreFrame, SMK.L.BULK_DELETE)
     local help = Widgets:CreatePanelButton(moreFrame, SMK.L.HELP)
     local popupPadding = Config.panel.controls.popupPadding
-    local menuWidth = math.max(scan:GetWidth(), bulk:GetWidth(), help:GetWidth())
-    scan:SetWidth(menuWidth)
+    local menuWidth = math.max(bulk:GetWidth(), help:GetWidth())
     bulk:SetWidth(menuWidth)
     help:SetWidth(menuWidth)
-    scan:SetPoint("TOPLEFT", popupPadding, -popupPadding)
-    bulk:SetPoint("TOPLEFT", scan, "BOTTOMLEFT", 0, -buttonGap)
+    bulk:SetPoint("TOPLEFT", popupPadding, -popupPadding)
     help:SetPoint("TOPLEFT", bulk, "BOTTOMLEFT", 0, -buttonGap)
     moreFrame:SetSize(menuWidth + popupPadding * 2,
-        Config.panel.controls.buttonHeight * 3 + buttonGap * 2 + popupPadding * 2)
-    scan:SetScript("OnClick", function()
-        moreMenu:Hide()
-        SMK.App:ScanChatForImports()
-    end)
+        Config.panel.controls.buttonHeight * 2 + buttonGap + popupPadding * 2)
     bulk:SetScript("OnClick", function()
         moreMenu:Hide()
         self:OpenBulkDelete()
@@ -419,6 +561,20 @@ function MainPanel:Create(searchBar, callbacks)
     self.listContent:SetWidth(PanelLayout.contentWidth)
     self.listContent:SetHeight(100)
     scroll:SetScrollChild(self.listContent)
+    self.scrollFrame = scroll
+    self.measureLabel = self.listContent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    self.measureLabel.baseFontPath, self.measureLabel.baseFontSize,
+        self.measureLabel.baseFontFlags = self.measureLabel:GetFont()
+    scroll:HookScript("OnVerticalScroll", function()
+        if self.listLayout and not self.buildingListLayout then
+            self:RenderVisibleList()
+        end
+    end)
+    scroll:HookScript("OnSizeChanged", function()
+        if self.listLayout and not self.buildingListLayout then
+            self:RenderVisibleList()
+        end
+    end)
 
     SMK.LocationEditor:Create(UIParent, {
         onSave = function(mode, entry, values)
@@ -438,6 +594,15 @@ function MainPanel:Create(searchBar, callbacks)
     frame:HookScript("OnHide", function()
         frame.isExpanded = false
         self:HideDialogs()
+        self.listLayout = nil
+        self.listLayoutCount = 0
+        self.categoryGroups = nil
+        self.renderedLayoutVersion = nil
+        self.renderedFirst, self.renderedLast = nil, nil
+        self:ReleaseWidgets()
+        for _, button in ipairs(self.frequentButtons) do
+            Widgets:ReleaseLocationButton(button)
+        end
         if self.callbacks.onHidden then self.callbacks.onHidden() end
     end)
     return frame

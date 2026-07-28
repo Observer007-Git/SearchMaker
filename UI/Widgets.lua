@@ -14,35 +14,64 @@ end
 -- 避免重复渲染时多次调用 GetUnboundedStringWidth()。
 local geometryCache = {}
 local geometryCacheSize = 0
-local geometryCacheMaxSize = 500
+local geometryCacheKeys = {}
+local geometryCacheNext = 1
+local geometryCacheMaxSize = Config.location.geometryCacheMaxEntries
+
+local function GetTextWidth(label, text, locationScale)
+    local cacheKey = text .. "|" .. tostring(locationScale)
+    local textWidth = geometryCache[cacheKey]
+    if textWidth then return textWidth end
+    if label.SetText then label:SetText(text) end
+    textWidth = label.GetUnboundedStringWidth
+        and label:GetUnboundedStringWidth() or label:GetStringWidth()
+    textWidth = math.max(1, math.ceil(textWidth))
+    local slot
+    if geometryCacheSize < geometryCacheMaxSize then
+        geometryCacheSize = geometryCacheSize + 1
+        slot = geometryCacheSize
+    else
+        slot = geometryCacheNext
+        geometryCache[geometryCacheKeys[slot]] = nil
+        geometryCacheNext = geometryCacheNext % geometryCacheMaxSize + 1
+    end
+    geometryCacheKeys[slot] = cacheKey
+    geometryCache[cacheKey] = textWidth
+    return textWidth
+end
+
+local function ApplyLocationFont(label, locationScale)
+    if label.baseFontPath and label.baseFontSize then
+        label:SetFont(label.baseFontPath,
+            label.baseFontSize * locationScale, label.baseFontFlags or "")
+    end
+end
+
+--- 测量地点木牌尺寸，不创建地点按钮。
+-- @param label FontString 用于测量的字体对象。
+-- @param text string 地点显示文字。
+-- @param showIcon boolean 是否包含左侧图标。
+-- @return number, number 木牌总宽度和高度。
+function Widgets:MeasureLocation(label, text, showIcon)
+    local locationScale = GetLocationScale()
+    ApplyLocationFont(label, locationScale)
+    local textWidth = GetTextWidth(label, text or "", locationScale)
+    local height = math.max(1, math.ceil(Sign.height * locationScale))
+    local signWidth = math.max(1, math.ceil(Sign.width * height / Sign.height))
+    local totalWidth = math.max(signWidth, textWidth + Sign.textPadding * 2)
+    return math.ceil((showIcon and height or 0) + totalWidth), height
+end
 
 --- 根据文本宽度和缩放比例计算并设置地点按钮的正确尺寸。
 -- 使用 geometryCache 避免重复调用时的字体测量。
 -- @param button Frame 地点按钮部件。
 function Widgets:UpdateLocationGeometry(button)
-    local locationScale = GetLocationScale()
     local text = button.label:GetText() or ""
-    local cacheKey = text .. "|" .. tostring(locationScale)
-    local textWidth = geometryCache[cacheKey]
-    if not textWidth then
-        textWidth = button.label.GetUnboundedStringWidth
-            and button.label:GetUnboundedStringWidth() or button.label:GetStringWidth()
-        textWidth = math.max(1, math.ceil(textWidth))
-        if geometryCacheSize >= geometryCacheMaxSize then
-            self:ClearGeometryCache()
-        end
-        geometryCache[cacheKey] = textWidth
-        geometryCacheSize = geometryCacheSize + 1
-    end
-
-    local height = math.max(1, math.ceil(Sign.height * locationScale))
-    local signScale = height / Sign.height
-    local signWidth = math.max(1, math.ceil(Sign.width * signScale))
+    local totalButtonWidth, height = self:MeasureLocation(button.label, text, button.showIcon)
     local textPadding = Sign.textPadding
     local textOffsetY = Sign.textOffsetY
-    local totalWidth = math.max(signWidth, textWidth + textPadding * 2)
     local iconWidth = button.showIcon and height or 0
-    button:SetSize(math.ceil(iconWidth + totalWidth), height)
+    button:SetSize(totalButtonWidth, height)
     button.iconBox:ClearAllPoints()
     button.iconBox:SetPoint("TOPLEFT")
     button.iconBox:SetSize(iconWidth, height)
@@ -61,12 +90,6 @@ function Widgets:UpdateLocationGeometry(button)
     button.label:ClearAllPoints()
     button.label:SetPoint("LEFT", button.background, "LEFT", textPadding, textOffsetY)
     button.label:SetPoint("RIGHT", button.background, "RIGHT", -textPadding, textOffsetY)
-end
-
---- 清除字体测量缓存（数据变更时调用）。
-function Widgets:ClearGeometryCache()
-    geometryCache = {}
-    geometryCacheSize = 0
 end
 
 --- 创建主面板使用的 Atlas 文字按钮。
@@ -145,9 +168,7 @@ end
 -- @param showIcon boolean|nil 是否在木牌左侧显示图标。
 function Widgets:SetLocationEntry(button, entry, displayText, showIcon)
     local locationScale = GetLocationScale()
-    if button.baseFontPath and button.baseFontSize then
-        button.label:SetFont(button.baseFontPath, button.baseFontSize * locationScale, button.baseFontFlags or "")
-    end
+    ApplyLocationFont(button.label, locationScale)
     button.entry = entry
     button.hitArea.entry = entry
     button.isSearchSelected = false
@@ -161,6 +182,23 @@ function Widgets:SetLocationEntry(button, entry, displayText, showIcon)
     self:UpdateLocationGeometry(button)
     button.background:Show()
     button:Show()
+end
+
+--- 释放地点按钮持有的数据引用，供各 UI 部件池安全复用。
+-- @param button Frame 地点按钮。
+function Widgets:ReleaseLocationButton(button)
+    button.entry = nil
+    button.hitArea.entry = nil
+    button.resultIndex = nil
+    button.isSearchSelected = false
+    button.isSearchResult = false
+    button.isPinned = false
+    button.showIcon = false
+    button.highlight:Hide()
+    button.label:SetText("")
+    button.icon:SetTexture(nil)
+    button:Hide()
+    button:ClearAllPoints()
 end
 
 --- 创建带有点击处理、工具提示和高亮的新地点按钮框架。
@@ -206,6 +244,9 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button.label:SetJustifyV("MIDDLE")
     button.label:SetWordWrap(false)
     button.baseFontPath, button.baseFontSize, button.baseFontFlags = button.label:GetFont()
+    button.label.baseFontPath = button.baseFontPath
+    button.label.baseFontSize = button.baseFontSize
+    button.label.baseFontFlags = button.baseFontFlags
 
     button.hitArea:SetScript("OnClick", function(self, mouseButton)
         local owner = self.owner

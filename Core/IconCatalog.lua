@@ -28,6 +28,12 @@ function Catalog:Get(iconID)
     return self.byID[tonumber(iconID)]
 end
 
+function Catalog:GetNote(entryOrID)
+    local entry = type(entryOrID) == "table" and entryOrID or self:Get(entryOrID)
+    local notes = SMK.L and SMK.L.ICON_NOTES
+    return entry and notes and notes[entry.note] or nil
+end
+
 function Catalog:Apply(texture, iconID)
     local entry = self:Get(iconID)
     if not texture or not entry then return false end
@@ -41,4 +47,4 @@ function Catalog:Apply(texture, iconID)
 end
 
 SMK.IconCatalog = Catalog
-SMK.DefaultCustomIconID = 18
+SMK.DefaultCustomIconID = 29

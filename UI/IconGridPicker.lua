@@ -3,6 +3,11 @@ local _, SMK = ...
 local IconGridPicker = {}
 IconGridPicker.__index = IconGridPicker
 
+function IconGridPicker:GetEntryTooltip(entry)
+    if self.getTooltip then return self.getTooltip(entry) end
+    return SMK.IconCatalog:GetNote(entry) or entry.atlas or entry.texture
+end
+
 function IconGridPicker:Create(parent, options)
     options = options or {}
     local picker = setmetatable({
@@ -62,8 +67,7 @@ function IconGridPicker:Create(parent, options)
         end)
         button:SetScript("OnEnter", function()
             local selected = button.entry
-            local tooltip = picker.getTooltip and picker.getTooltip(selected)
-                or selected.atlas or selected.texture
+            local tooltip = picker:GetEntryTooltip(selected)
             if not tooltip then return end
             GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
             GameTooltip:SetText(tooltip)

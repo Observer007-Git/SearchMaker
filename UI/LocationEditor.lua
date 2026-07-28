@@ -113,9 +113,25 @@ function Editor:Delete()
 end
 
 --- 读取玩家当前位置并填入 X/Y 字段。
+function Editor:CanReadPlayerCoordinates(mapID)
+    mapID = tonumber(mapID)
+    local playerMapID = tonumber(SMK.Map:GetPlayerMapID())
+    return mapID ~= nil and playerMapID == mapID
+end
+
+function Editor:UpdateCoordinateButton()
+    if self.coordinateButton then
+        self.coordinateButton:SetEnabled(
+            self:CanReadPlayerCoordinates(self.frame and self.frame.mapID))
+    end
+end
+
 function Editor:FillCoordinates()
     local frame = self.frame
     local mapID = frame.mapID
+    if not self:CanReadPlayerCoordinates(mapID) then
+        return self:SetError(SMK.L.ERROR_COORDS_READ_FAILED)
+    end
     local x, y = SMK.Map:GetPlayerCoordinates(mapID)
     if not x or not y then
         return self:SetError(SMK.L.ERROR_COORDS_READ_FAILED)
@@ -283,6 +299,11 @@ function Editor:Create(parent, callbacks)
     coordinateButton:SetPoint("TOP", frame, "TOP", 0, EditorConfig.coordinateButtonY)
     coordinateButton:SetText(SMK.L.READ_COORDINATES)
     coordinateButton:SetScript("OnClick", function() self:FillCoordinates() end)
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    frame:SetScript("OnEvent", function()
+        if frame:IsShown() then self:UpdateCoordinateButton() end
+    end)
     frame.error = frame:CreateFontString(nil, "OVERLAY", "GameFontRedSmall")
     frame.error:SetPoint("TOP", frame, "TOP", 0, EditorConfig.errorY)
     local pinSettingsLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -526,6 +547,7 @@ function Editor:Open(mode, entry, position)
     local mapID = entry and tonumber(entry.mapID)
         or SMK.MapContext:GetMapID() or SMK.Map:GetContextMapID()
     frame.mapID = mapID
+    self:UpdateCoordinateButton()
     frame.mapName:SetText(mapID and string.format(SMK.L.MAP_FORMAT, SMK.Map:GetMapName(mapID), mapID) or SMK.L.UNKNOWN_MAP)
     self.inputs.name:SetText(entry and entry.name or "")
     self.inputs.x:SetText(entry and tostring(entry.x) or "")

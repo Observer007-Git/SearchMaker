@@ -34,8 +34,11 @@ function IconGridPicker:Create(parent, options)
         options.width or padding * 2 + columns * cellSize + math.max(0, columns - 1) * columnGap,
         options.height or padding * 2 + rows * cellSize + math.max(0, rows - 1) * rowGap)
     frame:EnableMouse(true)
+    frame.backgroundAtlas = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+    frame.backgroundAtlas:SetAllPoints(frame)
+    frame.backgroundAtlas:SetAtlas(SMK.Config.panel.backgroundAtlas, false)
     frame:SetBackdrop(SMK.Config.resultBackdrop)
-    frame:SetBackdropColor(0.04, 0.03, 0.02, options.alpha or 0.7)
+    frame:SetBackdropColor(0, 0, 0, 0)
     frame:SetBackdropBorderColor(unpack(SMK.Config.colors.panelBorder))
 
     for index, entry in ipairs(picker.entries) do

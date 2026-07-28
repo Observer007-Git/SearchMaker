@@ -225,7 +225,6 @@ function Editor:Create(parent, callbacks)
         cellSize = EditorConfig.customIconPickerCellSize,
         gap = EditorConfig.customIconPickerGap,
         padding = EditorConfig.customIconPickerPadding,
-        alpha = 0.96,
         showKind = true,
         onSelect = function(iconID) self:SelectCustomIcon(iconID) end,
     })
@@ -424,7 +423,6 @@ function Editor:Create(parent, callbacks)
         columnGap = EditorConfig.pinTexturePickerColumnGap,
         rowGap = EditorConfig.pinTexturePickerRowGap,
         padding = EditorConfig.pinTexturePickerPadding,
-        alpha = 0.96,
         getValue = function(texture) return texture.id end,
         applyIcon = function(icon, texture) icon:SetAtlas(texture.atlas, false) end,
         getTooltip = function(texture) return texture.atlas end,

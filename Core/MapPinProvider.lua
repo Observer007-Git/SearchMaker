@@ -29,6 +29,13 @@ local function CreatePinMixin()
         end
         if not self.label then
             self.label = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            self.labelHitbox = CreateFrame("Button", nil, self)
+            self.labelHitbox:SetAllPoints(self.label)
+            self.labelHitbox:EnableMouse(true)
+            self.labelHitbox:RegisterForClicks("LeftButtonUp")
+            self.labelHitbox:SetScript("OnEnter", function() self:OnMouseEnter() end)
+            self.labelHitbox:SetScript("OnLeave", function() self:OnMouseLeave() end)
+            self.labelHitbox:SetScript("OnClick", function(_, button) self:OnClick(button) end)
         end
         self.label:ClearAllPoints()
         local offsetX = SMK.Settings:Get("mapPinNameOffsetX")
@@ -49,6 +56,7 @@ local function CreatePinMixin()
         local showName = entry.showPinName == 1
         local showTexture = entry.showPinTexture == 1
         self.label:SetShown(showName)
+        self.labelHitbox:SetShown(showName)
         self.icon:SetShown(showTexture)
         self:Show()
     end
@@ -63,6 +71,7 @@ local function CreatePinMixin()
             self.label:SetText("")
             self.label:Hide()
         end
+        if self.labelHitbox then self.labelHitbox:Hide() end
         GameTooltip_Hide()
     end
 
@@ -280,6 +289,7 @@ function MapPins:UpdatePinVisibility(entry, showPinName, showPinTexture)
     local nameVisible = showPinName == true
     local textureVisible = showPinTexture == true
     if pin.label then pin.label:SetShown(nameVisible) end
+    if pin.labelHitbox then pin.labelHitbox:SetShown(nameVisible) end
     if pin.icon then pin.icon:SetShown(textureVisible) end
     pin:SetShown(nameVisible or textureVisible)
 end

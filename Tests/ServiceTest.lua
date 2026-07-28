@@ -1079,6 +1079,7 @@ local appSource = ReadSource("Core/App.lua")
 local mapControllerSource = ReadSource("Core/WorldMapController.lua")
 local mainPanelSource = ReadSource("UI/MainPanel.lua")
 local shareDialogSource = ReadSource("UI/ShareDialog.lua")
+local iconGridSource = ReadSource("UI/IconGridPicker.lua")
 local widgetsSource = ReadSource("UI/Widgets.lua")
 local panelSettingsSource = ReadSource("UI/PanelSettings.lua")
 assert(appSource:find("HandyNotesProvider:SetChangeHandler", 1, true)
@@ -1106,6 +1107,9 @@ assert(not panelSettingsSource:find("showPinTexturesCheck", 1, true)
     and panelSettingsSource:find("mapPinNameOffsetX", 1, true)
     and panelSettingsSource:find("mapPinNameOffsetY", 1, true),
     "pin settings panel retained global visibility/color controls or lost appearance controls")
+assert(iconGridSource:find("SetAtlas(SMK.Config.panel.backgroundAtlas, false)", 1, true)
+    and iconGridSource:find("SetBackdropColor(0, 0, 0, 0)", 1, true),
+    "icon selection popup does not use the main panel background atlas")
 assert(mainPanelSource:find("BuildListLayout", 1, true)
     and mainPanelSource:find("RenderVisibleList", 1, true)
     and mainPanelSource:find("widgetPools", 1, true)
@@ -1184,10 +1188,12 @@ end
 function CreateFrame()
     return {
         EnableMouse = function() end,
+        RegisterForClicks = function(self, ...) self.registeredClicks = { ... } end,
         SetScript = function(self, event, callback)
             self.scripts = self.scripts or {}
             self.scripts[event] = callback
         end,
+        SetAllPoints = function(self, target) self.allPointsTarget = target end,
         CreateTexture = function() return NewTexture() end,
         CreateFontString = function() return NewFontString() end,
         SetSize = function() end,
@@ -1248,6 +1254,13 @@ assert(fakeMap.pins[1].icon.atlas == "VignetteEvent-SuperTracked",
     "selected pin texture was ignored")
 assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown,
     "enabled map pin name was not rendered")
+assert(fakeMap.pins[1].labelHitbox
+    and fakeMap.pins[1].labelHitbox.allPointsTarget == fakeMap.pins[1].label
+    and fakeMap.pins[1].labelHitbox.registeredClicks[1] == "LeftButtonUp"
+    and fakeMap.pins[1].labelHitbox.scripts.OnEnter
+    and fakeMap.pins[1].labelHitbox.scripts.OnLeave
+    and fakeMap.pins[1].labelHitbox.scripts.OnClick,
+    "map pin name did not create a matching interactive hitbox")
 assert(fakeMap.pins[1].label.color.r == SMK.Config.colors.gold[1]
     and fakeMap.pins[1].label.color.g == SMK.Config.colors.gold[2]
     and fakeMap.pins[1].label.color.b == SMK.Config.colors.gold[3]
@@ -1313,6 +1326,13 @@ assert(SMK.MapPins:ContainsMouseFocus({ fakeMap.pins[1] }),
 assert(not fakeMap.pins[1].scripts or (not fakeMap.pins[1].scripts.OnEnter
     and not fakeMap.pins[1].scripts.OnLeave),
     "map pin installed inherited motion scripts before AcquirePin")
+fakeMap.pins[1].labelHitbox.scripts.OnEnter()
+assert(GameTooltip.title == "旧地点",
+    "hovering the map pin name did not show the location tooltip")
+fakeMap.pins[1].labelHitbox.scripts.OnClick(fakeMap.pins[1].labelHitbox, "LeftButton")
+assert(editedPinEntry and editedPinEntry.name == "旧地点",
+    "clicking the map pin name did not open the location editor")
+editedPinEntry = nil
 fakeMap.pins[1]:OnMouseEnter()
 assert(GameTooltip.title == "旧地点"
     and GameTooltip.lines[1]:find("测试地图", 1, true)
@@ -1324,6 +1344,7 @@ fakeMap.pins[1]:OnClick("LeftButton")
 assert(editedPinEntry and editedPinEntry.name == "旧地点", "map pin click did not open its editor callback")
 SMK.MapPins:UpdatePinVisibility(first, false, true)
 assert(fakeMap.pins[1].label.shown == false
+    and fakeMap.pins[1].labelHitbox.shown == false
     and fakeMap.pins[1].icon.shown == true
     and fakeMap.pins[1].shown == true,
     "per-location texture visibility depended on a removed global setting")

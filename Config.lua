@@ -2,7 +2,7 @@ local _, SMK = ...
 
 -- 常用尺寸、视觉和限制集中在本文件；修改后 /reload 即可生效。
 local Config = {
-    databaseSchemaVersion = 8,
+    databaseSchemaVersion = 9,
     panel = {
         height = 512,
         backgroundAtlas = "catalog-list-preview-bg",
@@ -128,7 +128,7 @@ local Config = {
         maxTextureScale = 2,
         textureScaleStep = 0.1,
         defaultNameOffsetX = 0,
-        defaultNameOffsetY = 2,
+        defaultNameOffsetY = 0,
         nameOffsetXMin = -50,
         nameOffsetXMax = 50,
         nameOffsetYMin = -50,
@@ -281,14 +281,7 @@ end
 Config.settingsDefaults = {
     locationScale = Config.location.defaultScale,
     shortcutSearchVisible = false,
-    showMapPinNames = false,
-    showPinTextures = true,
     pinTextureScale = Config.mapPins.defaultTextureScale,
-    mapPinTextColor = {
-        r = Config.colors.gold[1],
-        g = Config.colors.gold[2],
-        b = Config.colors.gold[3],
-    },
     mapPinTextScale = Config.mapPins.defaultTextScale,
     mapPinNameOffsetX = Config.mapPins.defaultNameOffsetX,
     mapPinNameOffsetY = Config.mapPins.defaultNameOffsetY,

@@ -29,11 +29,9 @@ SMK.L = {
     BINDING_HEADER = "SearchMaker",
     BINDING_NAME = "Toggle Search",
     SHOW_PIN_TEXTURES = "Show Pin Textures",
-    SHOW_MAP_PIN_NAMES = "Show Pin Names",
     PIN_TEXT_COLOR = "Show Pin Text",
     MAP_PIN_SETTINGS_LABEL = "Map Pin Settings:",
     PIN_TEXT_SIZE = "Pin Text Size",
-    PIN_COLOR_LABEL = "Pin Color",
     CUSTOM_PIN_COLOR = "Show Pin Text Color",
     CUSTOM_ICON = "Custom Icon",
     CUSTOM_ICON_ATLAS = "Atlas Texture",
@@ -111,7 +109,7 @@ SMK.L = {
 |cffffd100Locations and pins|r
 • Alt+Left-click empty map space to add a location. Left-click a saved location to mark it, right-click to edit, or Shift+Right-click to delete.
 • In the location editor, enable Custom Icon to override the group icon for that location.
-• Pin Settings controls icon/name visibility, color, size, and offset. Search Settings controls the search box and shortcut key.
+• Each location controls its own pin icon, name, and optional text color. Pin Settings controls icon/text size and text offset. Search Settings controls the search box and shortcut key.
 • HandyNotes_MapNotes results can be marked directly; right-click one to save it to a chosen group.
 
 |cffffd100Sharing and data|r

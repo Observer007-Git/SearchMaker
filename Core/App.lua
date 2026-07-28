@@ -91,10 +91,8 @@ end
 function App:SettingChanged(key)
     if key == "locationScale" then
         self:RequestRefresh("scale")
-    elseif key == "showMapPinNames" or key == "mapPinTextColor"
-        or key == "mapPinTextScale" or key == "mapPinNameOffsetX"
-        or key == "mapPinNameOffsetY" or key == "showPinTextures"
-        or key == "pinTextureScale" then
+    elseif key == "mapPinTextScale" or key == "mapPinNameOffsetX"
+        or key == "mapPinNameOffsetY" or key == "pinTextureScale" then
         self:RequestRefresh("pins")
     elseif key == "searchAllMaps" then
         self:RequestRefresh("scope")

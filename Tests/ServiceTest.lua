@@ -209,6 +209,8 @@ assert(SMK.Util.GetTextWidth("e\204\129") == 1
     and SMK.Util.TruncateUTF8("中文", 4) == "中",
     "grapheme width or UTF-8 truncation is incorrect")
 assert(SMK.Config.mapPins.size == 30
+    and SMK.Config.mapPins.defaultNameOffsetX == 0
+    and SMK.Config.mapPins.defaultNameOffsetY == 0
     and SMK.Config.mapPins.targetHighlight.atlas == "MonsterEnemy"
     and SMK.Config.mapPins.targetHighlight.ringTexture == "Interface\\Cooldown\\starburst"
     and SMK.Config.mapPins.targetHighlight.size == 32
@@ -335,13 +337,19 @@ assert(SMK.DB:GetReadOnlyMessage() == string.format(SMK.L.DATABASE_READ_ONLY,
     "future database read-only message is missing")
 assert(not futureDatabase.locationScale and futureDatabase.futureField.preserved,
     "future database was modified during initialization")
-assert(not SMK.Settings:Set("showPinTextures", true), "future database setting write was accepted")
+assert(not SMK.Settings:Set("locationScale", 1.1), "future database setting write was accepted")
 assert(futureDatabase.settings == nil, "future database settings were written through runtime data")
 assert(not SMK.Store:Add({ mapID = 100, x = 1, y = 2, name = "blocked", categoryKey = "other" }),
     "future database accepted a write")
 
 SearchMakerDB = {
     schemaVersion = 7,
+    settings = {
+        showMapPinNames = true,
+        showPinTextures = false,
+        mapPinTextColor = { r = 0.2, g = 0.4, b = 0.6 },
+        mapPinNameOffsetY = 2,
+    },
     locations = {
         { id = 1, mapID = 100, x = 1, y = 2, name = "旧18", categoryKey = "other", customIconID = 18 },
         { id = 2, mapID = 100, x = 3, y = 4, name = "旧30", categoryKey = "other", customIconID = 30 },
@@ -351,13 +359,17 @@ SearchMakerDB = {
     },
 }
 SMK.DB:Initialize()
-assert(SearchMakerDB.schemaVersion == 8
+assert(SearchMakerDB.schemaVersion == 9
     and SearchMakerDB.locations[1].customIconID == 29
     and SearchMakerDB.locations[2].customIconID == 29
     and SearchMakerDB.locations[3].customIconID == 16
     and SearchMakerDB.locations[4].customIconID == 17
-    and SearchMakerDB.locations[5].customIconID == -3,
-    "schema 8 did not preserve reindexed custom icon meanings")
+    and SearchMakerDB.locations[5].customIconID == -3
+    and SearchMakerDB.settings.mapPinNameOffsetY == 0
+    and SearchMakerDB.settings.showMapPinNames == nil
+    and SearchMakerDB.settings.showPinTextures == nil
+    and SearchMakerDB.settings.mapPinTextColor == nil,
+    "database migrations did not preserve icons or remove obsolete global pin settings")
 
 SearchMakerDB = {
     schemaVersion = SMK.Config.databaseSchemaVersion,
@@ -393,7 +405,8 @@ assert(#SearchMakerDB.locations == 2 and SearchMakerDB.usageCounts[999] == nil
 assert(type(SearchMakerDB.locations[1].id) == "number"
     and type(SearchMakerDB.nextLocationID) == "number",
     "location IDs were not stored compactly as numbers")
-assert(SMK.Settings:Get("showPinTextures") and SMK.Settings:Get("locationScale") == 1.2,
+assert(SMK.Settings:Get("locationScale") == 1.2
+    and SearchMakerDB.settings.showPinTextures == nil,
     "nested settings were not initialized")
 assert(SMK.Settings:Get("searchBarScale") == 1.4
     and SMK.Settings:Get("searchBarOpacity") == 0.6,
@@ -409,9 +422,8 @@ assert(SearchMakerDB.locations[1].showPin == nil
     and SearchMakerDB.locations[1].showPinTexture == 1,
     "canonical map pin visibility fields were not retained")
 assert(SearchMakerDB.settings.showFullPanel == nil, "removed panel setting was retained")
-assert(SMK.Settings:Get("showMapPinNames") == false, "pin name setting default was not initialized")
-local defaultTextColor = SMK.Settings:Get("mapPinTextColor")
-assert(defaultTextColor.r == 1 and defaultTextColor.g == 0.82 and defaultTextColor.b == 0
+assert(SMK.Settings:Get("showMapPinNames") == nil
+    and SMK.Settings:Get("mapPinTextColor") == nil
     and SMK.Settings:Get("mapPinTextScale") == 1,
     "pin text appearance defaults were not initialized")
 assert(SearchMakerDB.locationScale == nil and SearchMakerDB.showPinTextures == nil,
@@ -420,20 +432,16 @@ local changedSetting
 SMK.Settings:SetChangeHandler(function(key) changedSetting = key end)
 assert(SMK.Settings:Set("locationScale", 1.3) and changedSetting == "locationScale",
     "setting change was not normalized and announced")
-assert(SMK.Settings:Set("showMapPinNames", true) and changedSetting == "showMapPinNames",
-    "pin name setting was not persisted and announced")
-assert(SMK.Settings:Set("mapPinTextColor", { r = 0.2, g = 0.4, b = 0.6 })
-    and changedSetting == "mapPinTextColor",
-    "pin text color was not persisted and announced")
 assert(SMK.Settings:Set("mapPinTextScale", 1.4) and changedSetting == "mapPinTextScale",
     "pin text scale was not persisted and announced")
 assert(SMK.Settings:Set("shortcutSearchBarPosition", { x = 10, y = 20 })
     and SMK.Settings:Set("shortcutSearchBarPosition", { x = 30, y = 40 })
     and SMK.Settings:Get("shortcutSearchBarPosition").x == 30,
-    "color comparison interfered with position settings")
-assert(not SMK.Settings:Set("showMapPinNames", 1)
-    and SMK.Settings:Get("showMapPinNames") == true,
-    "runtime settings bypassed the shared settings schema")
+    "table comparison interfered with position settings")
+assert(not SMK.Settings:Set("showMapPinNames", true)
+    and not SMK.Settings:Set("showPinTextures", true)
+    and not SMK.Settings:Set("mapPinTextColor", { r = 1, g = 1, b = 1 }),
+    "removed global pin settings were still accepted")
 
 local first = SMK.Store:GetAll()[1]
 assert(first.categoryKey == "delves" and first.categoryLabel == "地下堡", "display projection is not localized")
@@ -1090,9 +1098,14 @@ assert(not appSource:find("local collected = {}", 1, true)
     and shareDialogSource:find("SMK.WhisperInbox:GetImportText", 1, true)
     and shareDialogSource:find("SMK.Import:ImportText(text)", 1, true),
     "whisper import is outside the share dialog or scans chat frames")
-assert(panelSettingsSource:find("PreviewDefaultPinTextColor", 1, true)
-    and panelSettingsSource:find("ColorPickerFrame:HookScript(\"OnHide\"", 1, true),
-    "global pin color preview is not committed once when the picker closes")
+assert(not panelSettingsSource:find("showPinTexturesCheck", 1, true)
+    and not panelSettingsSource:find("showPinNamesCheck", 1, true)
+    and not panelSettingsSource:find("ColorPickerFrame", 1, true)
+    and panelSettingsSource:find("pinTextureScale", 1, true)
+    and panelSettingsSource:find("mapPinTextScale", 1, true)
+    and panelSettingsSource:find("mapPinNameOffsetX", 1, true)
+    and panelSettingsSource:find("mapPinNameOffsetY", 1, true),
+    "pin settings panel retained global visibility/color controls or lost appearance controls")
 assert(mainPanelSource:find("BuildListLayout", 1, true)
     and mainPanelSource:find("RenderVisibleList", 1, true)
     and mainPanelSource:find("widgetPools", 1, true)
@@ -1160,7 +1173,7 @@ end
 local function NewFontString()
     return {
         ClearAllPoints = function() end,
-        SetPoint = function() end,
+        SetPoint = function(self, ...) self.point = { ... } end,
         SetTextColor = function(self, r, g, b) self.color = { r = r, g = g, b = b } end,
         SetScale = function(self, value) self.scale = value end,
         SetText = function(self, value) self.text = value end,
@@ -1178,6 +1191,7 @@ function CreateFrame()
         CreateTexture = function() return NewTexture() end,
         CreateFontString = function() return NewFontString() end,
         SetSize = function() end,
+        SetShown = function(self, value) self.shown = value end,
         Show = function(self) self.shown = true end,
         Hide = function(self) self.shown = false end,
         ClearAllPoints = function() end,
@@ -1234,33 +1248,19 @@ assert(fakeMap.pins[1].icon.atlas == "VignetteEvent-SuperTracked",
     "selected pin texture was ignored")
 assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown,
     "enabled map pin name was not rendered")
-assert(fakeMap.pins[1].label.color.r == 0.2 and fakeMap.pins[1].label.color.g == 0.4
-    and fakeMap.pins[1].label.color.b == 0.6 and fakeMap.pins[1].label.scale == 1.4,
+assert(fakeMap.pins[1].label.color.r == SMK.Config.colors.gold[1]
+    and fakeMap.pins[1].label.color.g == SMK.Config.colors.gold[2]
+    and fakeMap.pins[1].label.color.b == SMK.Config.colors.gold[3]
+    and fakeMap.pins[1].label.scale == 1.4
+    and fakeMap.pins[1].label.point[1] == "CENTER"
+    and fakeMap.pins[1].label.point[3] == "CENTER",
     "pin text appearance settings were not rendered")
 SMK.MapPins:UpdatePinPreviewColor(first, { r = 0.9, g = 0.8, b = 0.7 })
 assert(fakeMap.pins[1].label.color.r == 0.9,
     "active pin lookup did not update the matching preview directly")
 SMK.MapPins:UpdatePinPreviewColor(first, nil)
-assert(fakeMap.pins[1].label.color.r == SMK.Settings:Get("mapPinTextColor").r,
-    "active pin preview did not restore the global color")
-local defaultColorLabel = NewFontString()
-local overriddenColorLabel = NewFontString()
-overriddenColorLabel:SetTextColor(0.1, 0.2, 0.3)
-SMK.MapPins.activePins[-1] = {
-    entry = { id = -1 },
-    label = defaultColorLabel,
-}
-SMK.MapPins.activePins[-2] = {
-    entry = { id = -2, pinColor = { r = 0.1, g = 0.2, b = 0.3 } },
-    label = overriddenColorLabel,
-}
-SMK.MapPins:PreviewDefaultPinTextColor({ r = 0.7, g = 0.6, b = 0.5 })
-assert(defaultColorLabel.color and defaultColorLabel.color.r == 0.7,
-    "global pin color preview missed a default color")
-assert(overriddenColorLabel.color.r == 0.1,
-    "global pin color preview changed an overridden color")
-SMK.MapPins.activePins[-1] = nil
-SMK.MapPins.activePins[-2] = nil
+assert(fakeMap.pins[1].label.color.r == SMK.Config.colors.gold[1],
+    "active pin preview did not restore the fixed default color")
 local highlightTimers = {}
 C_Timer = {
     After = function(_, callback) highlightTimers[#highlightTimers + 1] = callback end,
@@ -1322,14 +1322,14 @@ assert(GameTooltip.title == "旧地点"
     "map pin tooltip did not separate its map name and coordinates")
 fakeMap.pins[1]:OnClick("LeftButton")
 assert(editedPinEntry and editedPinEntry.name == "旧地点", "map pin click did not open its editor callback")
-SearchMakerDB.settings.showMapPinNames = false
-SMK.MapPins:Refresh()
-assert(#fakeMap.pins == 1 and fakeMap.pins[1].label.shown == false,
-    "disabled map pin name was still rendered")
-SearchMakerDB.settings.showPinTextures = false
-SMK.MapPins:Refresh()
-assert(#fakeMap.pins == 0,
-    "fully hidden map pins still retained an interactive frame")
+SMK.MapPins:UpdatePinVisibility(first, false, true)
+assert(fakeMap.pins[1].label.shown == false
+    and fakeMap.pins[1].icon.shown == true
+    and fakeMap.pins[1].shown == true,
+    "per-location texture visibility depended on a removed global setting")
+SMK.MapPins:UpdatePinVisibility(first, false, false)
+assert(fakeMap.pins[1].shown == false,
+    "a location with both display options disabled retained an interactive pin")
 
 local layoutButton = {
     showIcon = false,

@@ -28,11 +28,9 @@ local translations = {
     NO_FREQUENT = "暂无使用记录",
     LOCATION_COUNT = "坐标数量：%d/%d",
     SHOW_PIN_TEXTURES = "显示标记材质",
-    SHOW_MAP_PIN_NAMES = "显示标记名称",
     PIN_TEXT_COLOR = "显示标记文字",
     MAP_PIN_SETTINGS_LABEL = "地图标记设置：",
     PIN_TEXT_SIZE = "标记文字大小",
-    PIN_COLOR_LABEL = "标记颜色",
     CUSTOM_PIN_COLOR = "显示标记文字颜色",
     CUSTOM_ICON = "自定义图标",
     CUSTOM_ICON_ATLAS = "Atlas 材质",
@@ -110,7 +108,7 @@ local translations = {
 |cffffd100地点与标记|r
 • 在世界地图空白处 Alt+左键新增地点；地点左键定位、右键修改、Shift+右键删除。
 • 在地点面板勾选“自定义图标”，可单独覆盖该地点的分组图标。
-• “标记设置”可调整图标和名称显示、颜色、大小及偏移；“搜索设置”可调整搜索框和快捷键。
+• 每个地点单独决定是否显示标记材质、文字和独立文字颜色；“标记设置”只调整材质/文字大小及文字偏移，“搜索设置”调整搜索框和快捷键。
 • HandyNotes_MapNotes 结果可直接定位，右键可收藏到指定分组。
 
 |cffffd100分享与数据|r

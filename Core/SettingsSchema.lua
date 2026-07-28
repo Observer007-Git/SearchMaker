@@ -28,11 +28,8 @@ local definitions = {
         max = Config.search.appearance.maxOpacity, decimals = 1,
     },
     shortcutSearchVisible = { kind = "boolean" },
-    showMapPinNames = { kind = "boolean" },
-    showPinTextures = { kind = "boolean" },
     searchAllMaps = { kind = "boolean" },
     exportBatchSize = { kind = "enum", values = Config.export.batchSizes },
-    mapPinTextColor = { kind = "color" },
     shortcutSearchBarPosition = { kind = "position" },
     mapSearchBarPosition = { kind = "position" },
 }
@@ -40,8 +37,8 @@ local definitions = {
 local keys = {
     "locationScale", "mapPinTextScale", "pinTextureScale",
     "mapPinNameOffsetX", "mapPinNameOffsetY", "searchBarScale", "searchBarOpacity",
-    "shortcutSearchVisible", "showMapPinNames", "showPinTextures", "searchAllMaps",
-    "exportBatchSize", "mapPinTextColor", "shortcutSearchBarPosition", "mapSearchBarPosition",
+    "shortcutSearchVisible", "searchAllMaps", "exportBatchSize",
+    "shortcutSearchBarPosition", "mapSearchBarPosition",
 }
 
 local function Copy(value)
@@ -68,15 +65,6 @@ local function NormalizeValue(definition, value)
             if value == option then return option end
         end
         return nil
-    elseif definition.kind == "color" then
-        if type(value) ~= "table" then return nil end
-        local r, g, b = tonumber(value.r), tonumber(value.g), tonumber(value.b)
-        if not r or not g or not b then return nil end
-        return {
-            r = Clamp(r, 0, 1),
-            g = Clamp(g, 0, 1),
-            b = Clamp(b, 0, 1),
-        }
     elseif definition.kind == "position" then
         if type(value) ~= "table"
             or type(value.x) ~= "number" or type(value.y) ~= "number" then

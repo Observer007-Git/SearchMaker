@@ -326,7 +326,7 @@ function Editor:Create(parent, callbacks)
         self:UpdatePinColorControl()
     end)
 
-    -- 可选的单地点文字颜色；未启用时跟随全局颜色。
+    -- 可选的单地点文字颜色；未启用时使用默认金色。
     self.pinColorOverrideCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
     self.pinColorOverrideCheck:SetSize(24, 24)
     self.pinColorOverrideCheck:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.pinColorRowY)
@@ -571,7 +571,7 @@ function Editor:Open(mode, entry, position)
     self.pinNameCheck:SetChecked(showPinName)
     local hasPinColor = entry and type(entry.pinColor) == "table"
     self.pinColorOverrideCheck:SetChecked(hasPinColor == true)
-    local color = (entry and entry.pinColor) or SMK.Settings:Get("mapPinTextColor")
+    local color = (entry and entry.pinColor) or Config.colors.gold
     self.pinColor = { r = color.r or color[1], g = color.g or color[2], b = color.b or color[3] }
     self.originalPinColor = entry and entry.pinColor and
         { r = entry.pinColor.r, g = entry.pinColor.g, b = entry.pinColor.b } or nil

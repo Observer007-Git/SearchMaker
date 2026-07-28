@@ -32,6 +32,12 @@ local function MigrateCustomIconIDs(database, schemaVersion)
     end
 end
 
+local function MigratePinSettings(database, schemaVersion)
+    if schemaVersion < 9 and database.settings.mapPinNameOffsetY == 2 then
+        database.settings.mapPinNameOffsetY = 0
+    end
+end
+
 local function AssignLocationIDs(database)
     database.nextLocationID = math.max(1, math.floor(tonumber(database.nextLocationID) or 1))
     local used = {}
@@ -112,6 +118,7 @@ function DB:Initialize()
     database.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
     database.settings = SettingsSchema:NormalizeAll(database.settings)
     MigrateCustomIconIDs(database, schemaVersion)
+    MigratePinSettings(database, schemaVersion)
     database.schemaVersion = Config.databaseSchemaVersion
     for key in pairs(database) do
         if not rootKeys[key] then database[key] = nil end

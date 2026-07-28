@@ -33,12 +33,12 @@ local function CreatePinMixin()
         self.label:ClearAllPoints()
         local offsetX = SMK.Settings:Get("mapPinNameOffsetX")
         local offsetY = SMK.Settings:Get("mapPinNameOffsetY")
-        self.label:SetPoint("BOTTOM", self, "TOP", offsetX, offsetY)
+        self.label:SetPoint("CENTER", self, "CENTER", offsetX, offsetY)
         if entry.pinColor then
             self.label:SetTextColor(entry.pinColor.r, entry.pinColor.g, entry.pinColor.b)
         else
-            local textColor = SMK.Settings:Get("mapPinTextColor")
-            self.label:SetTextColor(textColor.r, textColor.g, textColor.b)
+            local color = SMK.Config.colors.gold
+            self.label:SetTextColor(color[1], color[2], color[3])
         end
         self.label:SetScale(SMK.Settings:Get("mapPinTextScale"))
         local pinTexture = SMK.PinTextureByID[tonumber(entry.pinTextureID)]
@@ -48,8 +48,8 @@ local function CreatePinMixin()
         self.label:SetText(entry.name)
         local showName = entry.showPinName == 1
         local showTexture = entry.showPinTexture == 1
-        self.label:SetShown(SMK.Settings:Get("showMapPinNames") and showName)
-        self.icon:SetShown(SMK.Settings:Get("showPinTextures") and showTexture)
+        self.label:SetShown(showName)
+        self.icon:SetShown(showTexture)
         self:Show()
     end
 
@@ -174,12 +174,10 @@ function MapPins:Initialize(map, callbacks)
         self:RemoveAllData()
         local mapID = self:GetMap():GetMapID()
         if not mapID then return end
-        local showNames = SMK.Settings:Get("showMapPinNames")
-        local showTextures = SMK.Settings:Get("showPinTextures")
         for _, entry in ipairs(SMK.Store:GetByMap(mapID)) do
             local showName = entry.showPinName == 1
             local showTexture = entry.showPinTexture == 1
-            if (showNames and showName) or (showTextures and showTexture) then
+            if showName or showTexture then
                 self:GetMap():AcquirePin(TEMPLATE, entry)
             end
         end
@@ -268,18 +266,8 @@ function MapPins:UpdatePinPreviewColor(entry, color)
     if color then
         pin.label:SetTextColor(color.r, color.g, color.b)
     else
-        local textColor = SMK.Settings:Get("mapPinTextColor")
-        pin.label:SetTextColor(textColor.r, textColor.g, textColor.b)
-    end
-end
-
---- 实时预览全局标记文字颜色；单地点颜色覆盖不受影响。
-function MapPins:PreviewDefaultPinTextColor(color)
-    if type(color) ~= "table" then return end
-    for _, pin in pairs(self.activePins) do
-        if pin.label and pin.entry and not pin.entry.pinColor then
-            pin.label:SetTextColor(color.r, color.g, color.b)
-        end
+        local defaultColor = SMK.Config.colors.gold
+        pin.label:SetTextColor(defaultColor[1], defaultColor[2], defaultColor[3])
     end
 end
 
@@ -289,8 +277,8 @@ function MapPins:UpdatePinVisibility(entry, showPinName, showPinTexture)
     if not map or not map:IsShown() or map:GetMapID() ~= entry.mapID then return end
     local pin = self.activePins[entry.id]
     if not pin then return end
-    local nameVisible = SMK.Settings:Get("showMapPinNames") and showPinName
-    local textureVisible = SMK.Settings:Get("showPinTextures") and showPinTexture
+    local nameVisible = showPinName == true
+    local textureVisible = showPinTexture == true
     if pin.label then pin.label:SetShown(nameVisible) end
     if pin.icon then pin.icon:SetShown(textureVisible) end
     pin:SetShown(nameVisible or textureVisible)

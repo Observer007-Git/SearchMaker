@@ -53,7 +53,8 @@ function SearchBarSettings:ContainsMouseFocus() return false end
 
 function SearchBarSettings:Create(anchor)
     local controls = Config.panel.controls
-    local frame = CreateFrame("Frame", SMK.name .. "SearchBarSettings", UIParent)
+    local frame = CreateFrame(
+        "Frame", SMK.name .. "SearchBarSettings", UIParent, "BackdropTemplate")
     self.frame = frame
     frame:SetSize(controls.settingsWidth, 210)
     frame:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -4)
@@ -64,9 +65,7 @@ function SearchBarSettings:Create(anchor)
     frame.backgroundAtlas = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     frame.backgroundAtlas:SetAllPoints(frame)
     frame.backgroundAtlas:SetAtlas(Config.panel.backgroundAtlas, false)
-    frame.borderAtlas = frame:CreateTexture(nil, "BORDER", nil, 7)
-    frame.borderAtlas:SetAllPoints(frame)
-    frame.borderAtlas:SetAtlas(Config.panel.borderAtlas, false)
+    Widgets:ApplyPanelBorder(frame)
     frame:Hide()
 
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -75,7 +74,7 @@ function SearchBarSettings:Create(anchor)
     title:SetTextColor(unpack(Config.colors.gold))
     local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     close:SetSize(24, 24)
-    close:SetPoint("TOPRIGHT", -8, -8)
+    close:SetPoint("TOPRIGHT", -1, -1)
     close:SetScript("OnClick", function() self:Hide() end)
 
     local function Label(text, y, indent)

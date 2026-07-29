@@ -4,7 +4,8 @@ local HelpDialog = {}
 local Config = SMK.Config
 
 function HelpDialog:Create(parent)
-    local frame = CreateFrame("Frame", SMK.name .. "HelpFrame", parent)
+    local frame = CreateFrame(
+        "Frame", SMK.name .. "HelpFrame", parent, "BackdropTemplate")
     self.frame = frame
     frame:SetSize(600, 430)
     frame:SetPoint("CENTER", UIParent, "CENTER")
@@ -15,9 +16,7 @@ function HelpDialog:Create(parent)
     frame.backgroundAtlas = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     frame.backgroundAtlas:SetAllPoints(frame)
     frame.backgroundAtlas:SetAtlas(Config.panel.backgroundAtlas, false)
-    frame.borderAtlas = frame:CreateTexture(nil, "BORDER", nil, 7)
-    frame.borderAtlas:SetAllPoints(frame)
-    frame.borderAtlas:SetAtlas(Config.panel.borderAtlas, false)
+    SMK.Widgets:ApplyPanelBorder(frame)
 
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", 0, -20)
@@ -26,12 +25,13 @@ function HelpDialog:Create(parent)
 
     local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     close:SetSize(24, 24)
-    close:SetPoint("TOPRIGHT", -10, -10)
+    close:SetPoint("TOPRIGHT", -1, -1)
     close:SetScript("OnClick", function() self:Hide() end)
 
     local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 30, -58)
-    scroll:SetPoint("BOTTOMRIGHT", -46, 28)
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT",
+        -Config.panel.layout.scrollFrameRightInset, 28)
     self.content = CreateFrame("Frame", nil, scroll)
     self.content:SetWidth(500)
     scroll:SetScrollChild(self.content)

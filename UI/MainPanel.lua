@@ -430,9 +430,7 @@ function MainPanel:Create(searchBar, callbacks)
     frame.backgroundAtlas = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     frame.backgroundAtlas:SetAllPoints(frame)
     frame.backgroundAtlas:SetAtlas(Config.panel.backgroundAtlas, false)
-    frame.borderAtlas = frame:CreateTexture(nil, "BORDER", nil, 7)
-    frame.borderAtlas:SetAllPoints(frame)
-    frame.borderAtlas:SetAtlas(Config.panel.borderAtlas, false)
+    Widgets:ApplyPanelBorder(frame)
     frame.isExpanded = false
     frame:Hide()
     table.insert(UISpecialFrames, frame:GetName())
@@ -451,7 +449,7 @@ function MainPanel:Create(searchBar, callbacks)
 
     local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     close:SetSize(24, 24)
-    close:SetPoint("TOPRIGHT", -10, -10)
+    close:SetPoint("TOPRIGHT", -1, -1)
     close:SetScript("OnClick", function()
         if self.callbacks.onClose then self.callbacks.onClose() end
     end)
@@ -488,7 +486,8 @@ function MainPanel:Create(searchBar, callbacks)
     scalePlus:SetScript("OnClick", function()
         self:ChangeLocationScale(Config.location.scaleStep)
     end)
-    local route = Widgets:CreatePanelButton(frame, SMK.L.ROUTE_TITLE)
+    local route = Widgets:CreatePanelButton(
+        frame, SMK.L.ROUTE_TITLE, { locationHighlight = true })
     route:SetPoint("RIGHT", scalePlus, "LEFT", -buttonGap, 0)
     route:SetScript("OnClick", function() self:OpenRoute() end)
     self.scaleMinus = scaleMinus
@@ -562,8 +561,8 @@ function MainPanel:Create(searchBar, callbacks)
     local scroll = CreateFrame("ScrollFrame", SMK.name .. "ScrollFrame", frame, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", divider, "BOTTOMLEFT",
         -Config.panel.layout.dividerInset, -6)
-    scroll:SetPoint("BOTTOMRIGHT",
-        -PanelLayout.scrollRightInset + Config.panel.layout.scrollbarOffsetX,
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT",
+        -Config.panel.layout.scrollFrameRightInset,
         Config.panel.layout.outerInset)
     self.listContent = CreateFrame("Frame", nil, scroll)
     self.listContent:SetWidth(PanelLayout.contentWidth)

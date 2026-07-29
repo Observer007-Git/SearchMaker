@@ -6,7 +6,7 @@ local Config = {
     panel = {
         height = 512,
         backgroundAtlas = "catalog-list-preview-bg",
-        borderAtlas = "housing-wood-frame",
+        backgroundInset = 3,
         layout = {
             targetColumns = 5,
             contentInset = 4,
@@ -17,7 +17,7 @@ local Config = {
             scrollLeftOutset = 6,
             scrollbarReserve = 48,
             scrollChildInset = 2,
-            scrollbarOffsetX = -6,
+            scrollFrameRightInset = 28,
             showLocationIcons = true,
             frequentTitleHeight = 18,
         },
@@ -341,11 +341,11 @@ Config.settingsDefaults = {
 
 Config.panelBackdrop = {
     bgFile = "Interface\\Buttons\\WHITE8X8",
-    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
     tile = true,
     tileSize = 32,
     edgeSize = 24,
-    insets = { left = 0, right = 0, top = 0, bottom = 0 },
+    insets = { left = 1, right = 1, top = 1, bottom = 1 },
 }
 
 Config.resultBackdrop = {
@@ -354,7 +354,7 @@ Config.resultBackdrop = {
     tile = true,
     tileSize = 16,
     edgeSize = 12,
-    insets = { left = 0, right = 0, top = 0, bottom = 0 },
+    insets = { left = 1, right = 1, top = 1, bottom = 1 },
 }
 
 Config.searchResultBackdrop = SMK.Util.CopyTable(Config.resultBackdrop)

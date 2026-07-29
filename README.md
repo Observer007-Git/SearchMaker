@@ -124,7 +124,7 @@ SearchMaker 是一个适用于《魔兽世界》正式服的轻量地图搜索�
 | 地点按钮大小 | `Config.lua` → `location.baseWidth` / `location.baseHeight` |
 | 主面板木牌水平间距 | `Config.lua` → `location.horizontalGap` |
 | 主面板目标列数/内容边距/滚动条预留 | `Config.lua` → `panel.layout` |
-| 主面板滚动条水平偏移 | `Config.lua` → `panel.layout.scrollbarOffsetX` |
+| 面板滚动条右侧贴边位置 | `Config.lua` → `panel.layout.scrollFrameRightInset` |
 | 主面板顶部高度与内容间距 | `Config.lua` → `panel.layout.headerHeight` / `contentTopGap` |
 | 主面板功能按钮 Atlas、尺寸和边距 | `Config.lua` → `panel.controls` |
 | 地点木牌背景 Atlas | `Config.lua` → `art.locationSign` |
@@ -137,6 +137,8 @@ SearchMaker 是一个适用于《魔兽世界》正式服的轻量地图搜索�
 | 搜索结果图标边框及扩展 | `Config.lua` → `art.searchResultIconFrame` / `searchResultIconFrameExpand` |
 | 颜色（文字/边框/背景） | `Config.lua` → `colors.*` |
 | 面板底图 Atlas | `Config.lua` → `panel.backgroundAtlas` |
+| 全部面板背景内缩 | `Config.lua` → `panel.backgroundInset` / Backdrop `insets` |
+| 全部插件面板边框 | `Config.lua` → `resultBackdrop` / `panelBackdrop`（`UI-Tooltip-Border`） |
 | 数量限制：地点名最大输入字符/显示宽度 | `Config.lua` → `location.maxNameLength` / `maxNameWidth` |
 | 备注长度和鼠标提示颜色 | `Config.lua` → `location.maxNoteLength/maxNoteWidth` / `colors.note` |
 | 缩放范围 | `Config.lua` → `location.minScale` / `maxScale` / `scaleStep` |

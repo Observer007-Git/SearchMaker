@@ -92,6 +92,20 @@ function Widgets:UpdateLocationGeometry(button)
     button.label:SetPoint("RIGHT", button.background, "RIGHT", -textPadding, textOffsetY)
 end
 
+--- 为插件面板应用统一的 Tooltip 边框，保留面板自身的背景材质。
+function Widgets:ApplyPanelBorder(frame)
+    if frame.backgroundAtlas then
+        local inset = Config.panel.backgroundInset
+        frame.backgroundAtlas:ClearAllPoints()
+        frame.backgroundAtlas:SetPoint("TOPLEFT", frame, "TOPLEFT", inset, -inset)
+        frame.backgroundAtlas:SetPoint(
+            "BOTTOMRIGHT", frame, "BOTTOMRIGHT", -inset, inset)
+    end
+    frame:SetBackdrop(Config.resultBackdrop)
+    frame:SetBackdropColor(0, 0, 0, 0)
+    frame:SetBackdropBorderColor(unpack(Config.colors.panelBorder))
+end
+
 --- 创建主面板使用的 Atlas 文字按钮。
 -- 宽度默认根据当前语言文本自动计算；可通过 options.width 固定宽度。
 function Widgets:CreatePanelButton(parent, text, options)
@@ -112,6 +126,16 @@ function Widgets:CreatePanelButton(parent, text, options)
     button.hover:SetBlendMode("ADD")
     button.hover:SetAlpha(0.65)
     button:SetHighlightTexture(button.hover)
+
+    if options.locationHighlight then
+        button.hover:SetAlpha(0)
+        button.locationHighlight = button:CreateTexture(nil, "ARTWORK")
+        button.locationHighlight:SetAllPoints()
+        button.locationHighlight:SetTexture(Config.art.highlight)
+        button.locationHighlight:SetBlendMode("ADD")
+        button.locationHighlight:SetAlpha(0.75)
+        button.locationHighlight:Hide()
+    end
 
     button.label = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     button.label:SetAllPoints()
@@ -139,7 +163,21 @@ function Widgets:CreatePanelButton(parent, text, options)
     button:SetScript("OnDisable", function(self)
         self.background:SetAlpha(0.3)
         self.label:SetTextColor(unpack(Config.colors.disabled))
+        if self.locationHighlight then self.locationHighlight:Hide() end
     end)
+    if button.locationHighlight then
+        button:SetScript("OnEnter", function(self)
+            self.label:SetTextColor(1, 1, 1)
+            self.locationHighlight:Show()
+        end)
+        button:SetScript("OnLeave", function(self)
+            local enabled = self:IsEnabled()
+            self.background:SetAlpha(enabled and 0.72 or 0.3)
+            self.label:SetTextColor(unpack(
+                enabled and Config.colors.gold or Config.colors.disabled))
+            self.locationHighlight:Hide()
+        end)
+    end
     button:SetText(text)
     return button
 end

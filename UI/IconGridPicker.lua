@@ -37,9 +37,7 @@ function IconGridPicker:Create(parent, options)
     frame.backgroundAtlas = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     frame.backgroundAtlas:SetAllPoints(frame)
     frame.backgroundAtlas:SetAtlas(SMK.Config.panel.backgroundAtlas, false)
-    frame:SetBackdrop(SMK.Config.resultBackdrop)
-    frame:SetBackdropColor(0, 0, 0, 0)
-    frame:SetBackdropBorderColor(unpack(SMK.Config.colors.panelBorder))
+    SMK.Widgets:ApplyPanelBorder(frame)
 
     for index, entry in ipairs(picker.entries) do
         local button = CreateFrame("Button", nil, frame)

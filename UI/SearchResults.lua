@@ -43,6 +43,7 @@ function SearchResults:New(parent, box, callbacks)
     frame:SetFrameLevel(parent:GetFrameLevel() + 20)
     frame:SetBackdrop(SMK.Config.searchResultBackdrop)
     frame:SetBackdropColor(0.02, 0.02, 0.02, 1)
+    frame:SetBackdropBorderColor(unpack(SMK.Config.colors.panelBorder))
     frame:Hide()
 
     view.empty = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")

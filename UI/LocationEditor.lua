@@ -147,7 +147,8 @@ end
 
 function Editor:Create(parent, callbacks)
     self.callbacks = callbacks or {}
-    local frame = CreateFrame("Frame", SMK.name .. "LocationForm", parent)
+    local frame = CreateFrame(
+        "Frame", SMK.name .. "LocationForm", parent, "BackdropTemplate")
     self.frame = frame
     frame:SetSize(EditorConfig.width, EditorConfig.height)
     frame:SetPoint("CENTER")
@@ -157,9 +158,7 @@ function Editor:Create(parent, callbacks)
     frame.backgroundAtlas = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     frame.backgroundAtlas:SetAllPoints(frame)
     frame.backgroundAtlas:SetAtlas(Config.panel.backgroundAtlas, false)
-    frame.borderAtlas = frame:CreateTexture(nil, "BORDER", nil, 7)
-    frame.borderAtlas:SetAllPoints(frame)
-    frame.borderAtlas:SetAtlas(Config.panel.borderAtlas, false)
+    Widgets:ApplyPanelBorder(frame)
     frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     frame.title:SetPoint("TOP", 0, EditorConfig.titleOffsetY)
     frame.title:SetTextColor(unpack(Config.colors.gold))

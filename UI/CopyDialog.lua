@@ -3,7 +3,8 @@ local _, SMK = ...
 local Dialog = {}
 
 function Dialog:Create(parent)
-    local frame = CreateFrame("Frame", SMK.name .. "CopyFrame", parent)
+    local frame = CreateFrame(
+        "Frame", SMK.name .. "CopyFrame", parent, "BackdropTemplate")
     self.frame = frame
     frame:SetSize(440, 142)
     frame:SetPoint("CENTER")
@@ -14,15 +15,13 @@ function Dialog:Create(parent)
     frame.backgroundAtlas = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     frame.backgroundAtlas:SetAllPoints(frame)
     frame.backgroundAtlas:SetAtlas(SMK.Config.panel.backgroundAtlas, false)
-    frame.borderAtlas = frame:CreateTexture(nil, "BORDER", nil, 7)
-    frame.borderAtlas:SetAllPoints(frame)
-    frame.borderAtlas:SetAtlas(SMK.Config.panel.borderAtlas, false)
+    SMK.Widgets:ApplyPanelBorder(frame)
     self.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     self.title:SetPoint("TOP", 0, -18)
     self.title:SetTextColor(unpack(SMK.Config.colors.gold))
     local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     close:SetSize(24, 24)
-    close:SetPoint("TOPRIGHT", -10, -10)
+    close:SetPoint("TOPRIGHT", -1, -1)
     close:SetScript("OnClick", function() frame:Hide() end)
     self.textBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
     self.textBox:SetPoint("TOPLEFT", 24, -58)

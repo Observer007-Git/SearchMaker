@@ -3,7 +3,8 @@ local _, SMK = ...
 local Dialog = {}
 
 function Dialog:Create(parent)
-    local frame = CreateFrame("Frame", SMK.name .. "ImportPreviewFrame", parent)
+    local frame = CreateFrame(
+        "Frame", SMK.name .. "ImportPreviewFrame", parent, "BackdropTemplate")
     self.frame = frame
     frame:SetSize(540, 390)
     frame:SetPoint("CENTER")
@@ -14,9 +15,7 @@ function Dialog:Create(parent)
     frame.backgroundAtlas = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     frame.backgroundAtlas:SetAllPoints(frame)
     frame.backgroundAtlas:SetAtlas(SMK.Config.panel.backgroundAtlas, false)
-    frame.borderAtlas = frame:CreateTexture(nil, "BORDER", nil, 7)
-    frame.borderAtlas:SetAllPoints(frame)
-    frame.borderAtlas:SetAtlas(SMK.Config.panel.borderAtlas, false)
+    SMK.Widgets:ApplyPanelBorder(frame)
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", 0, -18)
     title:SetTextColor(unpack(SMK.Config.colors.gold))
@@ -25,12 +24,13 @@ function Dialog:Create(parent)
     self.summary:SetPoint("TOP", title, "BOTTOM", 0, -8)
     local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     close:SetSize(24, 24)
-    close:SetPoint("TOPRIGHT", -10, -10)
+    close:SetPoint("TOPRIGHT", -1, -1)
     close:SetScript("OnClick", function() frame:Hide() end)
 
     local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 28, -76)
-    scroll:SetPoint("BOTTOMRIGHT", -46, 62)
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT",
+        -SMK.Config.panel.layout.scrollFrameRightInset, 62)
     self.content = CreateFrame("Frame", nil, scroll)
     self.content:SetWidth(450)
     scroll:SetScrollChild(self.content)

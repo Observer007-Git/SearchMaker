@@ -1218,7 +1218,7 @@ assert(not panelSettingsSource:find("showPinTexturesCheck", 1, true)
     and panelSettingsSource:find("mapPinNameOffsetY", 1, true),
     "pin settings panel retained global visibility/color controls or lost appearance controls")
 assert(iconGridSource:find("SetAtlas(SMK.Config.panel.backgroundAtlas, false)", 1, true)
-    and iconGridSource:find("SetBackdropColor(0, 0, 0, 0)", 1, true),
+    and iconGridSource:find("SMK.Widgets:ApplyPanelBorder(frame)", 1, true),
     "icon selection popup does not use the main panel background atlas")
 assert(mainPanelSource:find("BuildListLayout", 1, true)
     and mainPanelSource:find("RenderVisibleList", 1, true)
@@ -1671,7 +1671,7 @@ assert(SMK.HelpDialog and SMK.HelpDialog.Create and SMK.HelpDialog.Open
     and SMK.L.HELP_TEXT ~= "",
     "localized help dialog is unavailable")
 assert(mainPanelSource:find(
-        "local route = Widgets:CreatePanelButton(frame, SMK.L.ROUTE_TITLE)", 1, true)
+        "frame, SMK.L.ROUTE_TITLE, { locationHighlight = true })", 1, true)
     and mainPanelSource:find(
         "route:SetPoint(\"RIGHT\", scalePlus, \"LEFT\", -buttonGap, 0)", 1, true)
     and not mainPanelSource:find(
@@ -1679,8 +1679,35 @@ assert(mainPanelSource:find(
     "route button was not moved beside the location scale controls")
 assert(ReadSource("UI/HelpDialog.lua"):find("UIPanelScrollFrameTemplate", 1, true)
     and ReadSource("UI/RouteDialog.lua"):find(
-        "close:SetFrameLevel(frame:GetFrameLevel() + 20)", 1, true),
-    "help scrolling or route close-button click priority is missing")
+        "close:SetFrameLevel(frame:GetFrameLevel() + 20)", 1, true)
+    and ReadSource("UI/RouteDialog.lua"):find(
+        "SMK.Widgets:ApplyPanelBorder(frame)", 1, true),
+    "help scrolling, route close-button priority, or picker-style route border is missing")
+assert(SMK.Config.panelBackdrop.edgeFile
+        == "Interface\\Tooltips\\UI-Tooltip-Border"
+    and SMK.Config.resultBackdrop.edgeFile
+        == "Interface\\Tooltips\\UI-Tooltip-Border"
+    and SMK.Config.panel.backgroundInset == 3
+    and SMK.Config.panelBackdrop.insets.left == 1
+    and SMK.Config.panelBackdrop.insets.right == 1
+    and SMK.Config.panelBackdrop.insets.top == 1
+    and SMK.Config.panelBackdrop.insets.bottom == 1
+    and SMK.Config.resultBackdrop.insets.left == 1
+    and SMK.Config.resultBackdrop.insets.right == 1
+    and SMK.Config.resultBackdrop.insets.top == 1
+    and SMK.Config.resultBackdrop.insets.bottom == 1
+    and widgetsSource:find("function Widgets:ApplyPanelBorder(frame)", 1, true)
+    and not (mainPanelSource
+        .. panelSettingsSource
+        .. ReadSource("UI/BulkDeleteDialog.lua")
+        .. ReadSource("UI/CopyDialog.lua")
+        .. ReadSource("UI/HelpDialog.lua")
+        .. ReadSource("UI/ImportPreviewDialog.lua")
+        .. ReadSource("UI/LocationEditor.lua")
+        .. ReadSource("UI/RouteDialog.lua")
+        .. ReadSource("UI/SearchBarSettings.lua")
+        .. ReadSource("UI/ShareDialog.lua")):find("borderAtlas", 1, true),
+    "plugin panels do not share the Tooltip border implementation")
 assert(not (ReadSource("UI/BulkDeleteDialog.lua")
         .. ReadSource("UI/ImportPreviewDialog.lua")
         .. ReadSource("UI/LocationEditor.lua")
@@ -1688,8 +1715,30 @@ assert(not (ReadSource("UI/BulkDeleteDialog.lua")
         .. ReadSource("UI/ShareDialog.lua")):find(
             "UIPanelButtonTemplate", 1, true),
     "a plugin action button still uses the default panel button background")
-assert(SMK.Config.panel.layout.scrollbarOffsetX == -6,
-    "main panel scrollbar offset changed")
+assert(SMK.Config.panel.layout.scrollFrameRightInset == 28
+    and mainPanelSource:find(
+        "%-Config%.panel%.layout%.scrollFrameRightInset")
+    and ReadSource("UI/RouteDialog.lua"):find(
+        "%-SMK%.Config%.panel%.layout%.scrollFrameRightInset")
+    and ReadSource("UI/ImportPreviewDialog.lua"):find(
+        "%-SMK%.Config%.panel%.layout%.scrollFrameRightInset")
+    and ReadSource("UI/HelpDialog.lua"):find(
+        "%-Config%.panel%.layout%.scrollFrameRightInset")
+    and ReadSource("UI/ShareDialog.lua"):find(
+        "%-Config%.panel%.layout%.scrollFrameRightInset"),
+    "panel scrollbars are not inset two pixels from the right border")
+local closeButtonSources = mainPanelSource
+    .. panelSettingsSource
+    .. ReadSource("UI/SearchBarSettings.lua")
+    .. ReadSource("UI/BulkDeleteDialog.lua")
+    .. ReadSource("UI/CopyDialog.lua")
+    .. ReadSource("UI/HelpDialog.lua")
+    .. ReadSource("UI/ImportPreviewDialog.lua")
+    .. ReadSource("UI/RouteDialog.lua")
+    .. ReadSource("UI/ShareDialog.lua")
+assert(select(2, closeButtonSources:gsub(
+        "close:SetPoint%(\"TOPRIGHT\", %-1, %-1%)", "")) == 9,
+    "panel close buttons do not share the tested top-right inset")
 
 local panelExpanded, resultsUpdated, outsideRegistered = false, 0, false
 local pickerHidden, pinPickerHidden = false, false

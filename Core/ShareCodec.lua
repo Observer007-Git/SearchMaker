@@ -91,6 +91,7 @@ function Codec:Encode(entries)
             pinTextureID,
             EncodeColor(entry.pinColor),
             tonumber(entry.customIconID) or "",
+            EncodeField(entry.note),
         }, ",")
     end
     return Config.share.prefix .. table.concat(records, ";")
@@ -110,7 +111,7 @@ function Codec:Decode(text)
         local customIconID = fields[9] ~= "" and tonumber(fields[9]) or nil
         local customIconValid = fields[9] == ""
             or (customIconID and SMK.IconCatalog:Get(customIconID))
-        if #fields ~= 9 or not category or not flags or flags % 1 ~= 0
+        if #fields ~= 10 or not category or not flags or flags % 1 ~= 0
             or flags < 0 or flags > 3 or not SMK.PinTextureByID[pinTextureID]
             or not colorValid or not customIconValid then
             invalid = invalid + 1
@@ -126,6 +127,7 @@ function Codec:Decode(text)
                 showPinTexture = math.floor(flags / 2),
                 pinColor = pinColor,
                 customIconID = customIconID,
+                note = DecodeField(fields[10]),
             }
             local entry = SMK.LocationModel:Normalize(values) or nil
             if entry then

@@ -2,6 +2,7 @@ local _, SMK = ...
 
 local Dialog = {}
 local Config = SMK.Config
+local Widgets = SMK.Widgets
 local MAX_RETAINED_TEXT_LENGTH = 65536
 
 --- 更新对话框底部的状态文字。
@@ -127,10 +128,19 @@ end
 --- 从文本框中的 SMK| 共享文本导入条目。
 -- 跳过已存在的条目（通过 GetDuplicateKey 匹配）。
 function Dialog:Import()
-    local result, errorMessage = SMK.Import:ImportText(self.textBox:GetText())
-    if not result then return self:SetStatus(errorMessage, true) end
-    self.textBox:SetText("")
-    self:ShowImportResult(result)
+    return self:PreviewImport(self.textBox:GetText(), true)
+end
+
+function Dialog:PreviewImport(text, clearOnSuccess)
+    local preview, errorMessage = SMK.Import:PreviewText(text)
+    if not preview then return self:SetStatus(errorMessage, true) end
+    SMK.ImportPreviewDialog:Open(preview, function()
+        local result, commitError = SMK.Import:CommitPreview(preview)
+        if not result then return self:SetStatus(commitError, true) end
+        if clearOnSuccess then self.textBox:SetText("") end
+        self:ShowImportResult(result)
+    end)
+    return preview
 end
 
 function Dialog:ShowImportResult(result)
@@ -148,10 +158,7 @@ function Dialog:ImportWhispers()
         return SMK:Print(SMK.L.CHAT_IMPORT_NONE)
     end
     self.textBox:SetText(text)
-    local result, errorMessage = SMK.Import:ImportText(text)
-    if not result then return self:SetStatus(errorMessage, true) end
-    self:ShowImportResult(result)
-    return result
+    return self:PreviewImport(text, false)
 end
 
 function Dialog:Create(parent)
@@ -264,31 +271,28 @@ function Dialog:Create(parent)
     end)
     scroll:SetScrollChild(self.textBox)
 
-    local export = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    export:SetSize(112, 24)
+    local export = Widgets:CreatePanelButton(
+        frame, SMK.L.EXPORT_BUTTON, { width = 112 })
     export:SetPoint("BOTTOMLEFT", 59, 24)
-    export:SetText(SMK.L.EXPORT_BUTTON)
     export:SetScript("OnClick", function() self:Export() end)
-    local import = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    import:SetSize(122, 24)
+    local import = Widgets:CreatePanelButton(
+        frame, SMK.L.IMPORT_BUTTON, { width = 122 })
     import:SetPoint("LEFT", export, "RIGHT", 8, 0)
-    import:SetText(SMK.L.IMPORT_BUTTON)
     import:SetScript("OnClick", function() self:Import() end)
-    local whisperImport = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    whisperImport:SetSize(144, 24)
+    local whisperImport = Widgets:CreatePanelButton(
+        frame, SMK.L.CHAT_IMPORT, { width = 144 })
     whisperImport:SetPoint("LEFT", import, "RIGHT", 8, 0)
-    whisperImport:SetText(SMK.L.CHAT_IMPORT)
     whisperImport:SetScript("OnClick", function() self:ImportWhispers() end)
-    local cancel = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    cancel:SetSize(80, 24)
+    local cancel = Widgets:CreatePanelButton(
+        frame, SMK.L.CLOSE, { width = 80 })
     cancel:SetPoint("LEFT", whisperImport, "RIGHT", 8, 0)
-    cancel:SetText(SMK.L.CLOSE)
     cancel:SetScript("OnClick", function() frame:Hide() end)
     self.status = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.status:SetPoint("BOTTOMLEFT", 24, 8)
     self.status:SetPoint("BOTTOMRIGHT", -24, 8)
     self.status:SetJustifyH("CENTER")
     frame:SetScript("OnHide", function()
+        SMK.ImportPreviewDialog:Hide()
         self.textBox:ClearFocus()
         if #(self.textBox:GetText() or "") > MAX_RETAINED_TEXT_LENGTH then
             self.textBox:SetText("")

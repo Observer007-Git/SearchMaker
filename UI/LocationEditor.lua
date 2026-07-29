@@ -26,8 +26,7 @@ end
 function Editor:UpdateCategory()
     local catInfo = Config.categoryByKey[self.categoryKey]
     self.dropdown.Text:SetText(catInfo and (SMK.L[catInfo.nameKey] or catInfo.key) or self.categoryKey)
-    self.dropdown.categoryIcon:SetAtlas(
-        catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas, false)
+    Config.ApplyCategoryIcon(self.dropdown.categoryIcon, self.categoryKey)
 end
 
 --- 处理来自下拉框的类别选择。
@@ -77,6 +76,7 @@ function Editor:Save()
         x = tonumber(Util.Trim(self.inputs.x:GetText())),
         y = tonumber(Util.Trim(self.inputs.y:GetText())),
         name = Util.Trim(self.inputs.name:GetText()),
+        note = Util.Trim(self.inputs.note:GetText()),
         categoryKey = self.categoryKey,
         showPinName = self.pinNameCheck:GetChecked() and 1 or 0,
         showPinTexture = self.pinCheck:GetChecked() and 1 or 0,
@@ -96,6 +96,10 @@ function Editor:Save()
     local nameWidth = Util.GetTextWidth(values.name)
     if not nameWidth or nameWidth > Config.location.maxNameWidth then
         return self:SetError(SMK.L.ERROR_NAME_TOO_LONG)
+    end
+    local noteWidth = Util.GetTextWidth(values.note)
+    if not noteWidth or noteWidth > Config.location.maxNoteWidth then
+        return self:SetError(SMK.L.ERROR_NOTE_TOO_LONG)
     end
     local success, message = self.callbacks.onSave(frame.mode, frame.entry, values)
     if success == false then
@@ -195,7 +199,7 @@ function Editor:Create(parent, callbacks)
                 local menuIconSize = math.max(10, math.floor((menuFontSize or 12) + 0.5))
                 local icon = button:AttachTexture()
                 icon:SetSize(menuIconSize, menuIconSize)
-                icon:SetAtlas(category.atlas, false)
+                Config.ApplyCategoryIcon(icon, category.key)
                 icon:SetPoint("LEFT", button.leftTexture1, "RIGHT", 1, 0)
                 button.fontString:ClearAllPoints()
                 button.fontString:SetPoint("LEFT", icon, "RIGHT", 3, 0)
@@ -260,6 +264,18 @@ function Editor:Create(parent, callbacks)
     nameInput:SetMaxLetters(Config.location.maxNameLength)
     nameInput:SetTextColor(1, 1, 1)
 
+    -- Optional note
+    local noteLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    noteLabel:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.noteRowY)
+    noteLabel:SetTextColor(unpack(Config.colors.gold))
+    noteLabel:SetText(SMK.L.NOTE_LABEL)
+    local noteInput = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+    noteInput:SetSize(EditorConfig.inputWidth, EditorConfig.buttonHeight)
+    noteInput:SetPoint("RIGHT", frame, "TOPRIGHT", -18, EditorConfig.noteRowY)
+    noteInput:SetAutoFocus(false)
+    noteInput:SetMaxLetters(Config.location.maxNoteLength)
+    noteInput:SetTextColor(1, 1, 1)
+
     -- X coordinate
     local xLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     xLabel:SetPoint("LEFT", frame, "TOPLEFT", 18, EditorConfig.xRowY)
@@ -284,19 +300,22 @@ function Editor:Create(parent, callbacks)
     yInput:SetMaxLetters(Config.location.maxCoordinateLength)
     yInput:SetTextColor(1, 1, 1)
 
-    self.inputs = { name = nameInput, x = xInput, y = yInput }
+    self.inputs = { name = nameInput, note = noteInput, x = xInput, y = yInput }
     for _, input in pairs(self.inputs) do
         input:SetScript("OnEnterPressed", function() self:Save() end)
     end
-    SetTabTarget(self.inputs.name, self.inputs.x)
+    SetTabTarget(self.inputs.name, self.inputs.note)
+    SetTabTarget(self.inputs.note, self.inputs.x)
     SetTabTarget(self.inputs.x, self.inputs.y)
     SetTabTarget(self.inputs.y, self.inputs.name)
 
-    local coordinateButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    local coordinateButton = Widgets:CreatePanelButton(
+        frame, SMK.L.READ_COORDINATES, {
+            width = EditorConfig.coordinateButtonWidth,
+            height = EditorConfig.buttonHeight,
+        })
     self.coordinateButton = coordinateButton
-    coordinateButton:SetSize(EditorConfig.coordinateButtonWidth, EditorConfig.buttonHeight)
     coordinateButton:SetPoint("TOP", frame, "TOP", 0, EditorConfig.coordinateButtonY)
-    coordinateButton:SetText(SMK.L.READ_COORDINATES)
     coordinateButton:SetScript("OnClick", function() self:FillCoordinates() end)
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
@@ -458,20 +477,23 @@ function Editor:Create(parent, callbacks)
         SMK.MapPins:UpdatePinVisibility(frame.entry, self.pinNameCheck:GetChecked(), self.pinCheck:GetChecked())
     end)
 
-    local save = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    save:SetSize(EditorConfig.buttonWidth, EditorConfig.buttonHeight)
+    local save = Widgets:CreatePanelButton(frame, SMK.L.SAVE, {
+        width = EditorConfig.buttonWidth,
+        height = EditorConfig.buttonHeight,
+    })
     save:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -EditorConfig.bottomButtonOffsetX, EditorConfig.bottomButtonOffsetY)
-    save:SetText(SMK.L.SAVE)
     save:SetScript("OnClick", function() self:Save() end)
-    self.deleteButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    self.deleteButton:SetSize(EditorConfig.buttonWidth, EditorConfig.buttonHeight)
+    self.deleteButton = Widgets:CreatePanelButton(frame, SMK.L.DELETE, {
+        width = EditorConfig.buttonWidth,
+        height = EditorConfig.buttonHeight,
+    })
     self.deleteButton:SetPoint("BOTTOM", frame, "BOTTOM", 0, EditorConfig.bottomButtonOffsetY)
-    self.deleteButton:SetText(SMK.L.DELETE)
     self.deleteButton:SetScript("OnClick", function() self:Delete() end)
-    local cancel = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    cancel:SetSize(EditorConfig.buttonWidth, EditorConfig.buttonHeight)
+    local cancel = Widgets:CreatePanelButton(frame, SMK.L.CANCEL, {
+        width = EditorConfig.buttonWidth,
+        height = EditorConfig.buttonHeight,
+    })
     cancel:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", EditorConfig.bottomButtonOffsetX, EditorConfig.bottomButtonOffsetY)
-    cancel:SetText(SMK.L.CANCEL)
     cancel:SetScript("OnClick", function() frame:Hide() end)
     frame:SetScript("OnHide", function()
         self.customIconPicker:Hide()
@@ -548,6 +570,7 @@ function Editor:Open(mode, entry, position)
     self:UpdateCoordinateButton()
     frame.mapName:SetText(mapID and string.format(SMK.L.MAP_FORMAT, SMK.Map:GetMapName(mapID), mapID) or SMK.L.UNKNOWN_MAP)
     self.inputs.name:SetText(entry and entry.name or "")
+    self.inputs.note:SetText(entry and entry.note or "")
     self.inputs.x:SetText(entry and tostring(entry.x) or "")
     self.inputs.y:SetText(entry and tostring(entry.y) or "")
     self.deleteButton:SetShown(mode == "edit")

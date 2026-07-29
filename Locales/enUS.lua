@@ -9,13 +9,13 @@ SMK.L = {
     SEARCH_CURRENT_MAP = "Search %s",
     SEARCH_ALL_MAPS = "Search All Maps",
     SHARE = "Share",
-    FAVORITE_TO_FORMAT = "Add to %s",
     ADD = "Add Coordinate",
     SETTINGS = "Pin Settings",
     DISPLAY_SETTINGS = "Display Settings",
     MORE = "More",
     HELP = "How to Use",
     BULK_DELETE = "Bulk Delete",
+    ROUTE_TITLE = "Route",
     SHORTCUT = "Shortcut Key",
     CAPTURE_SHORTCUT = "Press a key...",
     MOVE_HINT = "Hold Shift to move",
@@ -104,16 +104,18 @@ SMK.L = {
 |cffffd100Search and access|r
 • Left-click the search box to search, right-click it to open the main panel, and middle-click it to toggle the world map. Hold Shift and drag to move the search box.
 • Press Tab to switch between Current Map and All Maps. With the map open, Current Map follows the viewed map; with it closed, it follows your character.
-• Search by location name, or enter coordinates such as “45.2, 63.8” to create a native waypoint.
+• Search by location name, or enter coordinates such as “45.2, 63.8”. Left-click the result to create a native waypoint; right-click it to copy, add to the route, or add a temporary pin.
 
 |cffffd100Locations and pins|r
-• Alt+Left-click empty map space to add a location. Left-click a saved location to mark it, right-click to edit, or Shift+Right-click to delete.
+• Alt+Left-click empty map space to add a location. Use Note for extra details; notes appear in green in tooltips.
+• Right-click a saved or external location in search results, the main panel, or on the map to open the same action menu.
 • In the location editor, enable Custom Icon to override the group icon for that location.
 • Each location controls its own pin icon, name, and optional text color. Pin Settings controls icon/text size and text offset. Search Settings controls the search box and shortcut key.
-• HandyNotes_MapNotes results can be marked directly; right-click one to save it to a chosen group.
+• External locations are saved to the HandyNotes_MapNotes group by default. Add locations to the Route queue to visit them in a chosen order.
+• A route location can receive a session-only temporary pin. Existing saved pins are never replaced or removed.
 
 |cffffd100Sharing and data|r
-• Import / Export copies or pastes SMK text, or imports SMK codes sent or received in character and Battle.net whispers since login or /reload; it does not scan channels.
+• Import / Export previews new, duplicate, and invalid locations before writing them. It also imports SMK codes sent or received in character and Battle.net whispers since login or /reload; it does not scan channels.
 • Locations and settings are stored account-wide. Export a backup before making large changes.
 ]],
 
@@ -138,6 +140,7 @@ SMK.L = {
 
     -- LocationEditor
     NAME_LABEL = "Name",
+    NOTE_LABEL = "Note",
     X_LABEL = "X",
     Y_LABEL = "Y",
     CATEGORY_LABEL = "Category",
@@ -153,6 +156,7 @@ SMK.L = {
     ERROR_INVALID_SETTING = "That setting value is invalid.",
     ERROR_EMPTY_NAME = "Please enter a location name.",
     ERROR_NAME_TOO_LONG = "Name is too long (up to 10 wide or 20 narrow characters).",
+    ERROR_NOTE_TOO_LONG = "Note is too long (up to 60 wide or 120 narrow characters).",
 
     -- BulkDeleteDialog
     BULK_DELETE_TITLE = "Bulk Delete",
@@ -183,6 +187,12 @@ SMK.L = {
     EXPORT_NO_LOCATIONS_ALL = "No locations to export.",
     IMPORT_INVALID_FORMAT = "Invalid format: missing SMK prefix.",
     IMPORT_EMPTY = "No locations found in text.",
+    IMPORT_PREVIEW_TITLE = "Import Preview",
+    IMPORT_PREVIEW_SUMMARY = "New %d · Duplicates %d · Invalid %d",
+    IMPORT_PREVIEW_NEW = "[New]",
+    IMPORT_PREVIEW_DUPLICATE = "[Duplicate]",
+    IMPORT_PREVIEW_MORE = "...and %d more",
+    IMPORT_CONFIRM = "Import",
     DATABASE_READ_ONLY = "Saved data schema %d is newer than supported schema %d. SearchMaker is running read-only to protect it.",
 
     -- Widgets tooltip
@@ -194,7 +204,35 @@ SMK.L = {
     NO_LOCATIONS_TO_DELETE = "No locations found to delete.",
 
     -- Widgets tooltip
-    TOOLTIP_INSTRUCTIONS = "Left-click: waypoint  ·  Right-click: edit  ·  Shift+Right-click: delete",
+    TOOLTIP_INSTRUCTIONS = "Left-click: waypoint  ·  Right-click: action menu",
+    TOOLTIP_PIN_INSTRUCTIONS = "Left-click: edit  ·  Right-click: action menu",
+
+    -- Location context menu and route
+    MENU_FAVORITE = "Save Coordinate",
+    MENU_COPY_COORDINATES = "Copy Coordinates",
+    MENU_SHARE_COORDINATE = "Share Coordinate",
+    MENU_EDIT_COORDINATE = "Edit Coordinate",
+    MENU_DELETE_COORDINATE = "Delete Coordinate",
+    MENU_ADD_ROUTE = "Add to Route",
+    MENU_ADD_TEMP_PIN = "Add Temporary Pin",
+    COPY_COORDINATES_TITLE = "Copy Coordinates",
+    SHARE_COORDINATE_TITLE = "Share Coordinate",
+    COPY_HINT = "Press Ctrl+C to copy.",
+    ROUTE_COUNT = "%d/%d locations",
+    ROUTE_EMPTY = "No locations in the route.",
+    ROUTE_LOCATE = "Locate",
+    ROUTE_TEMP_PIN = "Temp Pin",
+    ROUTE_TEMP_PIN_ACTIVE = "Temp Pin Added",
+    ROUTE_TEMP_PIN_PERSISTENT_STATE = "Saved Pin Exists",
+    ROUTE_START = "Start Route",
+    ROUTE_COMPLETE_NEXT = "Complete & Next",
+    ROUTE_CLEAR = "Clear",
+    ROUTE_ADDED = "Added %s to the route.",
+    ROUTE_DUPLICATE = "This location is already in the route.",
+    ROUTE_FULL = "The route supports up to %d locations.",
+    ROUTE_TEMP_PIN_ADDED = "Added a temporary map pin for %s.",
+    ROUTE_TEMP_PIN_PERSISTENT = "This location already has a saved map pin. It was not changed.",
+    ROUTE_TEMP_PIN_EXISTS = "This location already has a temporary map pin.",
 
     -- SearchBar
     KEY_ALREADY_BOUND = "%s is already bound to \"%s\". Choose another key.",
@@ -226,6 +264,7 @@ SMK.L = {
     CAT_TELEPORT_BEACONS = "Teleport Beacons",
     CAT_MERCHANTS = "Merchants",
     CAT_NPC = "NPC",
+    CAT_HANDYNOTES_MAPNOTES = "HandyNotes_MapNotes",
     CAT_OTHER = "Other",
 
 }

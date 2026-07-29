@@ -32,6 +32,22 @@ local function MigrateCustomIconIDs(database, schemaVersion)
     end
 end
 
+-- Schema 11 removes the former Atlas ID 23. Later positive IDs move down by one;
+-- the removed icon falls back to the location category icon.
+local function MigrateCustomIconIDsV11(database, schemaVersion)
+    if schemaVersion >= 11 then return end
+    for _, entry in ipairs(database.locations) do
+        if type(entry) == "table" then
+            local iconID = tonumber(entry.customIconID)
+            if iconID == 23 then
+                entry.customIconID = nil
+            elseif iconID and iconID > 23 then
+                entry.customIconID = iconID - 1
+            end
+        end
+    end
+end
+
 local function MigratePinSettings(database, schemaVersion)
     if schemaVersion < 9 and database.settings.mapPinNameOffsetY == 2 then
         database.settings.mapPinNameOffsetY = 0
@@ -118,6 +134,7 @@ function DB:Initialize()
     database.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
     database.settings = SettingsSchema:NormalizeAll(database.settings)
     MigrateCustomIconIDs(database, schemaVersion)
+    MigrateCustomIconIDsV11(database, schemaVersion)
     MigratePinSettings(database, schemaVersion)
     database.schemaVersion = Config.databaseSchemaVersion
     for key in pairs(database) do

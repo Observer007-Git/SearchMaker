@@ -4,8 +4,8 @@ local _, SMK = ...
 SMK.PinTextures = {
     { id = 1, atlas = "MonsterEnemy" },
     { id = 2, atlas = "MonsterFriend" },
-    { id = 3, atlas = "PlayerPartyBlip" },
-    { id = 4, atlas = "Ping_Map_Whole_Assist" },
+    { id = 3, atlas = "worldquest-questmarker-epic-supertracked" },
+    { id = 4, atlas = "worldquest-Capstone-questmarker-epic" },
     { id = 5, atlas = "VignetteEvent-SuperTracked" },
     { id = 6, atlas = "groupfinder-icon-class-color-deathknight" },
     { id = 7, atlas = "groupfinder-icon-class-color-priest" },

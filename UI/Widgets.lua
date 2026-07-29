@@ -155,8 +155,7 @@ function Widgets:SetLocationIcon(texture, entry)
         texture:SetTexture(entry.iconTexture)
         texture:SetTexCoord(0, 1, 0, 1)
     else
-        local catInfo = Config.categoryByKey[entry.categoryKey]
-        texture:SetAtlas(catInfo and catInfo.atlas or Art.fallbackLocationAtlas, false)
+        Config.ApplyCategoryIcon(texture, entry.categoryKey)
     end
 end
 
@@ -204,7 +203,7 @@ end
 --- 创建带有点击处理、工具提示和高亮的新地点按钮框架。
 -- 使用部件池模式：按钮创建一次，通过 Acquire/Release 复用。
 -- @param parent Frame 父框架。
--- @param callbacks table { onActivate, onEdit, onDelete, onExternalMenu, onEnter, onLeave }。
+-- @param callbacks table { onActivate, onContext, onEnter, onLeave }。
 -- @return Frame 新按钮。
 function Widgets:CreateLocationButton(parent, callbacks)
     local button = CreateFrame("Frame", nil, parent)
@@ -251,17 +250,8 @@ function Widgets:CreateLocationButton(parent, callbacks)
     button.hitArea:SetScript("OnClick", function(self, mouseButton)
         local owner = self.owner
         if mouseButton == "RightButton" then
-            if owner.entry.isCoordinateResult then return end
-            if owner.entry.isExternal then
-                if owner.callbacks.onExternalMenu then
-                    owner.callbacks.onExternalMenu(owner.entry, self)
-                end
-                return
-            end
-            if IsShiftKeyDown() and owner.callbacks.onDelete then
-                owner.callbacks.onDelete(owner.entry)
-            elseif owner.callbacks.onEdit then
-                owner.callbacks.onEdit(owner.entry)
+            if owner.callbacks.onContext then
+                owner.callbacks.onContext(owner.entry, self)
             end
         elseif owner.callbacks.onActivate then
             owner.callbacks.onActivate(owner.entry, owner.isSearchResult)
@@ -292,8 +282,14 @@ function Widgets:CreateLocationButton(parent, callbacks)
             if not owner.entry.isCoordinateResult then
                 GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_USAGE_COUNT,
                     SMK.Store:GetUsage(owner.entry)), 0.75, 0.75, 0.75)
-                GameTooltip:AddLine(SMK.L.TOOLTIP_INSTRUCTIONS, 0.35, 0.85, 1)
             end
+        end
+        if owner.entry.note and owner.entry.note ~= "" then
+            local color = Config.colors.note
+            GameTooltip:AddLine(owner.entry.note, color[1], color[2], color[3])
+        end
+        if not owner.entry.isMapPortal then
+            GameTooltip:AddLine(SMK.L.TOOLTIP_INSTRUCTIONS, 0.35, 0.85, 1)
         end
         GameTooltip:Show()
     end)
@@ -367,8 +363,7 @@ end
 -- @param storageKey string 规范类别名称（用于图标查找）。
 function Widgets:SetCategory(heading, displayName, storageKey)
     heading.label:SetText(displayName)
-    local catInfo = Config.categoryByKey[storageKey]
-    heading.icon:SetAtlas(catInfo and catInfo.atlas or Config.art.fallbackLocationAtlas, false)
+    Config.ApplyCategoryIcon(heading.icon, storageKey)
 end
 
 SMK.Widgets = Widgets

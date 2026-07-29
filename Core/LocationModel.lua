@@ -6,7 +6,7 @@ local Util = SMK.Util
 
 Model.persistentKeys = {
     "mapID", "x", "y", "name", "categoryKey", "showPinName", "showPinTexture", "pinTextureID", "pinColor",
-    "customIconID",
+    "customIconID", "note",
 }
 
 function Model:Normalize(values)
@@ -19,6 +19,7 @@ function Model:Normalize(values)
         y = tonumber(values.y),
         name = Util.Trim(values.name),
         categoryKey = Config.GetCategoryKey(values.categoryKey),
+        note = Util.Trim(values.note),
         showPinName = showPinName and 1 or 0,
         showPinTexture = showPinTexture and 1 or 0,
     }
@@ -50,6 +51,11 @@ function Model:Normalize(values)
     if not nameWidth or nameWidth > Config.location.maxNameWidth then
         return nil, "INVALID_LOCATION"
     end
+    local noteWidth = Util.GetTextWidth(entry.note)
+    if not noteWidth or noteWidth > Config.location.maxNoteWidth then
+        return nil, "INVALID_LOCATION"
+    end
+    if entry.note == "" then entry.note = nil end
     return entry
 end
 

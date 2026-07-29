@@ -288,7 +288,7 @@ end
 
 --- 创建搜索框框架、编辑框和结果下拉框。
 -- 这是整个插件界面的主要入口点。
--- @param callbacks table { onShown, onPlayerContextRequested, onActivate, onEdit, onDelete }。
+-- @param callbacks table { onShown, onPlayerContextRequested, onActivate, onContext }。
 -- @return Frame 搜索栏框架。
 function SearchBar:Create(callbacks)
     self.callbacks = callbacks or {}
@@ -336,9 +336,7 @@ function SearchBar:Create(callbacks)
 
     self.searchResults = SMK.SearchResults:New(bar, self.box, {
         onActivate = self.callbacks.onActivate,
-        onEdit = self.callbacks.onEdit,
-        onDelete = self.callbacks.onDelete,
-        onFavorite = self.callbacks.onFavorite,
+        onContext = self.callbacks.onContext,
         onVisibilityChanged = function() self:UpdateOutsideListener() end,
     })
     self.results = self.searchResults.frame

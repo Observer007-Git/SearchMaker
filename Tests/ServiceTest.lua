@@ -53,22 +53,24 @@ for _, path in ipairs({
     "Config.lua", "Locales/init.lua", "Locales/enUS.lua", "Locales/zhCN.lua",
     "Core/LocationModel.lua", "Core/SettingsSchema.lua",
     "Core/Database.lua", "Core/SettingsService.lua",
-    "Core/LocationStore.lua", "Core/MapService.lua",
+    "Core/LocationStore.lua", "Core/RouteService.lua", "Core/MapService.lua",
     "Core/SearchService.lua", "Core/MapIndex.lua", "Core/ShareCodec.lua", "Core/WhisperInbox.lua",
     "Core/HandyNotesProvider.lua",
     "Core/MapContextService.lua", "Core/ImportService.lua",
     "Core/MapPinPoolAdapter.lua", "Core/MapPinProvider.lua",
     "Core/RefreshCoordinator.lua", "UI/ShareDialog.lua", "UI/ModalManager.lua", "UI/BulkDeleteDialog.lua",
     "UI/PanelController.lua", "UI/HelpDialog.lua",
-    "UI/Widgets.lua", "UI/IconGridPicker.lua", "UI/LocationEditor.lua",
+    "UI/Widgets.lua", "UI/IconGridPicker.lua", "UI/CopyDialog.lua",
+    "UI/LocationContextMenu.lua", "UI/RouteDialog.lua", "UI/ImportPreviewDialog.lua",
+    "UI/LocationEditor.lua",
     "UI/SearchResults.lua", "UI/SearchBar.lua",
 }) do
     loadModule(SMK, path)
 end
 
 assert(#SMK.PinTextures == 20, "pin texture atlas list is incomplete")
-assert(#SMK.AtlasTextures == 39 and #SMK.PathTextures == 16
-    and #SMK.IconCatalog.all == 55
+assert(#SMK.AtlasTextures == 38 and #SMK.PathTextures == 16
+    and #SMK.IconCatalog.all == 54
     and SMK.IconCatalog.all[#SMK.AtlasTextures].id > 0
     and SMK.IconCatalog.all[#SMK.AtlasTextures + 1].id < 0,
     "custom icon texture catalogs are incomplete")
@@ -91,33 +93,45 @@ assert(SMK.IconGridPicker:GetEntryTooltip(SMK.AtlasTextures[1]) == "联盟"
     and SMK.IconGridPicker:GetEntryTooltip(SMK.PathTextures[3]) == "烹饪",
     "custom icon picker did not use localized note tooltips")
 assert(SMK.AtlasTextures[1].atlas == "AllianceSymbol"
-    and SMK.AtlasTextures[39].atlas == "CaveUnderground-Up"
+    and SMK.AtlasTextures[38].atlas == "CaveUnderground-Up"
     and SMK.PathTextures[1].texture == "Interface\\ICONS\\UI_Profession_Alchemy"
     and SMK.PathTextures[16].texture == "Interface\\ICONS\\ACHIEVEMENT_GUILDPERK_MOUNTUP"
-    and SMK.DefaultCustomIconID == 29,
+    and SMK.DefaultCustomIconID == 28,
     "provided custom icon catalogs were not installed exactly")
 local expectedCategories = {
-    { "city_services", "ShipMissionIcon-Bonus-Map", "主城功能区域" },
-    { "class", "Class", "职业" },
-    { "profession", "Profession", "专业" },
-    { "raids", "Raid", "团队副本" },
-    { "dungeons", "Dungeon", "地下城" },
-    { "delves", "delves-bountiful", "地下堡" },
-    { "rares", "vignettekillboss-SuperTracked", "稀有怪物" },
-    { "treasures", "VignetteLoot", "宝箱" },
-    { "portals", "TaxiNode_Continent_Neutral", "传送门" },
-    { "teleport_beacons", "FlightMasterArgus", "传送道标" },
-    { "merchants", "SpellIcon-256x256-SellJunk", "商人" },
-    { "npc", "GM-icon-assistActive-hover", "NPC" },
-    { "other", "Waypoint-MapPin-Minimap-Tracked", "其他" },
+    { 1, "city_services", "ShipMissionIcon-Bonus-Map", "主城功能区域" },
+    { 2, "class", "Class", "职业" },
+    { 3, "profession", "Profession", "专业" },
+    { 4, "raids", "Raid", "团队副本" },
+    { 5, "dungeons", "Dungeon", "地下城" },
+    { 6, "delves", "delves-bountiful", "地下堡" },
+    { 7, "rares", "vignettekillboss-SuperTracked", "稀有怪物" },
+    { 8, "treasures", "VignetteLoot", "宝箱" },
+    { 9, "portals", "TaxiNode_Continent_Neutral", "传送门" },
+    { 10, "teleport_beacons", "FlightMasterArgus", "传送道标" },
+    { 11, "merchants", "SpellIcon-256x256-SellJunk", "商人" },
+    { 12, "npc", "GM-icon-assistActive-hover", "NPC" },
+    { 14, "handynotes_mapnotes", nil, "HandyNotes_MapNotes" },
+    { 13, "other", "Waypoint-MapPin-Minimap-Tracked", "其他" },
 }
 assert(#SMK.Config.categories == #expectedCategories, "provided category list is incomplete")
 for index, expected in ipairs(expectedCategories) do
     local category = SMK.Config.categories[index]
-    assert(category.id == index and category.key == expected[1]
-        and category.atlas == expected[2] and SMK.L[category.nameKey] == expected[3],
+    assert(category.id == expected[1] and category.key == expected[2]
+        and category.atlas == expected[3] and SMK.L[category.nameKey] == expected[4],
         "provided category definition changed at index " .. index)
 end
+local iconKind, iconValue = SMK.Config.GetCategoryIcon("handynotes_mapnotes")
+assert(iconKind == "atlas"
+    and iconValue == SMK.Config.categoryByKey.other.atlas,
+    "unavailable HandyNotes_MapNotes category icon did not fall back to Other")
+local originalIsAddOnLoaded = C_AddOns.IsAddOnLoaded
+C_AddOns.IsAddOnLoaded = function(name) return name == "HandyNotes_MapNotes" end
+iconKind, iconValue = SMK.Config.GetCategoryIcon("handynotes_mapnotes")
+C_AddOns.IsAddOnLoaded = originalIsAddOnLoaded
+assert(iconKind == "texture"
+    and iconValue == "Interface\\AddOns\\HandyNotes_MapNotes\\Images\\MNL4.blp",
+    "available HandyNotes_MapNotes category icon did not use MNL4.blp")
 local panelLayout = SMK.Config.GetPanelLayout()
 local panelConfig = SMK.Config.panel.layout
 local panelControls = SMK.Config.panel.controls
@@ -148,7 +162,7 @@ assert(panelConfig.headerHeight == 68 and panelConfig.contentTopGap == 8
 local editorLayout = SMK.Config.GetLocationEditorLayout()
 local previewRowGap = math.ceil((SMK.Config.locationEditor.previewButtonSize
     + SMK.Config.locationEditor.buttonHeight) / 2) + 2
-assert(SMK.Config.locationEditor.width == 260 and SMK.Config.locationEditor.height == 430
+assert(SMK.Config.locationEditor.width == 260 and SMK.Config.locationEditor.height == 455
     and SMK.Config.locationEditor.previewButtonSize == 42
     and editorLayout.categoryRowY - editorLayout.customIconRowY
         == -previewRowGap
@@ -166,7 +180,7 @@ assert(editorSide == "RIGHT" and editorX == 230 and editorY == 0,
     "location editor did not avoid a map point near the left edge")
 editorX, editorY, editorSide = SMK.LocationEditor:CalculateMapPointPlacement(
     { x = 800, y = 750 }, 100, 900, 1000, 800)
-assert(editorSide == "LEFT" and editorX == 510 and editorY == 370,
+assert(editorSide == "LEFT" and editorX == 510 and editorY == 345,
     "location editor did not avoid a map point near the right edge")
 assert(SMK.Config.searchResultBackdrop.insets.left == 1
     and SMK.Config.searchResultBackdrop.insets.right == 1
@@ -215,8 +229,11 @@ assert(SMK.Config.mapPins.size == 30
     and SMK.Config.mapPins.targetHighlight.ringTexture == "Interface\\Cooldown\\starburst"
     and SMK.Config.mapPins.targetHighlight.size == 32
     and SMK.Config.mapPins.targetHighlight.ringSize == 80
-    and SMK.Config.mapPins.targetHighlight.duration == 3,
-    "target highlight is not configured")
+    and SMK.Config.mapPins.targetHighlight.duration == 3
+    and SMK.Config.mapPins.routeTemporary.atlas
+        == "Ping_Wheel_Icon_Assist_Glow"
+    and SMK.PinTextureIDByAtlas[SMK.Config.mapPins.routeTemporary.atlas] == nil,
+    "target highlight or temporary route pin is not configured")
 local locationSign = SMK.Config.art.locationSign
 assert(locationSign.atlas == "housing-woodsign" and locationSign.width == 136
     and locationSign.height == 29 and locationSign.textPadding == 8
@@ -226,7 +243,8 @@ assert(locationSign.atlas == "housing-woodsign" and locationSign.width == 136
 assert(SMK.DefaultPinTextureID == 1 and SMK.PinTextures[1].atlas == "MonsterEnemy",
     "MonsterEnemy is not the first and default pin texture")
 local expectedPinAtlases = {
-    "MonsterEnemy", "MonsterFriend", "PlayerPartyBlip", "Ping_Map_Whole_Assist",
+    "MonsterEnemy", "MonsterFriend", "worldquest-questmarker-epic-supertracked",
+    "worldquest-Capstone-questmarker-epic",
     "VignetteEvent-SuperTracked", "groupfinder-icon-class-color-deathknight",
     "groupfinder-icon-class-color-priest", "MiniMap-DeadArrow",
     "vignettekillboss-SuperTracked", "poi-traveldirections-arrow2", "poi-door-up", "poi-door-down",
@@ -285,6 +303,16 @@ assert(NormalizeNamedLocation(string.rep("e\204\129", 20))
 assert(NormalizeNamedLocation(string.rep("👨‍👩‍👧", 10))
     and not NormalizeNamedLocation(string.rep("👨‍👩‍👧", 11)),
     "joined emoji names were not measured by displayed width")
+local notedLocation = assert(SMK.LocationModel:Normalize({
+    mapID = 100, x = 1, y = 2, name = "note", categoryKey = "other",
+    note = "  绿色备注  ",
+}))
+assert(notedLocation.note == "绿色备注"
+    and not SMK.LocationModel:Normalize({
+        mapID = 100, x = 1, y = 2, name = "note", categoryKey = "other",
+        note = string.rep("备", 61),
+    }),
+    "location notes were not trimmed or width-limited")
 
 local popupHiddenID, dialogHidden
 local popup = { IsShown = function() return true end }
@@ -356,20 +384,43 @@ SearchMakerDB = {
         { id = 3, mapID = 100, x = 5, y = 6, name = "旧32", categoryKey = "other", customIconID = 32 },
         { id = 4, mapID = 100, x = 7, y = 8, name = "旧33", categoryKey = "other", customIconID = 33 },
         { id = 5, mapID = 100, x = 9, y = 10, name = "路径", categoryKey = "other", customIconID = -3 },
+        { id = 6, mapID = 100, x = 11, y = 12, name = "已删除图标", categoryKey = "other", customIconID = 24 },
+        { id = 7, mapID = 100, x = 13, y = 14, name = "后移图标", categoryKey = "other", customIconID = 25 },
+        { id = 8, mapID = 100, x = 15, y = 16, name = "末尾图标", categoryKey = "other", customIconID = 42 },
     },
 }
 SMK.DB:Initialize()
-assert(SearchMakerDB.schemaVersion == 9
-    and SearchMakerDB.locations[1].customIconID == 29
-    and SearchMakerDB.locations[2].customIconID == 29
+assert(SearchMakerDB.schemaVersion == SMK.Config.databaseSchemaVersion
+    and SearchMakerDB.locations[1].customIconID == 28
+    and SearchMakerDB.locations[2].customIconID == 28
     and SearchMakerDB.locations[3].customIconID == 16
     and SearchMakerDB.locations[4].customIconID == 17
     and SearchMakerDB.locations[5].customIconID == -3
+    and SearchMakerDB.locations[6].customIconID == nil
+    and SearchMakerDB.locations[7].customIconID == 23
+    and SearchMakerDB.locations[8].customIconID == 38
     and SearchMakerDB.settings.mapPinNameOffsetY == 0
     and SearchMakerDB.settings.showMapPinNames == nil
     and SearchMakerDB.settings.showPinTextures == nil
     and SearchMakerDB.settings.mapPinTextColor == nil,
     "database migrations did not preserve icons or remove obsolete global pin settings")
+
+SearchMakerDB = {
+    schemaVersion = 10,
+    locations = {
+        { id = 1, mapID = 100, x = 1, y = 2, name = "删除23", categoryKey = "other", customIconID = 23 },
+        { id = 2, mapID = 100, x = 3, y = 4, name = "移动24", categoryKey = "other", customIconID = 24 },
+        { id = 3, mapID = 100, x = 5, y = 6, name = "移动39", categoryKey = "other", customIconID = 39 },
+        { id = 4, mapID = 100, x = 7, y = 8, name = "保留路径", categoryKey = "other", customIconID = -3 },
+    },
+}
+SMK.DB:Initialize()
+assert(SearchMakerDB.schemaVersion == SMK.Config.databaseSchemaVersion
+    and SearchMakerDB.locations[1].customIconID == nil
+    and SearchMakerDB.locations[2].customIconID == 23
+    and SearchMakerDB.locations[3].customIconID == 38
+    and SearchMakerDB.locations[4].customIconID == -3,
+    "schema 11 did not shift Atlas IDs above 23 down by one")
 
 SearchMakerDB = {
     schemaVersion = SMK.Config.databaseSchemaVersion,
@@ -385,7 +436,7 @@ SearchMakerDB = {
         mapPinNameOffsetY = 80,
     },
     locations = {
-        { id = 4, mapID = "100", x = "12.34", y = "56.78", name = "旧地点", categoryKey = "delves", showPinName = 1, showPinTexture = 1, pinTexture = "VignetteEvent-SuperTracked", customIconID = "-3", futureExtension = "drop" },
+        { id = 4, mapID = "100", x = "12.34", y = "56.78", name = "旧地点", note = "绿色备注", categoryKey = "delves", showPinName = 1, showPinTexture = 1, pinTexture = "VignetteEvent-SuperTracked", customIconID = "-3", futureExtension = "drop" },
         { id = 4, mapID = 100, x = 20, y = 30, name = "重复ID", categoryKey = "npc" },
         { id = "invalid", mapID = 0, x = 1, y = 2, name = "损坏地点", categoryKey = "other" },
     },
@@ -449,9 +500,10 @@ assert(SMK.Store:Update(first, {
     mapID = first.mapID, x = first.x, y = first.y, name = first.name,
     categoryKey = first.categoryKey, showPinName = first.showPinName,
     showPinTexture = first.showPinTexture, pinTextureID = first.pinTextureID,
-    customIconID = first.customIconID, pinColor = first.pinColor,
+    customIconID = first.customIconID, pinColor = first.pinColor, note = first.note,
 }), "location update failed")
 assert(SearchMakerDB.locations[1].categoryKey == "delves", "editing changed the canonical category")
+assert(SearchMakerDB.locations[1].note == "绿色备注", "editing discarded the location note")
 assert(SearchMakerDB.locations[1].futureExtension == nil,
     "unknown location fields were retained in the canonical store")
 local sameNameDifferentPosition = {
@@ -503,6 +555,13 @@ assert(not duplicateFavorite
     and duplicateFavoriteError == string.format(SMK.L.DUPLICATE_NAME, externalFavorite.name),
     "duplicate external favorite was accepted")
 assert(SMK.Store:Delete(favorite) == 1, "external favorite could not be deleted")
+local defaultExternalFavorite = SMK.Util.CopyTable(externalFavorite)
+defaultExternalFavorite.x, defaultExternalFavorite.name = 43.25, "默认外部分组"
+local defaultFavorite = assert(SMK.Store:AddExternal(defaultExternalFavorite))
+assert(defaultFavorite.categoryKey == SMK.Config.handyNotes.categoryKey,
+    "external favorite did not default to the HandyNotes_MapNotes category")
+assert(SMK.Store:Delete(defaultFavorite) == 1,
+    "default external favorite fixture could not be deleted")
 local deleteA = assert(SMK.Store:Add({
     mapID = 200, x = 10, y = 10, name = "批量甲", categoryKey = "other",
 }))
@@ -538,6 +597,32 @@ assert(batchResult.imported == 2 and batchResult.duplicates == 1
     and batchNotifications == 1,
     "batch import did not enforce duplicates with one refresh")
 SMK.Store:SetChangeHandler(nil)
+SMK.Route:Clear()
+local routeActivated
+SMK.Route:SetActivateHandler(function(entry) routeActivated = entry; return true end)
+assert(SMK.Route:Add(first) and SMK.Route:Add(externalFavorite)
+    and not SMK.Route:Add(first)
+    and #SMK.Route:GetItems() == 2,
+    "route did not add saved/external locations or reject duplicates")
+assert(SMK.Route:Move(2, -1)
+    and SMK.Route:GetItems()[1].name == externalFavorite.name
+    and SMK.Route:Activate(1)
+    and routeActivated.name == externalFavorite.name,
+    "route reordering or activation failed")
+assert(SMK.Route:CompleteCurrent() and #SMK.Route:GetItems() == 1
+    and SMK.Route:GetCurrentIndex() == 1
+    and routeActivated.id == first.id,
+    "route completion did not activate the next location")
+local routeTemporary = assert(SMK.Store:Add({
+    mapID = 100, x = 88, y = 88, name = "路线删除测试", categoryKey = "other",
+}))
+assert(SMK.Route:Add(routeTemporary), "saved route fixture could not be added")
+assert(SMK.Store:Delete(routeTemporary) == 1, "saved route fixture could not be deleted")
+SMK.Route:RefreshSavedEntries()
+for _, item in ipairs(SMK.Route:GetItems()) do
+    assert(item.id ~= routeTemporary.id, "deleted saved location remained in the route")
+end
+SMK.Route:Clear()
 assert(SMK.Store:Add({ mapID = 100, x = 90, y = 90, name = "精确", categoryKey = "other" }))
 local matches = SMK.Search:Find(SMK.Store:GetAll(), "精确", true)
 assert(#matches == SMK.Config.search.maxResults, "search result limit failed")
@@ -618,6 +703,12 @@ local coordinateResult = SMK.Search:Find({}, "12.3,45.67", false, 100)[1]
 assert(coordinateResult.entry.x == 12.3 and coordinateResult.entry.y == 45.67
     and coordinateResult.entry.name == "坐标：12.3，45.67",
     "coordinate result values or display text are incorrect")
+assert(SMK.Route:Add(coordinateResult.entry)
+    and SMK.Route:GetItems()[1].mapID == 100
+    and SMK.Route:GetItems()[1].x == 12.3
+    and not SMK.Route:Add(coordinateResult.entry),
+    "recognized coordinates could not be added to the route or were not deduplicated")
+SMK.Route:Clear()
 assert(not SMK.Store:RecordUsage(coordinateResult.entry),
     "temporary coordinate result was written to usage storage")
 assert(SMK.Map:SetWaypoint(coordinateResult.entry)
@@ -856,13 +947,14 @@ local shareEntry = assert(SMK.LocationModel:Normalize({
     pinTextureID = first.pinTextureID,
     pinColor = { r = 0.2, g = 0.4, b = 0.6 },
     customIconID = -3,
+    note = "测试备注,绿色",
 }))
 local encoded = SMK.ShareCodec:Encode({ shareEntry })
 assert(encoded:sub(1, 4) == "SMK|" and encoded:sub(1, 6) ~= "SMK|2|",
     "current share format does not use the unified SMK prefix")
 local _, commaCount = encoded:gsub(",", "")
-assert(commaCount == 8 and encoded:find("336699", 1, true),
-    "share record was not packed into nine fields with one RGB value")
+assert(commaCount == 9 and encoded:find("336699", 1, true),
+    "share record was not packed into ten fields with one RGB value")
 assert(encoded:find(",5,336699", 1, true)
     and not encoded:find("VignetteEvent-SuperTracked", 1, true),
     "share record did not encode the pin texture as a compact ID")
@@ -901,10 +993,25 @@ assert(not decodeError and invalid == 0 and #decoded == 1, "current share round 
 assert(decoded[1].categoryKey == "delves"
     and decoded[1].pinTextureID == 5
     and decoded[1].customIconID == -3
+    and decoded[1].note == "测试备注,绿色"
     and math.abs(decoded[1].pinColor.r - 0.2) < 0.005
     and math.abs(decoded[1].pinColor.g - 0.4) < 0.005
     and math.abs(decoded[1].pinColor.b - 0.6) < 0.005,
     "share fields or per-location pin color were not preserved")
+local previewEntry = assert(SMK.LocationModel:Normalize({
+    mapID = 777, x = 12.5, y = 34.5, name = "预览地点",
+    categoryKey = "other", note = "导入前不写入",
+}))
+local previewText = SMK.ShareCodec:Encode({ previewEntry, previewEntry })
+local preview = assert(SMK.Import:PreviewText(previewText))
+assert(preview.importable == 1 and preview.duplicates == 1
+    and preview.invalid == 0 and not SMK.Store:FindDuplicate(previewEntry),
+    "import preview wrote data or misclassified batch duplicates")
+local previewCommit = assert(SMK.Import:CommitPreview(preview))
+assert(previewCommit.imported == 1 and previewCommit.duplicates == 1,
+    "confirmed import did not match its preview")
+assert(SMK.Store:Delete(SMK.Store:FindDuplicate(previewEntry)) == 1,
+    "import preview fixture could not be removed")
 local noColorDecoded, noColorError, noColorInvalid = SMK.ShareCodec:Decode(
     SMK.ShareCodec:Encode({ assert(SMK.LocationModel:Normalize({
         mapID = 100, x = 1, y = 2, name = "无颜色", categoryKey = "other",
@@ -925,6 +1032,9 @@ assert(importResult.imported == 0 and importResult.duplicates == 1,
 assert(importNormalizeCalls == 1,
     "decoded share entries were normalized again during storage")
 local dialogText = encoded
+SMK.ImportPreviewDialog = {
+    Open = function(_, _, onConfirm) onConfirm() end,
+}
 SMK.ShareDialog.textBox = {
     GetText = function() return dialogText end,
     SetText = function(_, value) dialogText = value end,
@@ -935,19 +1045,19 @@ SMK.ShareDialog.status = {
 }
 SMK.ShareDialog:Import()
 assert(dialogText == "", "successful share import retained the pasted text")
-local reportedWhisperText = "SMK|2393,6169,5147,13,打撒放大1,3,8,00FF0A,20;"
-    .. "2393,4170,4442,13,放大顺丰1,3,1,2FFF24,19;"
-    .. "2395,5359,7011,13,森林测试点,0,1,,29"
+local reportedWhisperText = "SMK|2393,6169,5147,13,打撒放大1,3,8,00FF0A,20,;"
+    .. "2393,4170,4442,13,放大顺丰1,3,1,2FFF24,19,;"
+    .. "2395,5359,7011,13,森林测试点,0,1,,29,"
 local reportedEntries, reportedError, reportedInvalid =
     SMK.ShareCodec:Decode(reportedWhisperText)
 assert(not reportedError and reportedInvalid == 0 and #reportedEntries == 3,
     "reported whisper text did not decode all three complete records")
 local knownWhisperDuplicate = assert(SMK.Store:Add(reportedEntries[3]))
 SMK.WhisperInbox.codes = { reportedWhisperText }
-local reportedResult = assert(SMK.ShareDialog:ImportWhispers())
-assert(reportedResult.imported == 2
-    and reportedResult.duplicates == 1
-    and reportedResult.invalid == 0
+local reportedPreview = assert(SMK.ShareDialog:ImportWhispers())
+assert(reportedPreview.importable == 2
+    and reportedPreview.duplicates == 1
+    and reportedPreview.invalid == 0
     and dialogText == reportedWhisperText
     and SMK.ShareDialog.status.text == string.format(SMK.L.IMPORT_RESULT, 2, 1, 0),
     "whisper import did not retain the source text or show complete import statistics")
@@ -976,11 +1086,11 @@ local previousEntries, _, previousInvalid = SMK.ShareCodec:Decode(
 assert(previousEntries and #previousEntries == 0 and previousInvalid == 1,
     "pre-custom-icon SMK record was accepted")
 local invalidIconEntries, _, invalidIconCount = SMK.ShareCodec:Decode(
-    "SMK|100,100,200,8,bad,0,1,,-999")
+    "SMK|100,100,200,8,bad,0,1,,-999,")
 assert(invalidIconEntries and #invalidIconEntries == 0 and invalidIconCount == 1,
     "unknown custom icon ID was accepted")
 local invalidPinEntries, _, invalidPinCount = SMK.ShareCodec:Decode(
-    "SMK|100,100,200,8,bad,0,999,,")
+    "SMK|100,100,200,8,bad,0,999,,,")
 assert(invalidPinEntries and #invalidPinEntries == 0 and invalidPinCount == 1,
     "unknown pin texture ID was accepted")
 
@@ -1097,7 +1207,7 @@ assert(not appSource:find("local collected = {}", 1, true)
     and not appSource:find("function App:ImportWhispers", 1, true)
     and not mainPanelSource:find("SMK.L.CHAT_IMPORT", 1, true)
     and shareDialogSource:find("SMK.WhisperInbox:GetImportText", 1, true)
-    and shareDialogSource:find("SMK.Import:ImportText(text)", 1, true),
+    and shareDialogSource:find("self:PreviewImport(text, false)", 1, true),
     "whisper import is outside the share dialog or scans chat frames")
 assert(not panelSettingsSource:find("showPinTexturesCheck", 1, true)
     and not panelSettingsSource:find("showPinNamesCheck", 1, true)
@@ -1210,9 +1320,11 @@ end
 GameTooltip = {
     SetOwner = function() end,
     SetText = function(self, value) self.title = value end,
-    AddLine = function(self, value)
+    AddLine = function(self, value, ...)
         self.lines = self.lines or {}
         self.lines[#self.lines + 1] = value
+        self.lineColors = self.lineColors or {}
+        self.lineColors[#self.lines] = { ... }
     end,
     Show = function(self) self.shown = true end,
 }
@@ -1242,9 +1354,10 @@ function fakeMap:RemoveAllPinsByTemplate(template)
     end
     self.pins = retained
 end
-local editedPinEntry
+local editedPinEntry, contextPinEntry
 assert(SMK.MapPins:Initialize(fakeMap, {
     onEdit = function(entry) editedPinEntry = entry end,
+    onContext = function(entry) contextPinEntry = entry end,
 }), "map pin provider initialization failed")
 SMK.MapPins:Refresh()
 assert(#fakeMap.pins == 1, "enabled map pin was not acquired")
@@ -1257,6 +1370,7 @@ assert(fakeMap.pins[1].label.text == "旧地点" and fakeMap.pins[1].label.shown
 assert(fakeMap.pins[1].labelHitbox
     and fakeMap.pins[1].labelHitbox.allPointsTarget == fakeMap.pins[1].label
     and fakeMap.pins[1].labelHitbox.registeredClicks[1] == "LeftButtonUp"
+    and fakeMap.pins[1].labelHitbox.registeredClicks[2] == "RightButtonUp"
     and fakeMap.pins[1].labelHitbox.scripts.OnEnter
     and fakeMap.pins[1].labelHitbox.scripts.OnLeave
     and fakeMap.pins[1].labelHitbox.scripts.OnClick,
@@ -1332,6 +1446,9 @@ assert(GameTooltip.title == "旧地点",
 fakeMap.pins[1].labelHitbox.scripts.OnClick(fakeMap.pins[1].labelHitbox, "LeftButton")
 assert(editedPinEntry and editedPinEntry.name == "旧地点",
     "clicking the map pin name did not open the location editor")
+fakeMap.pins[1].labelHitbox.scripts.OnClick(fakeMap.pins[1].labelHitbox, "RightButton")
+assert(contextPinEntry and contextPinEntry.name == "旧地点",
+    "right-clicking the map pin name did not open the shared context menu")
 editedPinEntry = nil
 fakeMap.pins[1]:OnMouseEnter()
 assert(GameTooltip.title == "旧地点"
@@ -1340,6 +1457,16 @@ assert(GameTooltip.title == "旧地点"
     and GameTooltip.lines[2]:find("12.34", 1, true)
     and GameTooltip.lines[2]:find("56.78", 1, true),
     "map pin tooltip did not separate its map name and coordinates")
+local noteColorFound
+for index, line in ipairs(GameTooltip.lines) do
+    if line == "绿色备注" then
+        local color = GameTooltip.lineColors[index]
+        noteColorFound = color and color[1] == SMK.Config.colors.note[1]
+            and color[2] == SMK.Config.colors.note[2]
+            and color[3] == SMK.Config.colors.note[3]
+    end
+end
+assert(noteColorFound, "map pin note did not use the configured green tooltip color")
 fakeMap.pins[1]:OnClick("LeftButton")
 assert(editedPinEntry and editedPinEntry.name == "旧地点", "map pin click did not open its editor callback")
 SMK.MapPins:UpdatePinVisibility(first, false, true)
@@ -1351,6 +1478,76 @@ assert(fakeMap.pins[1].label.shown == false
 SMK.MapPins:UpdatePinVisibility(first, false, false)
 assert(fakeMap.pins[1].shown == false,
     "a location with both display options disabled retained an interactive pin")
+local addedPersistentTemporary, persistentTemporaryReason =
+    SMK.MapPins:AddTemporaryRoutePin(first)
+assert(not addedPersistentTemporary and persistentTemporaryReason == "PERSISTENT_EXISTS",
+    "a route temporary pin replaced an existing saved map pin")
+assert(SMK.MapPins:HasPersistentMarker(first),
+    "saved map pin state was not exposed to the route dialog")
+local addedRouteTemporary = assert(SMK.MapPins:AddTemporaryRoutePin(externalFavorite))
+assert(addedRouteTemporary and SMK.MapPins:HasTemporaryRoutePin(externalFavorite)
+    and #fakeMap.pins == 2,
+    "route temporary pin was not retained in the session pin collection")
+local temporaryPin
+for _, pin in ipairs(fakeMap.pins) do
+    if pin.pinTemplate == "SearchMakerTemporaryRoutePinTemplate" then
+        temporaryPin = pin
+        break
+    end
+end
+assert(temporaryPin
+    and temporaryPin.icon.atlas == SMK.Config.mapPins.routeTemporary.atlas,
+    "route temporary pin did not use its independent special Atlas")
+assert(SMK.Route:Add(first) and SMK.Route:Add(externalFavorite))
+function SMK.RouteDialog:NewTestRow()
+    local function TextValue()
+        return {
+            SetText = function(self, value) self.text = value end,
+            SetTextColor = function(self, r, g, b) self.color = { r, g, b } end,
+        }
+    end
+    return {
+        SetShown = function(self, shown) self.shown = shown end,
+        name = TextValue(),
+        details = TextValue(),
+        mark = {
+            SetText = function(self, value) self.text = value end,
+            SetEnabled = function(self, enabled) self.enabled = enabled end,
+        },
+        up = { SetEnabled = function(self, enabled) self.enabled = enabled end },
+        down = { SetEnabled = function(self, enabled) self.enabled = enabled end },
+    }
+end
+SMK.RouteDialog.rows = {
+    SMK.RouteDialog:NewTestRow(),
+    SMK.RouteDialog:NewTestRow(),
+}
+SMK.RouteDialog.count = { SetText = function(self, value) self.text = value end }
+SMK.RouteDialog.empty = { SetShown = function(self, shown) self.shown = shown end }
+SMK.RouteDialog.content = { SetHeight = function(self, height) self.height = height end }
+SMK.RouteDialog.start = { SetEnabled = function(self, enabled) self.enabled = enabled end }
+SMK.RouteDialog.complete = { SetEnabled = function(self, enabled) self.enabled = enabled end }
+SMK.RouteDialog.clear = { SetEnabled = function(self, enabled) self.enabled = enabled end }
+assert(SMK.Route:Activate(1))
+SMK.RouteDialog:Refresh()
+assert(not SMK.RouteDialog.rows[1].mark.enabled
+    and SMK.RouteDialog.rows[1].mark.text == SMK.L.ROUTE_TEMP_PIN_PERSISTENT_STATE
+    and not SMK.RouteDialog.rows[2].mark.enabled
+    and SMK.RouteDialog.rows[2].mark.text == SMK.L.ROUTE_TEMP_PIN_ACTIVE,
+    "route rows did not display and disable existing marker states")
+assert(SMK.RouteDialog.rows[1].name.text == first.name
+    and SMK.RouteDialog.rows[1].name.color[1] == SMK.Config.colors.routeCurrent[1]
+    and SMK.RouteDialog.rows[1].name.color[2] == SMK.Config.colors.routeCurrent[2]
+    and SMK.RouteDialog.rows[1].name.color[3] == SMK.Config.colors.routeCurrent[3],
+    "current route location retained a glyph prefix or did not use green text")
+SMK.Route:Clear()
+SMK.MapPins:Refresh()
+assert(#fakeMap.pins == 2 and SMK.MapPins:HasTemporaryRoutePin(externalFavorite),
+    "clearing the route also cleared its session-only map pin")
+local duplicateTemporary, duplicateTemporaryReason =
+    SMK.MapPins:AddTemporaryRoutePin(externalFavorite)
+assert(not duplicateTemporary and duplicateTemporaryReason == "TEMPORARY_EXISTS",
+    "duplicate route temporary pin was accepted")
 
 local layoutButton = {
     showIcon = false,
@@ -1424,15 +1621,73 @@ SMK.SearchBar.callbacks = originalCallbacks
 assert(playerContextRequests == 1,
     "floating search did not request a fresh player-map context")
 
-local favoriteOptions = SMK.SearchResults:GetFavoriteOptions()
-assert(#favoriteOptions == #SMK.Config.categories
-    and favoriteOptions[1].key == SMK.Config.categories[1].key
-    and favoriteOptions[#favoriteOptions].atlas
-        == SMK.Config.categories[#SMK.Config.categories].atlas,
-    "HandyNotes favorite options do not follow the dynamic category configuration")
+local menuLabels, favoriteMenuEntry = {}, nil
+MenuUtil = {
+    CreateContextMenu = function(_, initializer)
+        local root = {
+            CreateButton = function(_, label, callback)
+                menuLabels[#menuLabels + 1] = { label = label, callback = callback }
+            end,
+        }
+        initializer(nil, root)
+        return { IsShown = function() return true end }
+    end,
+}
+SMK.LocationContextMenu:Initialize({
+    onFavorite = function(entry) favoriteMenuEntry = entry end,
+    onCopy = function() end,
+    onShare = function() end,
+    onEdit = function() end,
+    onDelete = function() end,
+    onRoute = function() end,
+    onTemporaryPin = function(entry) SMK.testTemporaryMenuEntry = entry end,
+})
+SMK.LocationContextMenu:Open(externalFavorite, {})
+assert(#menuLabels == 4
+    and menuLabels[1].label == SMK.L.MENU_FAVORITE
+    and menuLabels[4].label == SMK.L.MENU_ADD_ROUTE,
+    "external location context menu did not expose the required fixed actions")
+menuLabels[1].callback()
+assert(favoriteMenuEntry == externalFavorite,
+    "external favorite action did not use the shared context menu callback")
+menuLabels = {}
+SMK.LocationContextMenu:Open(first, {})
+assert(#menuLabels == 5
+    and menuLabels[1].label == SMK.L.MENU_COPY_COORDINATES
+    and menuLabels[3].label == SMK.L.MENU_EDIT_COORDINATE
+    and menuLabels[4].label == SMK.L.MENU_DELETE_COORDINATE,
+    "saved location context menu did not expose the required fixed actions")
+menuLabels = {}
+SMK.LocationContextMenu:Open(coordinateResult.entry, {})
+assert(#menuLabels == 3
+    and menuLabels[1].label == SMK.L.MENU_COPY_COORDINATES
+    and menuLabels[2].label == SMK.L.MENU_ADD_TEMP_PIN
+    and menuLabels[3].label == SMK.L.MENU_ADD_ROUTE,
+    "recognized coordinate context menu did not expose route and temporary-pin actions")
+menuLabels[2].callback()
+assert(SMK.testTemporaryMenuEntry == coordinateResult.entry,
+    "recognized coordinate temporary-pin action did not use the shared callback")
 assert(SMK.HelpDialog and SMK.HelpDialog.Create and SMK.HelpDialog.Open
     and SMK.L.HELP_TEXT ~= "",
     "localized help dialog is unavailable")
+assert(mainPanelSource:find(
+        "local route = Widgets:CreatePanelButton(frame, SMK.L.ROUTE_TITLE)", 1, true)
+    and mainPanelSource:find(
+        "route:SetPoint(\"RIGHT\", scalePlus, \"LEFT\", -buttonGap, 0)", 1, true)
+    and not mainPanelSource:find(
+        "Widgets:CreatePanelButton(moreFrame, SMK.L.ROUTE_TITLE)", 1, true),
+    "route button was not moved beside the location scale controls")
+assert(ReadSource("UI/HelpDialog.lua"):find("UIPanelScrollFrameTemplate", 1, true)
+    and ReadSource("UI/RouteDialog.lua"):find(
+        "close:SetFrameLevel(frame:GetFrameLevel() + 20)", 1, true),
+    "help scrolling or route close-button click priority is missing")
+assert(not (ReadSource("UI/BulkDeleteDialog.lua")
+        .. ReadSource("UI/ImportPreviewDialog.lua")
+        .. ReadSource("UI/LocationEditor.lua")
+        .. ReadSource("UI/RouteDialog.lua")
+        .. ReadSource("UI/ShareDialog.lua")):find(
+            "UIPanelButtonTemplate", 1, true),
+    "a plugin action button still uses the default panel button background")
 assert(SMK.Config.panel.layout.scrollbarOffsetX == -6,
     "main panel scrollbar offset changed")
 
@@ -1458,7 +1713,6 @@ local controllerSearchBar = {
     suppressPanelHidden = false,
     searchResults = {
         IsShown = function() return false end,
-        IsContextMenuOpen = function() return false end,
     },
     outsideListener = {
         RegisterEvent = function() outsideRegistered = true end,

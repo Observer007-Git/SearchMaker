@@ -3,6 +3,7 @@ local _, SMK = ...
 local Dialog = {}
 local Config = SMK.Config
 local Util = SMK.Util
+local Widgets = SMK.Widgets
 local POPUP_ID = "SEARCHMAKER_BULK_DELETE"
 
 function Dialog:HideConfirmation()
@@ -105,10 +106,9 @@ function Dialog:Create(parent)
                 category.key)
         end
     end)
-    local deleteCategory = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    deleteCategory:SetSize(110, 24)
+    local deleteCategory = Widgets:CreatePanelButton(
+        frame, SMK.L.DELETE_CATEGORY_ACTION, { width = 110 })
     deleteCategory:SetPoint("LEFT", self.dropdown, "RIGHT", 12, 0)
-    deleteCategory:SetText(SMK.L.DELETE_CATEGORY_ACTION)
     deleteCategory:SetScript("OnClick", function() self:RequestDelete("category") end)
 
     local mapLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -120,10 +120,9 @@ function Dialog:Create(parent)
     self.mapInput:SetAutoFocus(false)
     self.mapInput:SetNumeric(true)
     self.mapInput:SetMaxLetters(8)
-    local deleteMap = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    deleteMap:SetSize(110, 24)
+    local deleteMap = Widgets:CreatePanelButton(
+        frame, SMK.L.DELETE_MAP_ACTION, { width = 110 })
     deleteMap:SetPoint("LEFT", self.mapInput, "RIGHT", 12, 0)
-    deleteMap:SetText(SMK.L.DELETE_MAP_ACTION)
     deleteMap:SetScript("OnClick", function() self:RequestDelete("map") end)
     self.status = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.status:SetPoint("BOTTOMLEFT", 24, 18)

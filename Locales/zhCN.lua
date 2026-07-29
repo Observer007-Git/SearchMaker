@@ -11,13 +11,13 @@ local translations = {
     SEARCH_CURRENT_MAP = "搜索 %s",
     SEARCH_ALL_MAPS = "搜索 所有地图",
     SHARE = "导出/导入",
-    FAVORITE_TO_FORMAT = "收藏到 %s",
     ADD = "新增坐标",
     SETTINGS = "标记设置",
     DISPLAY_SETTINGS = "显示设置",
     MORE = "更多",
     HELP = "使用说明",
     BULK_DELETE = "批量删除",
+    ROUTE_TITLE = "路线规划",
     SHORTCUT = "呼出快捷键",
     CAPTURE_SHORTCUT = "请按快捷键",
     MOVE_HINT = "按住 shift 可以移动",
@@ -107,23 +107,25 @@ local translations = {
 • 在任意支持标记的地图上，alt+左键点击地图进行标记，标记支持常显材质、文字，支持调整标记大小和文字颜色。
 • 搜索结果中外部来源坐标，右键收藏。
 • 从私聊接收的分享消息中导入。
+• 地点备注会以绿色显示在鼠标提示中；导入前会先预览新增、重复和无效地点。
+• 搜索结果、主面板地点和地图标记统一使用右键功能菜单；外部地点默认收藏到“HandyNotes_MapNotes”。
+• 可将多个地点加入路线，按顺序定位，并使用“完成并下一个”继续。
+• 路线地点可添加本次运行有效的临时标记；已有正式标记不会被覆盖或清除。
 
 |cffffd100坐标查询及定位，地图区域和副本地图定位，坐标输入智能匹配|r
 • 搜索当前地图时，搜索范围是已经新增、标记、收藏和导入过的当前地图坐标，和来自外部来源如`HandyNotes_MapNotes`插件在地图上标记的坐标。
 • 搜索所有地图时，搜索范围是所有地图已收录的坐标。但不包括外部来源坐标。
 • 打开世界地图时，当前地图和全图搜索，都支持搜索地图区域，且地图和坐标结果都支持点击跳转到对应地图。
 • 不打开世界地图时，地图区域结果支持直接自动打开世界地图并跳转，坐标结果仅标记，不会打开世界地图。
-• 当搜索框输入 22 22，或 22,22 等符合坐标格式的数据时，会自动识别并展示结果，点击可跳转到对应坐标。
+• 当搜索框输入 22 22，或 22,22 等符合坐标格式的数据时，会自动识别并展示结果；左键定位，右键可复制、加入路线或添加临时标记。
 
 |cffffd100坐标修改|r
-• 右键点击插件面板中坐标，在面板中修改。
-• 右键点击搜索结果中已收录的坐标，在面包中修改，外部来源`HandyNotes_MapNotes`的坐标不支持修改。
-• 右键点击地图上的标记，在面板中修改。
+• 右键点击搜索结果、插件主面板坐标或地图标记，在统一功能菜单中选择“修改坐标”。
+• 外部来源`HandyNotes_MapNotes`坐标不支持直接修改，可先收藏为自建坐标。
 
 |cffffd100坐标删除|r
-• shift+右键点击插件坐标删除。
-• shift+右键点击搜索结果中已收录的坐标删除，外部来源`HandyNotes_MapNotes`的坐标不支持删除。
-• 右键点击地图上的标记，修改面板中点击删除。
+• 右键点击自建坐标，在统一功能菜单中选择“删除坐标”。
+• 外部来源`HandyNotes_MapNotes`坐标不写入本插件，因此不提供删除。
 
 ]],
 
@@ -151,6 +153,7 @@ local translations = {
 
     -- LocationEditor
     NAME_LABEL = "名字",
+    NOTE_LABEL = "备注",
     X_LABEL = "X坐标",
     Y_LABEL = "Y坐标",
     CATEGORY_LABEL = "类别",
@@ -166,6 +169,7 @@ local translations = {
     ERROR_INVALID_SETTING = "该设置值无效。",
     ERROR_EMPTY_NAME = "请输入地点名字。",
     ERROR_NAME_TOO_LONG = "地点名字过长，最多支持 10 个宽字符或 20 个窄字符。",
+    ERROR_NOTE_TOO_LONG = "备注过长，最多支持 60 个宽字符或 120 个窄字符。",
 
     -- BulkDeleteDialog
     BULK_DELETE_TITLE = "批量删除",
@@ -196,6 +200,12 @@ local translations = {
     EXPORT_NO_LOCATIONS_ALL = "没有可导出的地点。",
     IMPORT_INVALID_FORMAT = "文本格式无效：缺少 SMK 前缀。",
     IMPORT_EMPTY = "文本中没有可导入的地点。",
+    IMPORT_PREVIEW_TITLE = "导入前预览",
+    IMPORT_PREVIEW_SUMMARY = "可导入 %d 个 · 重复 %d 个 · 无效 %d 个",
+    IMPORT_PREVIEW_NEW = "[新增]",
+    IMPORT_PREVIEW_DUPLICATE = "[重复]",
+    IMPORT_PREVIEW_MORE = "……另有 %d 个",
+    IMPORT_CONFIRM = "确认导入",
     DATABASE_READ_ONLY = "存档版本 %d 高于当前支持的版本 %d，SearchMaker 已进入只读模式以保护数据。",
 
     -- Widgets tooltip
@@ -207,7 +217,35 @@ local translations = {
     NO_LOCATIONS_TO_DELETE = "没有找到可删除的地点。",
 
     -- Widgets tooltip
-    TOOLTIP_INSTRUCTIONS = "左键标记  ·  右键修改  ·  Shift+右键删除",
+    TOOLTIP_INSTRUCTIONS = "左键标记  ·  右键功能菜单",
+    TOOLTIP_PIN_INSTRUCTIONS = "左键修改  ·  右键功能菜单",
+
+    -- 地点右键菜单和路线
+    MENU_FAVORITE = "收藏坐标",
+    MENU_COPY_COORDINATES = "复制坐标",
+    MENU_SHARE_COORDINATE = "分享坐标",
+    MENU_EDIT_COORDINATE = "修改坐标",
+    MENU_DELETE_COORDINATE = "删除坐标",
+    MENU_ADD_ROUTE = "加入路线",
+    MENU_ADD_TEMP_PIN = "添加临时标记",
+    COPY_COORDINATES_TITLE = "复制坐标",
+    SHARE_COORDINATE_TITLE = "分享坐标",
+    COPY_HINT = "按 Ctrl+C 复制。",
+    ROUTE_COUNT = "路线地点：%d/%d",
+    ROUTE_EMPTY = "路线中暂无地点。",
+    ROUTE_LOCATE = "定位",
+    ROUTE_TEMP_PIN = "临时标记",
+    ROUTE_TEMP_PIN_ACTIVE = "已临时标记",
+    ROUTE_TEMP_PIN_PERSISTENT_STATE = "已有永久标记",
+    ROUTE_START = "开始路线",
+    ROUTE_COMPLETE_NEXT = "完成并下一个",
+    ROUTE_CLEAR = "清空",
+    ROUTE_ADDED = "已将 %s 加入路线。",
+    ROUTE_DUPLICATE = "该地点已在路线中。",
+    ROUTE_FULL = "路线最多支持 %d 个地点。",
+    ROUTE_TEMP_PIN_ADDED = "已为 %s 添加临时地图标记。",
+    ROUTE_TEMP_PIN_PERSISTENT = "该地点已有正式地图标记，未覆盖或清除。",
+    ROUTE_TEMP_PIN_EXISTS = "该地点已有临时地图标记。",
 
     -- SearchBar
     KEY_ALREADY_BOUND = "%s 已被“%s”占用，请选择其他按键。",
@@ -240,6 +278,7 @@ local translations = {
     CAT_TELEPORT_BEACONS = "传送道标",
     CAT_MERCHANTS = "商人",
     CAT_NPC = "NPC",
+    CAT_HANDYNOTES_MAPNOTES = "HandyNotes_MapNotes",
     CAT_OTHER = "其他",
 
 }

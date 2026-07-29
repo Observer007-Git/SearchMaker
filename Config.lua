@@ -2,7 +2,7 @@ local _, SMK = ...
 
 -- 常用尺寸、视觉和限制集中在本文件；修改后 /reload 即可生效。
 local Config = {
-    databaseSchemaVersion = 9,
+    databaseSchemaVersion = 11,
     panel = {
         height = 512,
         backgroundAtlas = "catalog-list-preview-bg",
@@ -63,6 +63,8 @@ local Config = {
         groupGap = 1,
         maxNameLength = 20,
         maxNameWidth = 20,
+        maxNoteLength = 360,
+        maxNoteWidth = 120,
         maxCoordinateLength = 6,
         maxFrequent = 5,
         geometryCacheMaxEntries = 1500,
@@ -79,7 +81,7 @@ local Config = {
     },
     locationEditor = {
         width = 260,
-        height = 430,
+        height = 455,
         titleOffsetY = -18,
         mapNameOffsetY = -8,
         rowStartY = -80,
@@ -107,7 +109,14 @@ local Config = {
         portalSoundID = 875,
         whisperInboxMaxEntries = 50,
     },
+    route = {
+        maxEntries = 20,
+    },
+    importPreview = {
+        maxVisibleEntries = 100,
+    },
     handyNotes = {
+        categoryKey = "handynotes_mapnotes",
         npcCacheMaxEntries = 512,
         npcRetrySeconds = 30,
         buildBatchSize = 20,
@@ -139,6 +148,10 @@ local Config = {
             size = 32,
             ringSize = 80,
             duration = 3,
+        },
+        routeTemporary = {
+            atlas = "Ping_Wheel_Icon_Assist_Glow",
+            size = 34,
         },
     },
     mapIndex = {
@@ -180,6 +193,8 @@ local Config = {
         locationHover = { 1, 1, 1 },
         locationPinned = { 0.33, 0.9, 1 },
         externalSource = { 0.72, 0.55, 1 },
+        note = { 0.25, 1, 0.35 },
+        routeCurrent = { 0.25, 1, 0.35 },
         panelBorder = { 0.82, 0.62, 0.25, 1 },
         dialogBackground = { 0.08, 0.055, 0.025, 1 },
         disabled = { 0.55, 0.55, 0.55 },
@@ -192,17 +207,18 @@ function Config.GetLocationEditorLayout()
     local function Row(index) return editor.rowStartY - index * editor.rowGap end
     local previewGap = math.ceil((editor.previewButtonSize + editor.buttonHeight) / 2) + 2
     local previewExtra = math.max(0, previewGap - editor.rowGap)
-    local pinColorRowY = Row(9) - previewExtra - 1
+    local pinColorRowY = Row(10) - previewExtra - 1
     return {
         customIconRowY = Row(0),
         categoryRowY = Row(1) - previewExtra,
         nameRowY = Row(2) - previewExtra,
-        xRowY = Row(3) - previewExtra,
-        yRowY = Row(4) - previewExtra,
-        coordinateButtonY = Row(5) - previewExtra - 1,
-        errorY = Row(6) - previewExtra - 3,
-        pinSettingsLabelY = Row(7) - previewExtra,
-        pinNameRowY = Row(8) - previewExtra - 1,
+        noteRowY = Row(3) - previewExtra,
+        xRowY = Row(4) - previewExtra,
+        yRowY = Row(5) - previewExtra,
+        coordinateButtonY = Row(6) - previewExtra - 1,
+        errorY = Row(7) - previewExtra - 3,
+        pinSettingsLabelY = Row(8) - previewExtra,
+        pinNameRowY = Row(9) - previewExtra - 1,
         pinColorRowY = pinColorRowY,
         pinTextureRowY = pinColorRowY - editor.previewButtonSize - 2,
     }
@@ -258,6 +274,14 @@ Config.categories = {
     { id = 10, key = "teleport_beacons", nameKey = "CAT_TELEPORT_BEACONS", atlas = "FlightMasterArgus" },
     { id = 11, key = "merchants", nameKey = "CAT_MERCHANTS", atlas = "SpellIcon-256x256-SellJunk" },
     { id = 12, key = "npc", nameKey = "CAT_NPC", atlas = "GM-icon-assistActive-hover" },
+    {
+        id = 14,
+        key = "handynotes_mapnotes",
+        nameKey = "CAT_HANDYNOTES_MAPNOTES",
+        texture = "Interface\\AddOns\\HandyNotes_MapNotes\\Images\\MNL4.blp",
+        textureAddOn = "HandyNotes_MapNotes",
+        fallbackCategoryKey = "other",
+    },
     { id = 13, key = "other", nameKey = "CAT_OTHER", atlas = "Waypoint-MapPin-Minimap-Tracked" },
 }
 Config.defaultCategoryKey = "other"
@@ -276,6 +300,30 @@ function Config.GetCategoryKey(value)
     local category = Config.categoryByID[tonumber(text)]
     if category then return category.key end
     return Config.defaultCategoryKey
+end
+
+--- 返回类别图标类型和材质；可选插件未加载时使用指定回退类别。
+function Config.GetCategoryIcon(categoryKey)
+    local category = Config.categoryByKey[categoryKey]
+        or Config.categoryByKey[Config.defaultCategoryKey]
+    if category.texture and (not category.textureAddOn
+        or C_AddOns and C_AddOns.IsAddOnLoaded
+            and C_AddOns.IsAddOnLoaded(category.textureAddOn)) then
+        return "texture", category.texture
+    end
+    if category.fallbackCategoryKey then
+        category = Config.categoryByKey[category.fallbackCategoryKey] or category
+    end
+    return "atlas", category.atlas or Config.art.fallbackLocationAtlas
+end
+
+function Config.ApplyCategoryIcon(texture, categoryKey)
+    local kind, value = Config.GetCategoryIcon(categoryKey)
+    if kind == "texture" then
+        texture:SetTexture(value)
+    else
+        texture:SetAtlas(value, false)
+    end
 end
 
 Config.settingsDefaults = {

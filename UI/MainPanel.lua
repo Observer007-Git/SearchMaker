@@ -377,6 +377,12 @@ function MainPanel:OpenHelp()
     SMK.HelpDialog:Open()
 end
 
+function MainPanel:OpenRoute()
+    SMK.ModalManager:PrepareToShow(SMK.RouteDialog)
+    if self.callbacks.onDialogOpened then self.callbacks.onDialogOpened() end
+    SMK.RouteDialog:Open()
+end
+
 function MainPanel:ToggleSettings()
     if SMK.PanelSettings:IsShown() then
         SMK.PanelSettings:Hide()
@@ -411,8 +417,7 @@ function MainPanel:Create(searchBar, callbacks)
     self.frequentButtons = {}
     self.locationCallbacks = {
         onActivate = self.callbacks.onActivate,
-        onEdit = function(entry) self:OpenEditor("edit", entry) end,
-        onDelete = self.callbacks.onDelete,
+        onContext = self.callbacks.onContext,
     }
     local frame = CreateFrame("Frame", SMK.name .. "Panel", UIParent, "BackdropTemplate")
     self.frame = frame
@@ -483,6 +488,9 @@ function MainPanel:Create(searchBar, callbacks)
     scalePlus:SetScript("OnClick", function()
         self:ChangeLocationScale(Config.location.scaleStep)
     end)
+    local route = Widgets:CreatePanelButton(frame, SMK.L.ROUTE_TITLE)
+    route:SetPoint("RIGHT", scalePlus, "LEFT", -buttonGap, 0)
+    route:SetScript("OnClick", function() self:OpenRoute() end)
     self.scaleMinus = scaleMinus
     self.scalePlus = scalePlus
 
@@ -582,12 +590,18 @@ function MainPanel:Create(searchBar, callbacks)
         end,
         onDelete = self.callbacks.onDelete,
     })
+    SMK.CopyDialog:Create(UIParent)
+    SMK.RouteDialog:Create(UIParent)
+    SMK.ImportPreviewDialog:Create(UIParent)
     SMK.ShareDialog:Create(frame)
     SMK.BulkDeleteDialog:Create(frame)
     SMK.HelpDialog:Create(frame)
     SMK.ModalManager:Register(SMK.PanelSettings)
     SMK.ModalManager:Register(self.moreMenu)
     SMK.ModalManager:Register(SMK.LocationEditor)
+    SMK.ModalManager:Register(SMK.CopyDialog)
+    SMK.ModalManager:Register(SMK.RouteDialog)
+    SMK.ModalManager:Register(SMK.ImportPreviewDialog)
     SMK.ModalManager:Register(SMK.ShareDialog)
     SMK.ModalManager:Register(SMK.BulkDeleteDialog)
     SMK.ModalManager:Register(SMK.HelpDialog)

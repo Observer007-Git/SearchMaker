@@ -52,9 +52,7 @@ function SearchResults:New(parent, box, callbacks)
     view.empty:Hide()
     view.widgetCallbacks = {
         onActivate = view.callbacks.onActivate,
-        onEdit = view.callbacks.onEdit,
-        onDelete = view.callbacks.onDelete,
-        onExternalMenu = function(entry, owner) view:OpenExternalMenu(entry, owner) end,
+        onContext = view.callbacks.onContext,
         onEnter = function(button)
             view:Select(button)
             view:ScheduleHoverHighlight(button)
@@ -87,39 +85,6 @@ function SearchResults:ScheduleHoverHighlight(button)
             return
         end
         SMK.MapPins:ShowHoverHighlight(entry)
-    end)
-end
-
-function SearchResults:IsContextMenuOpen()
-    return self.contextMenu and self.contextMenu:IsShown()
-end
-
-function SearchResults:GetFavoriteOptions()
-    local options = {}
-    for _, category in ipairs(SMK.Config.categories) do
-        options[#options + 1] = {
-            key = category.key,
-            label = SMK.L[category.nameKey] or category.key,
-            atlas = category.atlas,
-        }
-    end
-    return options
-end
-
-function SearchResults:OpenExternalMenu(entry, owner)
-    if entry.externalSource ~= "HandyNotes_MapNotes" or not self.callbacks.onFavorite then return end
-    GameTooltip_Hide()
-    self.contextMenu = MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
-        for _, option in ipairs(self:GetFavoriteOptions()) do
-            local categoryKey = option.key
-            local categoryIcon = option.atlas
-                and CreateAtlasMarkup(option.atlas, 16, 16) or ""
-            local menuText = string.format(SMK.L.FAVORITE_TO_FORMAT,
-                categoryIcon ~= "" and (categoryIcon .. " " .. option.label) or option.label)
-            rootDescription:CreateButton(menuText, function()
-                self.callbacks.onFavorite(entry, categoryKey)
-            end)
-        end
     end)
 end
 

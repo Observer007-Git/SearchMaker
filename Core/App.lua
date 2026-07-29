@@ -85,6 +85,9 @@ function App:ExternalDataChanged(mapID)
 end
 
 function App:StoreChanged(reason)
+    if reason == "locations" and SMK.Route then
+        SMK.Route:RefreshSavedEntries()
+    end
     self:RequestRefresh(reason == "usage" and "usage" or "data")
 end
 
@@ -119,12 +122,12 @@ end
 -- 如果来自搜索结果且为全图搜索模式，先打开目标地图再设路径点。
 -- @param entry table 地点条目或地图传送门条目。
 -- @param fromSearchResult boolean 是否来自搜索结果下拉框。
-function App:Activate(entry, fromSearchResult)
+function App:Activate(entry, fromSearchResult, keepPanelOpen)
     if entry.isMapPortal then
         if SMK.Map:OpenMap(entry.mapID) then
             -- 播放传送门音效
             PlaySound(SMK.Config.share.portalSoundID)
-            SMK.SearchBar:ClosePanel()
+            if not keepPanelOpen then SMK.SearchBar:ClosePanel() end
             if SMK.SearchBar:IsVisible() then SMK.SearchBar:Focus() end
         end
         return
@@ -144,7 +147,60 @@ function App:Activate(entry, fromSearchResult)
         PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_BUTTON_CLICK_OFF)
         if message then SMK:Print(message) end
     end
-    SMK.SearchBar:ClosePanel()
+    if not keepPanelOpen then SMK.SearchBar:ClosePanel() end
+end
+
+local function FormatCoordinate(value)
+    return (string.format("%.2f", tonumber(value) or 0)
+        :gsub("0+$", ""):gsub("%.$", ""))
+end
+
+function App:CopyCoordinates(entry)
+    SMK.ModalManager:PrepareToShow(SMK.CopyDialog)
+    SMK.CopyDialog:Open(SMK.L.COPY_COORDINATES_TITLE,
+        FormatCoordinate(entry.x) .. "," .. FormatCoordinate(entry.y))
+end
+
+function App:GetShareEntry(entry)
+    if not entry.isExternal then return entry end
+    return SMK.LocationModel:Normalize({
+        mapID = entry.mapID,
+        x = entry.x,
+        y = entry.y,
+        name = entry.name,
+        categoryKey = SMK.Config.defaultCategoryKey,
+        note = entry.note,
+    })
+end
+
+function App:ShareCoordinate(entry)
+    local shareEntry = self:GetShareEntry(entry)
+    if not shareEntry then return SMK:Print(SMK.L.SAVE_FAILED) end
+    SMK.ModalManager:PrepareToShow(SMK.CopyDialog)
+    SMK.CopyDialog:Open(SMK.L.SHARE_COORDINATE_TITLE,
+        SMK.ShareCodec:Encode({ shareEntry }))
+end
+
+function App:AddToRoute(entry)
+    local added, reason = SMK.Route:Add(entry)
+    if added then
+        SMK:Print(string.format(SMK.L.ROUTE_ADDED, entry.name))
+        return true
+    end
+    local message = reason == "ROUTE_DUPLICATE" and SMK.L.ROUTE_DUPLICATE
+        or reason == "ROUTE_FULL" and string.format(
+            SMK.L.ROUTE_FULL, SMK.Config.route.maxEntries)
+        or SMK.L.SAVE_FAILED
+    SMK:Print(message)
+    return false
+end
+
+function App:OpenLocationContext(entry, owner)
+    SMK.LocationContextMenu:Open(entry, owner)
+end
+
+function App:ActivateRoute(entry)
+    return self:Activate(entry, false, true)
 end
 
 --- 从编辑器保存或更新地点。
@@ -240,6 +296,9 @@ function App:CreateUI()
         onEdit = function(entry, screenX, screenY)
             SMK.MainPanel:OpenEditor("edit", entry, { x = screenX, y = screenY })
         end,
+        onContext = function(entry, owner)
+            self:OpenLocationContext(entry, owner)
+        end,
     })
     if not initializedPins or not pinsReady then
         SMK:Print(SMK.L.ERROR_MAP_PINS_UNAVAILABLE)
@@ -248,18 +307,32 @@ function App:CreateUI()
         onShown = function() self:RequestRefresh("visible") end,
         onPlayerContextRequested = function() self:RefreshPlayerSearchContext() end,
         onActivate = function(entry, result) self:Activate(entry, result) end,
-        onEdit = function(entry) SMK.MainPanel:OpenEditor("edit", entry) end,
-        onDelete = function(entry) self:DeleteLocation(entry) end,
-        onFavorite = function(entry, categoryKey) self:FavoriteExternal(entry, categoryKey) end,
+        onContext = function(entry, owner) self:OpenLocationContext(entry, owner) end,
     })
     SMK.MainPanel:Create(bar, {
         onActivate = function(entry, result) self:Activate(entry, result) end,
+        onContext = function(entry, owner) self:OpenLocationContext(entry, owner) end,
         onDelete = function(entry) self:DeleteLocation(entry) end,
         onSaveLocation = function(mode, entry, values) return self:SaveLocation(mode, entry, values) end,
         onDialogOpened = function() SMK.SearchBar:PrepareForDialog() end,
         onClose = function() SMK.SearchBar:ClosePanel() end,
         onHidden = function() SMK.SearchBar:OnPanelHidden() end,
     })
+    SMK.LocationContextMenu:Initialize({
+        onFavorite = function(entry)
+            self:FavoriteExternal(entry)
+        end,
+        onCopy = function(entry) self:CopyCoordinates(entry) end,
+        onShare = function(entry) self:ShareCoordinate(entry) end,
+        onEdit = function(entry) SMK.MainPanel:OpenEditor("edit", entry) end,
+        onDelete = function(entry) self:DeleteLocation(entry) end,
+        onRoute = function(entry) self:AddToRoute(entry) end,
+        onTemporaryPin = function(entry) SMK.RouteDialog:AddTemporaryPin(entry) end,
+    })
+    SMK.Route:SetChangeHandler(function()
+        if SMK.RouteDialog:IsShown() then SMK.RouteDialog:Refresh() end
+    end)
+    SMK.Route:SetActivateHandler(function(entry) return self:ActivateRoute(entry) end)
     SMK.SearchBar:AttachPanel(SMK.MainPanel)
     self.initialized = true
     self:RequestRefresh("initialize")

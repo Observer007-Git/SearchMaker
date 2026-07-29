@@ -47,4 +47,4 @@ function Catalog:Apply(texture, iconID)
 end
 
 SMK.IconCatalog = Catalog
-SMK.DefaultCustomIconID = 29
+SMK.DefaultCustomIconID = 28

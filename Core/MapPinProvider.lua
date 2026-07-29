@@ -1,8 +1,24 @@
 local _, SMK = ...
 
-local MapPins = { activePins = {} }
+local MapPins = { activePins = {}, temporaryPins = {} }
 local TEMPLATE = "SearchMakerMapPinTemplate"
+local TEMPORARY_TEMPLATE = "SearchMakerTemporaryRoutePinTemplate"
 local HIGHLIGHT_TEMPLATE = "SearchMakerTargetHighlightPinTemplate"
+
+local function GetTemporaryKey(entry)
+    if entry.id then return "id:" .. entry.id end
+    return "point:" .. SMK.LocationModel:GetDuplicateKey(entry)
+end
+
+local function GetCurrentTemporaryEntry(entry)
+    return entry.id and SMK.Store:GetByID(entry.id) or entry
+end
+
+local function HasPersistentMarker(entry)
+    local saved = entry.id and SMK.Store:GetByID(entry.id)
+        or SMK.Store:FindDuplicate(entry)
+    return saved and (saved.showPinName == 1 or saved.showPinTexture == 1) or false
+end
 
 local function CreatePinMixin()
     local mixin = CreateFromMixins(MapCanvasPinMixin)
@@ -32,10 +48,12 @@ local function CreatePinMixin()
             self.labelHitbox = CreateFrame("Button", nil, self)
             self.labelHitbox:SetAllPoints(self.label)
             self.labelHitbox:EnableMouse(true)
-            self.labelHitbox:RegisterForClicks("LeftButtonUp")
+            self.labelHitbox:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             self.labelHitbox:SetScript("OnEnter", function() self:OnMouseEnter() end)
             self.labelHitbox:SetScript("OnLeave", function() self:OnMouseLeave() end)
-            self.labelHitbox:SetScript("OnClick", function(_, button) self:OnClick(button) end)
+            self.labelHitbox:SetScript("OnClick", function(owner, button)
+                self:OnClick(button, owner)
+            end)
         end
         self.label:ClearAllPoints()
         local offsetX = SMK.Settings:Get("mapPinNameOffsetX")
@@ -84,6 +102,11 @@ local function CreatePinMixin()
             SMK.Map:GetMapName(entry.mapID), entry.mapID), 1, 1, 1)
         GameTooltip:AddLine(string.format(SMK.L.TOOLTIP_XY, entry.x, entry.y), 1, 1, 1)
         GameTooltip:AddLine(entry.categoryLabel or "", 0.75, 0.75, 0.75)
+        if entry.note and entry.note ~= "" then
+            local color = SMK.Config.colors.note
+            GameTooltip:AddLine(entry.note, color[1], color[2], color[3])
+        end
+        GameTooltip:AddLine(SMK.L.TOOLTIP_PIN_INSTRUCTIONS, 0.35, 0.85, 1)
         GameTooltip:Show()
     end
 
@@ -91,8 +114,11 @@ local function CreatePinMixin()
         GameTooltip_Hide()
     end
 
-    function mixin:OnClick(button)
-        if button == "LeftButton" and self.entry and MapPins.callbacks.onEdit then
+    function mixin:OnClick(button, owner)
+        if button == "RightButton" and self.entry and MapPins.callbacks.onContext then
+            GameTooltip_Hide()
+            MapPins.callbacks.onContext(self.entry, owner or self)
+        elseif button == "LeftButton" and self.entry and MapPins.callbacks.onEdit then
             GameTooltip_Hide()
             local screenX, screenY = SMK.Map:GetCursorScreenPosition()
             if not screenX or not screenY then
@@ -104,6 +130,39 @@ local function CreatePinMixin()
     end
 
     -- MapCanvasPinMixin 在部分正式服版本会调用受保护的按钮透传 API。
+    mixin.SetPassThroughButtons = function() end
+    return mixin
+end
+
+local function CreateTemporaryPinMixin()
+    local mixin = CreateFromMixins(MapCanvasPinMixin)
+
+    function mixin:OnLoad()
+        self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
+        self:SetScalingLimits(1, SMK.Config.mapPins.minScale, SMK.Config.mapPins.maxScale)
+    end
+
+    function mixin:OnAcquired(entry)
+        if not self.searchMakerLoaded then
+            self.searchMakerLoaded = true
+            self:OnLoad()
+        end
+        local config = SMK.Config.mapPins.routeTemporary
+        self:SetPosition(entry.x / 100, entry.y / 100)
+        self:SetSize(config.size, config.size)
+        if not self.icon then
+            self.icon = self:CreateTexture(nil, "OVERLAY")
+            self.icon:SetAllPoints(self)
+            self.icon:SetAtlas(config.atlas, false)
+        end
+        self.icon:Show()
+        self:Show()
+    end
+
+    function mixin:OnReleased()
+        if self.icon then self.icon:Hide() end
+    end
+
     mixin.SetPassThroughButtons = function() end
     return mixin
 end
@@ -177,6 +236,7 @@ function MapPins:Initialize(map, callbacks)
     function provider:RemoveAllData()
         MapPins.activePins = {}
         self:GetMap():RemoveAllPinsByTemplate(TEMPLATE)
+        self:GetMap():RemoveAllPinsByTemplate(TEMPORARY_TEMPLATE)
         self:GetMap():RemoveAllPinsByTemplate(HIGHLIGHT_TEMPLATE)
     end
     function provider:RefreshAllData()
@@ -190,9 +250,17 @@ function MapPins:Initialize(map, callbacks)
                 self:GetMap():AcquirePin(TEMPLATE, entry)
             end
         end
+        for _, temporary in pairs(MapPins.temporaryPins) do
+            local entry = GetCurrentTemporaryEntry(temporary) or temporary
+            if entry.mapID == mapID and not HasPersistentMarker(entry) then
+                self:GetMap():AcquirePin(TEMPORARY_TEMPLATE, entry)
+            end
+        end
     end
 
     if not SMK.MapPinPoolAdapter:Register(map, TEMPLATE, CreatePinMixin(), true)
+        or not SMK.MapPinPoolAdapter:Register(
+            map, TEMPORARY_TEMPLATE, CreateTemporaryPinMixin(), false)
         or not SMK.MapPinPoolAdapter:Register(
             map, HIGHLIGHT_TEMPLATE, CreateHighlightPinMixin(), false) then
         self.available = false
@@ -202,6 +270,35 @@ function MapPins:Initialize(map, callbacks)
     self.provider = provider
     self.available = true
     return true
+end
+
+function MapPins:AddTemporaryRoutePin(entry)
+    if not self.provider then return false, "UNAVAILABLE" end
+    if type(entry) ~= "table" or not tonumber(entry.mapID)
+        or not tonumber(entry.x) or not tonumber(entry.y) then
+        return false, "INVALID_LOCATION"
+    end
+    if HasPersistentMarker(entry) then return false, "PERSISTENT_EXISTS" end
+    local key = GetTemporaryKey(entry)
+    if self.temporaryPins[key] then return false, "TEMPORARY_EXISTS" end
+    self.temporaryPins[key] = {
+        id = entry.id,
+        mapID = entry.mapID,
+        x = entry.x,
+        y = entry.y,
+        name = entry.name,
+    }
+    self:Refresh()
+    return true
+end
+
+function MapPins:HasTemporaryRoutePin(entry)
+    return type(entry) == "table"
+        and self.temporaryPins[GetTemporaryKey(entry)] ~= nil or false
+end
+
+function MapPins:HasPersistentMarker(entry)
+    return type(entry) == "table" and HasPersistentMarker(entry) or false
 end
 
 function MapPins:IsAvailable()

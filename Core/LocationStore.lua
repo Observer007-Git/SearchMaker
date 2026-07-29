@@ -148,7 +148,8 @@ function Store:AddExternal(entry, categoryKey)
         x = entry.x,
         y = entry.y,
         name = entry.name,
-        categoryKey = Config.GetCategoryKey(categoryKey),
+        categoryKey = Config.GetCategoryKey(categoryKey or Config.handyNotes.categoryKey),
+        note = entry.note,
     }
     local duplicate, duplicateMessage = self:FindDuplicate(values)
     if duplicate then return nil, duplicateMessage end

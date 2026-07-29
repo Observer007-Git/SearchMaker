@@ -58,7 +58,7 @@ function PanelController:HandleGlobalMouseDown(button)
     local results = searchBar.searchResults
     local foci = GetMouseFoci()
     SMK.ModalManager:CloseTransientMenus(foci)
-    if results:IsContextMenuOpen() or SMK.ModalManager:IsMenuOpen() then return end
+    if SMK.LocationContextMenu:IsShown() or SMK.ModalManager:IsMenuOpen() then return end
     local panelExpanded = self.panel and self.panel:IsExpanded()
     if not panelExpanded and not results:IsShown() then return end
     if self.panel and self.panel:ContainsMouseFocus(foci)

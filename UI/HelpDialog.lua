@@ -29,9 +29,17 @@ function HelpDialog:Create(parent)
     close:SetPoint("TOPRIGHT", -10, -10)
     close:SetScript("OnClick", function() self:Hide() end)
 
-    local body = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    body:SetPoint("TOPLEFT", 30, -58)
-    body:SetPoint("BOTTOMRIGHT", -30, 28)
+    local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 30, -58)
+    scroll:SetPoint("BOTTOMRIGHT", -46, 28)
+    self.content = CreateFrame("Frame", nil, scroll)
+    self.content:SetWidth(500)
+    scroll:SetScrollChild(self.content)
+
+    local body = self.content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    self.body = body
+    body:SetPoint("TOPLEFT")
+    body:SetWidth(500)
     body:SetJustifyH("LEFT")
     body:SetJustifyV("TOP")
     body:SetWordWrap(true)
@@ -43,6 +51,7 @@ function HelpDialog:Create(parent)
 end
 
 function HelpDialog:Open()
+    self.content:SetHeight(math.max(1, self.body:GetStringHeight() + 8))
     self.frame:Show()
 end
 

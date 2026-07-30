@@ -10,11 +10,20 @@ local function CreateButton(parent, text, width)
     })
 end
 
+function Dialog:GetDisplayedItems()
+    return self.openedRoute and self.openedRoute.items or SMK.Route:GetItems()
+end
+
 function Dialog:Refresh()
-    local items = SMK.Route:GetItems()
-    local current = SMK.Route:GetCurrentIndex()
+    local items = self:GetDisplayedItems()
+    local isSaved = self.openedRoute ~= nil
+    local current = not isSaved and SMK.Route:GetCurrentIndex() or 0
+    local isActive = isSaved and SMK.Route:IsSavedRouteActive(self.openedRoute)
     self.count:SetText(string.format(SMK.L.ROUTE_COUNT, #items, SMK.Config.route.maxEntries))
     self.empty:SetShown(#items == 0)
+    self.nameInput:SetEnabled(not isSaved)
+    self.nameInput:SetTextColor(isSaved and 0.7 or 1, isSaved and 0.7 or 1, isSaved and 0.7 or 1)
+    self.save:SetShown(not isSaved)
     for index, row in ipairs(self.rows) do
         local entry = items[index]
         row:SetShown(entry ~= nil)
@@ -33,14 +42,23 @@ function Dialog:Refresh()
                 or hasTemporary and SMK.L.ROUTE_TEMP_PIN_ACTIVE
                 or SMK.L.ROUTE_TEMP_PIN)
             row.mark:SetEnabled(not hasPersistent and not hasTemporary)
-            row.up:SetEnabled(index > 1)
-            row.down:SetEnabled(index < #items)
+            row.up:SetShown(not isSaved)
+            row.down:SetShown(not isSaved)
+            row.remove:SetShown(not isSaved)
+            row.up:SetEnabled(not isSaved and index > 1)
+            row.down:SetEnabled(not isSaved and index < #items)
         end
     end
     self.content:SetHeight(math.max(1, #items * ROW_HEIGHT))
-    self.start:SetEnabled(#items > 0)
-    self.complete:SetEnabled(current > 0)
-    self.clear:SetEnabled(#items > 0)
+    self.start:SetText(isSaved and (isActive and SMK.L.ROUTE_ACTIVE
+        or SMK.L.ROUTE_ACTIVATE) or SMK.L.ROUTE_START)
+    self.start:SetEnabled(#items > 0 and (isSaved and not isActive or current == 0))
+    self.complete:SetShown(not isSaved)
+    self.clear:SetShown(not isSaved)
+    self.sort:SetShown(not isSaved)
+    self.complete:SetEnabled(not isSaved and current > 0)
+    self.clear:SetEnabled(not isSaved and #items > 0)
+    self.sort:SetEnabled(not isSaved and current == 0 and #items > 1)
 end
 
 function Dialog:AddTemporaryPin(entry)
@@ -56,6 +74,32 @@ function Dialog:AddTemporaryPin(entry)
         or SMK.L.SAVE_FAILED
     SMK:Print(message)
     return false
+end
+
+function Dialog:SaveCurrent()
+    local saved, errorMessage = SMK.App:SaveRoute(
+        self.nameInput:GetText(), SMK.Route:GetItems())
+    if not saved and errorMessage then
+        self.nameInput:SetFocus()
+        self.nameInput:HighlightText()
+    end
+    return saved
+end
+
+function Dialog:SortCurrent()
+    local mapID = SMK.Map:GetPlayerMapID()
+    local x, y = SMK.Map:GetPlayerCoordinates(mapID)
+    local sorted, reason = SMK.Route:SortByNearest(mapID, x, y)
+    if sorted then
+        SMK:Print(SMK.L.ROUTE_SORTED)
+    elseif reason == "ROUTE_ALREADY_SORTED" then
+        SMK:Print(SMK.L.ROUTE_ALREADY_SORTED)
+    end
+end
+
+function Dialog:OpenImport()
+    SMK.ModalManager:PrepareToShow(SMK.RouteImportDialog)
+    SMK.RouteImportDialog:Open()
 end
 
 function Dialog:Create(parent)
@@ -77,16 +121,34 @@ function Dialog:Create(parent)
     title:SetTextColor(unpack(SMK.Config.colors.gold))
     title:SetText(SMK.L.ROUTE_TITLE)
     self.count = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    self.count:SetPoint("TOP", title, "BOTTOM", 0, -6)
-    local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-    close:SetSize(24, 24)
-    close:SetPoint("TOPRIGHT", -1, -1)
+    self.count:SetPoint("TOPRIGHT", -34, -42)
+    local close = SMK.Widgets:CreateCloseButton(frame)
+    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetFrameLevel(frame:GetFrameLevel() + 20)
     close:RegisterForClicks("LeftButtonUp")
     close:SetScript("OnClick", function() self:Hide() end)
 
+    local nameLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    nameLabel:SetPoint("TOPLEFT", 24, -51)
+    nameLabel:SetText(SMK.L.ROUTE_NAME)
+    nameLabel:SetTextColor(unpack(SMK.Config.colors.gold))
+    self.nameInput = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+    self.nameInput:SetPoint("LEFT", nameLabel, "RIGHT", 7, 0)
+    self.nameInput:SetSize(190, 24)
+    self.nameInput:SetMaxLetters(80)
+    self.nameInput:SetAutoFocus(false)
+    self.nameInput:SetTextColor(1, 1, 1)
+    self.nameInput:SetScript("OnEnterPressed", function() self:SaveCurrent() end)
+    self.nameInput:SetScript("OnEscapePressed", function() self.nameInput:ClearFocus() end)
+    self.save = CreateButton(frame, SMK.L.ROUTE_SAVE, 70)
+    self.save:SetPoint("LEFT", self.nameInput, "RIGHT", 8, 0)
+    self.save:SetScript("OnClick", function() self:SaveCurrent() end)
+    self.import = CreateButton(frame, SMK.L.ROUTE_IMPORT_ACTION, 86)
+    self.import:SetPoint("LEFT", self.save, "RIGHT", 8, 0)
+    self.import:SetScript("OnClick", function() self:OpenImport() end)
+
     local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 24, -70)
+    scroll:SetPoint("TOPLEFT", 24, -82)
     scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT",
         -SMK.Config.panel.layout.scrollFrameRightInset, 58)
     self.content = CreateFrame("Frame", nil, scroll)
@@ -119,9 +181,16 @@ function Dialog:Create(parent)
         row.up:SetPoint("RIGHT", row.down, "LEFT", -3, 0)
         row.mark:SetPoint("RIGHT", row.up, "LEFT", -3, 0)
         row.activate:SetPoint("RIGHT", row.mark, "LEFT", -3, 0)
-        row.activate:SetScript("OnClick", function() SMK.Route:Activate(row.index) end)
+        row.activate:SetScript("OnClick", function()
+            local entry = self:GetDisplayedItems()[row.index]
+            if self.openedRoute then
+                SMK.App:ActivateRoute(entry)
+            else
+                SMK.Route:Activate(row.index)
+            end
+        end)
         row.mark:SetScript("OnClick", function()
-            self:AddTemporaryPin(SMK.Route:GetItems()[row.index])
+            self:AddTemporaryPin(self:GetDisplayedItems()[row.index])
         end)
         row.up:SetScript("OnClick", function() SMK.Route:Move(row.index, -1) end)
         row.down:SetScript("OnClick", function() SMK.Route:Move(row.index, 1) end)
@@ -132,8 +201,11 @@ function Dialog:Create(parent)
     self.start = CreateButton(frame, SMK.L.ROUTE_START, 100)
     self.start:SetPoint("BOTTOMLEFT", 28, 24)
     self.start:SetScript("OnClick", function()
-        local current = SMK.Route:GetCurrentIndex()
-        SMK.Route:Activate(current > 0 and current or 1)
+        if self.openedRoute then
+            SMK.App:ActivateSavedRoute(self.openedRoute)
+        else
+            SMK.Route:Activate(1)
+        end
     end)
     self.complete = CreateButton(frame, SMK.L.ROUTE_COMPLETE_NEXT, 120)
     self.complete:SetPoint("LEFT", self.start, "RIGHT", 8, 0)
@@ -141,15 +213,38 @@ function Dialog:Create(parent)
     self.clear = CreateButton(frame, SMK.L.ROUTE_CLEAR, 80)
     self.clear:SetPoint("LEFT", self.complete, "RIGHT", 8, 0)
     self.clear:SetScript("OnClick", function() SMK.Route:Clear() end)
+    self.sort = CreateButton(frame, SMK.L.ROUTE_AUTO_SORT, 88)
+    self.sort:SetPoint("LEFT", self.clear, "RIGHT", 8, 0)
+    self.sort:SetScript("OnClick", function() self:SortCurrent() end)
     local done = CreateButton(frame, SMK.L.CLOSE, 80)
     done:SetPoint("BOTTOMRIGHT", -28, 24)
     done:SetScript("OnClick", function() frame:Hide() end)
+    frame:SetScript("OnHide", function()
+        self.nameInput:ClearFocus()
+        self.openedRoute = nil
+    end)
     frame:Hide()
 end
 
 function Dialog:Open()
+    self.openedRoute = nil
+    self.nameInput:SetText("")
     self:Refresh()
     self.frame:Show()
+end
+
+function Dialog:OpenSaved(route)
+    self.openedRoute = SMK.RouteStore:GetByID(route and route.id)
+    if not self.openedRoute then return false end
+    self.nameInput:SetText(self.openedRoute.name)
+    self:Refresh()
+    self.frame:Show()
+    return true
+end
+
+function Dialog:IsOpenRoute(route)
+    return self.openedRoute and route
+        and self.openedRoute.id == tonumber(route.id) or false
 end
 
 function Dialog:Hide()

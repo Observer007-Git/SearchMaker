@@ -18,6 +18,7 @@ local translations = {
     HELP = "使用说明",
     BULK_DELETE = "批量删除",
     ROUTE_TITLE = "路线规划",
+    ROUTE_SEARCH_KEYWORD = "路线",
     SHORTCUT = "呼出快捷键",
     CAPTURE_SHORTCUT = "请按快捷键",
     MOVE_HINT = "按住 shift 可以移动",
@@ -27,6 +28,12 @@ local translations = {
     FREQUENT = "常用",
     NO_FREQUENT = "暂无使用记录",
     LOCATION_COUNT = "坐标数量：%d/%d",
+    LOCATION_FILTER_FORMAT = "筛选：%s",
+    FILTER_ALL_LOCATIONS = "全部地点",
+    FILTER_WITH_PINS = "带地图标记",
+    FILTER_WITH_NOTES = "带备注",
+    FILTER_WITH_CUSTOM_ICON = "使用自定义图标",
+    FILTER_NO_LOCATIONS = "当前筛选条件下没有地点",
     SHOW_PIN_TEXTURES = "显示标记材质",
     PIN_TEXT_COLOR = "显示标记文字",
     MAP_PIN_SETTINGS_LABEL = "地图标记设置：",
@@ -111,12 +118,16 @@ local translations = {
 • 搜索结果、主面板地点和地图标记统一使用右键功能菜单；外部地点默认收藏到“HandyNotes_MapNotes”。
 • 可将多个地点加入路线，按顺序定位，并使用“完成并下一个”继续。
 • 路线地点可添加本次运行有效的临时标记；已有正式标记不会被覆盖或清除。
+• 路线开始前可按同地图内的最近距离自动排序；不会改变不同地图区段的先后。
+• 为路线命名后可永久保存。搜索完整关键字“路线”可列出已保存路线，右键可打开、激活、分享或删除；当前只执行一条路线，执行状态在退出或 /reload 后清除。
+• 主面板地点筛选只改变主面板和常用地点的显示，不影响搜索、地图标记或存档。
 
 |cffffd100坐标查询及定位，地图区域和副本地图定位，坐标输入智能匹配|r
 • 搜索当前地图时，搜索范围是已经新增、标记、收藏和导入过的当前地图坐标，和来自外部来源如`HandyNotes_MapNotes`插件在地图上标记的坐标。
 • 搜索所有地图时，搜索范围是所有地图已收录的坐标。但不包括外部来源坐标。
 • 打开世界地图时，当前地图和全图搜索，都支持搜索地图区域，且地图和坐标结果都支持点击跳转到对应地图。
 • 不打开世界地图时，地图区域结果支持直接自动打开世界地图并跳转，坐标结果仅标记，不会打开世界地图。
+• 世界地图未打开时，右键自建地点搜索结果可选择“打开地图”，跳转后闪烁目标位置。
 • 当搜索框输入 22 22，或 22,22 等符合坐标格式的数据时，会自动识别并展示结果；左键定位，右键可复制、加入路线或添加临时标记。
 
 |cffffd100坐标修改|r
@@ -224,15 +235,26 @@ local translations = {
     MENU_FAVORITE = "收藏坐标",
     MENU_COPY_COORDINATES = "复制坐标",
     MENU_SHARE_COORDINATE = "分享坐标",
+    MENU_OPEN_MAP = "打开地图",
     MENU_EDIT_COORDINATE = "修改坐标",
     MENU_DELETE_COORDINATE = "删除坐标",
     MENU_ADD_ROUTE = "加入路线",
     MENU_ADD_TEMP_PIN = "添加临时标记",
+    MENU_OPEN_ROUTE = "打开路线",
+    MENU_ACTIVATE_ROUTE = "激活路线",
+    MENU_SHARE_ROUTE = "分享路线",
+    MENU_DELETE_ROUTE = "删除路线",
     COPY_COORDINATES_TITLE = "复制坐标",
     SHARE_COORDINATE_TITLE = "分享坐标",
     COPY_HINT = "按 Ctrl+C 复制。",
     ROUTE_COUNT = "路线地点：%d/%d",
+    ROUTE_SAVED_COUNT = "路线地点：%d",
+    ROUTE_TOOLTIP_INSTRUCTIONS = "左键打开路线  ·  右键路线菜单",
     ROUTE_EMPTY = "路线中暂无地点。",
+    ROUTE_NAME = "路线名称",
+    ROUTE_SAVE = "保存路线",
+    ROUTE_ACTIVATE = "激活路线",
+    ROUTE_ACTIVE = "已激活",
     ROUTE_LOCATE = "定位",
     ROUTE_TEMP_PIN = "临时标记",
     ROUTE_TEMP_PIN_ACTIVE = "已临时标记",
@@ -240,12 +262,28 @@ local translations = {
     ROUTE_START = "开始路线",
     ROUTE_COMPLETE_NEXT = "完成并下一个",
     ROUTE_CLEAR = "清空",
+    ROUTE_AUTO_SORT = "自动排序",
+    ROUTE_SORTED = "已按同地图内的最近距离重新排序路线。",
+    ROUTE_ALREADY_SORTED = "当前路线顺序无需调整。",
     ROUTE_ADDED = "已将 %s 加入路线。",
     ROUTE_DUPLICATE = "该地点已在路线中。",
+    ROUTE_DUPLICATE_NAME = "已存在同名的保存路线。",
     ROUTE_FULL = "路线最多支持 %d 个地点。",
     ROUTE_TEMP_PIN_ADDED = "已为 %s 添加临时地图标记。",
     ROUTE_TEMP_PIN_PERSISTENT = "该地点已有正式地图标记，未覆盖或清除。",
     ROUTE_TEMP_PIN_EXISTS = "该地点已有临时地图标记。",
+    ROUTE_SAVED = "已保存路线：%s。",
+    ROUTE_ACTIVATED = "已激活路线：%s。",
+    ROUTE_ALREADY_ACTIVE = "该路线当前已处于激活状态。",
+    ROUTE_DELETED = "已删除路线：%s。",
+    ROUTE_IMPORTED = "已导入路线：%s。",
+    ROUTE_NOT_FOUND = "该保存路线已不存在。",
+    ROUTE_INVALID = "请输入路线名称，并确保路线中至少有一个有效地点。",
+    SHARE_ROUTE_TITLE = "分享路线",
+    ROUTE_IMPORT_TITLE = "导入路线",
+    ROUTE_IMPORT_ACTION = "导入路线",
+    ROUTE_IMPORT_HINT = "请粘贴 SMK 路线字符串。",
+    ROUTE_IMPORT_INVALID = "无效的 SMK 路线字符串。",
 
     -- SearchBar
     KEY_ALREADY_BOUND = "%s 已被“%s”占用，请选择其他按键。",

@@ -106,7 +106,7 @@ function Widgets:ApplyPanelBorder(frame)
     frame:SetBackdropBorderColor(unpack(Config.colors.panelBorder))
 end
 
---- 创建主面板使用的 Atlas 文字按钮。
+--- 创建插件面板使用的 Atlas 文字按钮。
 -- 宽度默认根据当前语言文本自动计算；可通过 options.width 固定宽度。
 function Widgets:CreatePanelButton(parent, text, options)
     options = options or {}
@@ -120,22 +120,12 @@ function Widgets:CreatePanelButton(parent, text, options)
     button.background:SetAtlas(style.buttonAtlas, false)
     button.background:SetAlpha(0.72)
 
-    button.hover = button:CreateTexture(nil, "HIGHLIGHT")
-    button.hover:SetAllPoints()
-    button.hover:SetAtlas(style.buttonAtlas, false)
-    button.hover:SetBlendMode("ADD")
-    button.hover:SetAlpha(0.65)
-    button:SetHighlightTexture(button.hover)
-
-    if options.locationHighlight then
-        button.hover:SetAlpha(0)
-        button.locationHighlight = button:CreateTexture(nil, "ARTWORK")
-        button.locationHighlight:SetAllPoints()
-        button.locationHighlight:SetTexture(Config.art.highlight)
-        button.locationHighlight:SetBlendMode("ADD")
-        button.locationHighlight:SetAlpha(0.75)
-        button.locationHighlight:Hide()
-    end
+    button.locationHighlight = button:CreateTexture(nil, "ARTWORK")
+    button.locationHighlight:SetAllPoints()
+    button.locationHighlight:SetTexture(Config.art.highlight)
+    button.locationHighlight:SetBlendMode("ADD")
+    button.locationHighlight:SetAlpha(0.75)
+    button.locationHighlight:Hide()
 
     button.label = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     button.label:SetAllPoints()
@@ -163,29 +153,48 @@ function Widgets:CreatePanelButton(parent, text, options)
     button:SetScript("OnDisable", function(self)
         self.background:SetAlpha(0.3)
         self.label:SetTextColor(unpack(Config.colors.disabled))
-        if self.locationHighlight then self.locationHighlight:Hide() end
+        self.locationHighlight:Hide()
     end)
-    if button.locationHighlight then
-        button:SetScript("OnEnter", function(self)
-            self.label:SetTextColor(1, 1, 1)
-            self.locationHighlight:Show()
-        end)
-        button:SetScript("OnLeave", function(self)
-            local enabled = self:IsEnabled()
-            self.background:SetAlpha(enabled and 0.72 or 0.3)
-            self.label:SetTextColor(unpack(
-                enabled and Config.colors.gold or Config.colors.disabled))
-            self.locationHighlight:Hide()
-        end)
-    end
+    button:SetScript("OnEnter", function(self)
+        if not self:IsEnabled() then return end
+        self.label:SetTextColor(1, 1, 1)
+        self.locationHighlight:Show()
+    end)
+    button:SetScript("OnLeave", function(self)
+        local enabled = self:IsEnabled()
+        self.background:SetAlpha(enabled and 0.72 or 0.3)
+        self.label:SetTextColor(unpack(
+            enabled and Config.colors.gold or Config.colors.disabled))
+        self.locationHighlight:Hide()
+    end)
     button:SetText(text)
+    return button
+end
+
+--- 创建统一红色 Atlas 的面板关闭按钮；尺寸和锚点仍由现有面板约定控制。
+function Widgets:CreateCloseButton(parent)
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(24, 24)
+    local normal = button:CreateTexture(nil, "ARTWORK")
+    normal:SetAllPoints()
+    normal:SetAtlas(Config.panel.controls.closeButtonAtlas, false)
+    button:SetNormalTexture(normal)
+    local highlight = button:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints()
+    highlight:SetAtlas(Config.panel.controls.closeButtonAtlas, false)
+    highlight:SetBlendMode("ADD")
+    highlight:SetAlpha(0.5)
+    button:SetHighlightTexture(highlight)
     return button
 end
 
 --- 设置地点条目的图标。
 -- 已保存的自定义图标优先；否则使用地图、HandyNotes 来源或地点分组的默认图标。
 function Widgets:SetLocationIcon(texture, entry)
-    if entry.customIconID and SMK.IconCatalog:Apply(texture, entry.customIconID) then
+    if entry.isSavedRoute then
+        texture:SetTexture(Config.route.searchIcon)
+        texture:SetTexCoord(0, 1, 0, 1)
+    elseif entry.customIconID and SMK.IconCatalog:Apply(texture, entry.customIconID) then
         return
     elseif entry.isMapPortal then
         texture:SetAtlas(Art.mapPortalAtlas, false)
@@ -304,7 +313,11 @@ function Widgets:CreateLocationButton(parent, callbacks)
         owner.label:SetTextColor(unpack(Config.colors.locationHover))
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
         GameTooltip:SetText(owner.entry.name)
-        if owner.entry.isMapPortal then
+        if owner.entry.isSavedRoute then
+            GameTooltip:AddLine(string.format(
+                SMK.L.ROUTE_SAVED_COUNT, #(owner.entry.items or {})), 1, 1, 1)
+            GameTooltip:AddLine(SMK.L.ROUTE_TOOLTIP_INSTRUCTIONS, 0.35, 0.85, 1)
+        elseif owner.entry.isMapPortal then
             GameTooltip:AddLine(SMK.L.OPEN_MAP, 0.35, 0.85, 1)
         elseif owner.entry.isExternal then
             GameTooltip:AddLine(SMK.L.EXTERNAL_SOURCE .. ": " .. owner.entry.externalSource, 0.35, 0.85, 1)
@@ -326,7 +339,7 @@ function Widgets:CreateLocationButton(parent, callbacks)
             local color = Config.colors.note
             GameTooltip:AddLine(owner.entry.note, color[1], color[2], color[3])
         end
-        if not owner.entry.isMapPortal then
+        if not owner.entry.isMapPortal and not owner.entry.isSavedRoute then
             GameTooltip:AddLine(SMK.L.TOOLTIP_INSTRUCTIONS, 0.35, 0.85, 1)
         end
         GameTooltip:Show()

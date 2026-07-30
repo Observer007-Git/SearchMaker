@@ -191,7 +191,13 @@ function Map:OpenMap(mapID)
     local info = self:GetMapInfo(mapID)
     if not info then return false end
     if not WorldMapFrame:IsShown() then
-        WorldMapFrame:Show()
+        local opened
+        if C_Map and C_Map.OpenWorldMap then
+            opened = pcall(C_Map.OpenWorldMap, mapID)
+        else
+            opened = pcall(WorldMapFrame.Show, WorldMapFrame)
+        end
+        if not opened or not WorldMapFrame:IsShown() then return false end
     end
     if WorldMapFrame.SetMapID and WorldMapFrame:GetMapID() ~= mapID then
         local ok = pcall(WorldMapFrame.SetMapID, WorldMapFrame, mapID)

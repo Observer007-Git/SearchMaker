@@ -53,6 +53,45 @@ local function IsVisible(item, top, bottom)
     return item.y + item.height >= top and item.y <= bottom
 end
 
+function MainPanel:GetLocationFilterLabel()
+    local value = self.locationFilter or "all"
+    local categoryKey = value:match("^category:(.+)$")
+    local category = categoryKey and Config.categoryByKey[categoryKey]
+    local label = category and (SMK.L[category.nameKey] or category.key)
+        or value == "pins" and SMK.L.FILTER_WITH_PINS
+        or value == "notes" and SMK.L.FILTER_WITH_NOTES
+        or value == "customIcon" and SMK.L.FILTER_WITH_CUSTOM_ICON
+        or SMK.L.FILTER_ALL_LOCATIONS
+    return string.format(SMK.L.LOCATION_FILTER_FORMAT, label)
+end
+
+function MainPanel:GetDisplayedEntries()
+    local entries = SMK.MapContext:GetEntries()
+    local filter = self.locationFilter or "all"
+    if filter == "all" then return entries end
+    local categoryKey = filter:match("^category:(.+)$")
+    local filtered = self.filteredEntries
+    for index = #filtered, 1, -1 do filtered[index] = nil end
+    for _, entry in ipairs(entries) do
+        local matches = categoryKey and entry.categoryKey == categoryKey
+            or filter == "pins"
+                and (entry.showPinName == 1 or entry.showPinTexture == 1)
+            or filter == "notes" and SMK.Util.Trim(entry.note) ~= ""
+            or filter == "customIcon" and tonumber(entry.customIconID) ~= nil
+        if matches then filtered[#filtered + 1] = entry end
+    end
+    return filtered
+end
+
+function MainPanel:SetLocationFilter(value)
+    self.locationFilter = value or "all"
+    if self.filterDropdown and self.filterDropdown.Text then
+        self.filterDropdown.Text:SetText(self:GetLocationFilterLabel())
+    end
+    self:RenderList()
+    self:RenderFrequent()
+end
+
 function MainPanel:SetListContentHeight(height)
     self.listContent:SetHeight(height)
     if not self.scrollFrame then return end
@@ -81,7 +120,8 @@ function MainPanel:BuildListLayout()
     self.buildingListLayout = true
     self.listLayout = self.listLayout or {}
     self.listLayoutCount = 0
-    local entries = SMK.MapContext:GetEntries()
+    local allEntries = SMK.MapContext:GetEntries()
+    local entries = self:GetDisplayedEntries()
     local groups = self.categoryGroups or {}
     self.categoryGroups = groups
     for _, categoryInfo in ipairs(Config.categories) do
@@ -93,7 +133,8 @@ function MainPanel:BuildListLayout()
         end
     end
     if #entries == 0 then
-        self:AddLayoutItem("message", nil, nil, nil,
+        self:AddLayoutItem("message", nil, nil,
+            #allEntries > 0 and SMK.L.FILTER_NO_LOCATIONS or SMK.L.NO_LOCATIONS,
             nil, 28, nil, Config.location.baseHeight)
         for index = self.listLayoutCount + 1, #self.listLayout do
             local item = self.listLayout[index]
@@ -126,13 +167,14 @@ function MainPanel:BuildListLayout()
                 math.max(1, self.listContent:GetWidth()
                     - Config.panel.layout.contentInset * 2), headingHeight)
             local startX = PanelLayout.sidePadding
+            local rowRight = self.listContent:GetWidth() - PanelLayout.visualSidePadding
             local rowX = startX
             local rowY = y + headingHeight + Config.location.verticalGap
             local rowHeight = 0
             for _, entry in ipairs(categoryEntries) do
                 local width, height = Widgets:MeasureLocation(
                     self.measureLabel, entry.name, Config.panel.layout.showLocationIcons)
-                if rowX > startX and rowX + width > self.listContent:GetWidth() - startX then
+                if rowX > startX and rowX + width > rowRight then
                     rowX = startX
                     rowY = rowY + rowHeight + Config.location.verticalGap
                     rowHeight = 0
@@ -198,7 +240,7 @@ function MainPanel:RenderVisibleList(force)
                 widget:SetPoint("TOPLEFT", self.listContent, "TOPLEFT", item.x, -item.y)
             elseif item.kind == "message" then
                 widget:SetTextColor(unpack(Config.colors.disabled))
-                widget:SetText(SMK.L.NO_LOCATIONS)
+                widget:SetText(item.displayName or SMK.L.NO_LOCATIONS)
                 widget:SetPoint("TOP", self.listContent, "TOP", 0, -item.y)
             else
                 Widgets:SetLocationEntry(widget, item.entry, nil,
@@ -228,7 +270,7 @@ function MainPanel:GetFrequent()
         if keyA ~= keyB then return keyA < keyB end
         return entry.id < candidate.entry.id
     end
-    for _, entry in ipairs(SMK.MapContext:GetEntries()) do
+    for _, entry in ipairs(self:GetDisplayedEntries()) do
         local count = SMK.Store:GetUsage(entry)
         if count > 0 then
             if #frequent < limit then
@@ -267,6 +309,7 @@ function MainPanel:RenderFrequent()
     local titleHeight = Config.panel.layout.frequentTitleHeight
     local x, y, rowHeight = startX, titleHeight, 0
     local available = self.frequentRow:GetWidth() > 0 and self.frequentRow:GetWidth() or Config.panel.width - 28
+    local rowRight = available - PanelLayout.visualSidePadding
     for index = 1, visible do
         local button = self.frequentButtons[index]
         if not button then
@@ -278,7 +321,7 @@ function MainPanel:RenderFrequent()
         Widgets:SetLocationEntry(button, frequent[index].entry, nil,
             Config.panel.layout.showLocationIcons)
         local width, height = button:GetWidth(), button:GetHeight()
-        if x > startX and x + width > available - startX then
+        if x > startX and x + width > rowRight then
             x, y, rowHeight = startX, y + rowHeight + Config.location.verticalGap, 0
         end
         button:SetPoint("TOPLEFT", self.frequentRow, "TOPLEFT", x, -y)
@@ -349,6 +392,8 @@ function MainPanel:ChangeLocationScale(delta)
 end
 
 function MainPanel:ContainsMouseFocus(foci)
+    if self.filterDropdown and self.filterDropdown.IsMenuOpen
+        and self.filterDropdown:IsMenuOpen() then return true end
     if not DoesAncestryIncludeAny then return false end
     return self.frame and DoesAncestryIncludeAny(self.frame, foci)
 end
@@ -415,6 +460,8 @@ function MainPanel:Create(searchBar, callbacks)
     self.widgetPools = { heading = {}, button = {}, message = {} }
     self.widgetUseCounts = { heading = 0, button = 0, message = 0 }
     self.frequentButtons = {}
+    self.filteredEntries = {}
+    self.locationFilter = "all"
     self.locationCallbacks = {
         onActivate = self.callbacks.onActivate,
         onContext = self.callbacks.onContext,
@@ -447,9 +494,8 @@ function MainPanel:Create(searchBar, callbacks)
     frame.locationCount:SetJustifyH("RIGHT")
     frame.locationCount:SetTextColor(unpack(Config.colors.gold))
 
-    local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-    close:SetSize(24, 24)
-    close:SetPoint("TOPRIGHT", -1, -1)
+    local close = Widgets:CreateCloseButton(frame)
+    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function()
         if self.callbacks.onClose then self.callbacks.onClose() end
     end)
@@ -486,12 +532,36 @@ function MainPanel:Create(searchBar, callbacks)
     scalePlus:SetScript("OnClick", function()
         self:ChangeLocationScale(Config.location.scaleStep)
     end)
-    local route = Widgets:CreatePanelButton(
-        frame, SMK.L.ROUTE_TITLE, { locationHighlight = true })
+    local route = Widgets:CreatePanelButton(frame, SMK.L.ROUTE_TITLE)
     route:SetPoint("RIGHT", scalePlus, "LEFT", -buttonGap, 0)
     route:SetScript("OnClick", function() self:OpenRoute() end)
     self.scaleMinus = scaleMinus
     self.scalePlus = scalePlus
+
+    self.filterDropdown = CreateFrame(
+        "DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
+    self.filterDropdown:SetSize(180, Config.panel.controls.buttonHeight)
+    self.filterDropdown:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -39)
+    self.filterDropdown:SetSelectionText(function()
+        return self:GetLocationFilterLabel()
+    end)
+    self.filterDropdown:SetupMenu(function(_, root)
+        local function AddFilter(label, value)
+            root:CreateRadio(label,
+                function(selected) return self.locationFilter == selected end,
+                function(selected) self:SetLocationFilter(selected) end,
+                value)
+        end
+        AddFilter(SMK.L.FILTER_ALL_LOCATIONS, "all")
+        for _, category in ipairs(Config.categories) do
+            AddFilter(SMK.L[category.nameKey] or category.key,
+                "category:" .. category.key)
+        end
+        AddFilter(SMK.L.FILTER_WITH_PINS, "pins")
+        AddFilter(SMK.L.FILTER_WITH_NOTES, "notes")
+        AddFilter(SMK.L.FILTER_WITH_CUSTOM_ICON, "customIcon")
+    end)
+    self.filterDropdown.Text:SetText(self:GetLocationFilterLabel())
 
     SMK.PanelSettings:Create(settings)
     SMK.SearchBarSettings:Create(searchSettings)
@@ -590,6 +660,7 @@ function MainPanel:Create(searchBar, callbacks)
         onDelete = self.callbacks.onDelete,
     })
     SMK.CopyDialog:Create(UIParent)
+    SMK.RouteImportDialog:Create(UIParent)
     SMK.RouteDialog:Create(UIParent)
     SMK.ImportPreviewDialog:Create(UIParent)
     SMK.ShareDialog:Create(frame)
@@ -599,6 +670,7 @@ function MainPanel:Create(searchBar, callbacks)
     SMK.ModalManager:Register(self.moreMenu)
     SMK.ModalManager:Register(SMK.LocationEditor)
     SMK.ModalManager:Register(SMK.CopyDialog)
+    SMK.ModalManager:Register(SMK.RouteImportDialog)
     SMK.ModalManager:Register(SMK.RouteDialog)
     SMK.ModalManager:Register(SMK.ImportPreviewDialog)
     SMK.ModalManager:Register(SMK.ShareDialog)

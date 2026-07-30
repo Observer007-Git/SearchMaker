@@ -92,6 +92,15 @@ assert(english.L.HELP == "How to Use" and chinese.L.HELP == "使用说明"
     and english.L.HELP_TEXT:find("All Maps", 1, true)
     and not chinese.L.HELP_TEXT:find("当前地图/全图", 1, true),
     "help dialog locale is missing")
+assert(english.L.ROUTE_SEARCH_KEYWORD == "route"
+    and chinese.L.ROUTE_SEARCH_KEYWORD == "路线"
+    and chinese.L.MENU_OPEN_ROUTE == "打开路线"
+    and chinese.L.MENU_ACTIVATE_ROUTE == "激活路线"
+    and chinese.L.MENU_SHARE_ROUTE == "分享路线"
+    and chinese.L.MENU_DELETE_ROUTE == "删除路线"
+    and chinese.L.MENU_OPEN_MAP == "打开地图"
+    and chinese.L.HELP_TEXT:find("搜索完整关键字“路线”", 1, true),
+    "saved route search or action locale is missing")
 assert(english.Config.GetCategoryKey("delves") == "delves", "canonical category key failed")
 assert(english.Config.GetCategoryKey("地下堡") == "other", "localized category leaked into storage")
 

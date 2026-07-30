@@ -50,6 +50,16 @@ function Search:GetScore(entry, query)
     end
 end
 
+--- 仅在完整、连续匹配本地化“路线”关键字时进入路线搜索。
+-- 关键字之外的文本继续用于筛选路线名称，例如“路线 银月”。
+function Search:GetRouteFilter(query)
+    local keyword = Util.Normalize(SMK.L.ROUTE_SEARCH_KEYWORD)
+    if keyword == "" then return end
+    local first, last = query:find(keyword, 1, true)
+    if not first then return end
+    return query:sub(1, first - 1) .. query:sub(last + 1)
+end
+
 local function ResolveMapSortKey(match)
     if match.includeMapName and not match.mapName then
         match.mapName = SMK.Map:GetMapName(match.entry.mapID)
@@ -163,13 +173,18 @@ end
 -- @param externalEntries table|nil 当前上下文的外部地点。
 -- @return table { entry, score, mapName?, isMapPortal?, isCoordinateResult? } 数组。
 function Search:Find(entries, query, allMaps, currentMapID, externalEntries)
-    local coordinateX, coordinateY = self:ParseCoordinates(query)
-    query = Util.Normalize(query)
+    local rawQuery = query
+    query = Util.Normalize(rawQuery)
     if query == "" then
         return {}
     end
-    local matches = {}
     local maxResults = Config.search.maxResults
+    local routeFilter = self:GetRouteFilter(query)
+    if routeFilter ~= nil then
+        return SMK.RouteStore:Search(routeFilter, maxResults)
+    end
+    local coordinateX, coordinateY = self:ParseCoordinates(rawQuery)
+    local matches = {}
     currentMapID = tonumber(currentMapID)
     if coordinateX and currentMapID and currentMapID > 0 then
         local entry = {

@@ -119,20 +119,32 @@ function App:RefreshPlayerSearchContext()
 end
 
 --- 激活地点：为用户条目设置路径点，或为地图传送门跳转到目标地图。
--- 如果来自搜索结果且为全图搜索模式，先打开目标地图再设路径点。
+-- 全图搜索中的跨地图自建地点会先打开目标地图，再设置路径点并延迟高亮。
 -- @param entry table 地点条目或地图传送门条目。
 -- @param fromSearchResult boolean 是否来自搜索结果下拉框。
 function App:Activate(entry, fromSearchResult, keepPanelOpen)
+    if entry.isSavedRoute then
+        self:OpenSavedRoute(entry)
+        return
+    end
     if entry.isMapPortal then
         if SMK.Map:OpenMap(entry.mapID) then
             -- 播放传送门音效
             PlaySound(SMK.Config.share.portalSoundID)
             if not keepPanelOpen then SMK.SearchBar:ClosePanel() end
-            if SMK.SearchBar:IsVisible() then SMK.SearchBar:Focus() end
+            SMK.SearchBar:ShowForMap()
+            SMK.SearchBar:Focus()
         end
         return
     end
-    if fromSearchResult and SMK.Settings:Get("searchAllMaps")
+    local openedTargetMap = false
+    local isAllMapsSavedResult = fromSearchResult
+        and SMK.Settings:Get("searchAllMaps")
+        and entry.source == "saved"
+    local playerMapID = isAllMapsSavedResult and SMK.Map:GetPlayerMapID() or nil
+    if playerMapID and tonumber(entry.mapID) ~= tonumber(playerMapID) then
+        openedTargetMap = SMK.Map:OpenMap(entry.mapID)
+    elseif isAllMapsSavedResult
         and SMK.SearchBar:IsMapMode()
         and WorldMapFrame:IsShown() then
         SMK.Map:OpenMap(entry.mapID)
@@ -142,12 +154,17 @@ function App:Activate(entry, fromSearchResult, keepPanelOpen)
     if marked then
         PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_SUPER_TRACK_ON)
         SMK.Store:RecordUsage(entry)
-        SMK.MapPins:ShowTargetHighlight(entry)
+        if openedTargetMap then
+            self:QueueLocationHighlight(entry)
+        else
+            SMK.MapPins:ShowTargetHighlight(entry)
+        end
     else
         PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_BUTTON_CLICK_OFF)
         if message then SMK:Print(message) end
     end
     if not keepPanelOpen then SMK.SearchBar:ClosePanel() end
+    return marked
 end
 
 local function FormatCoordinate(value)
@@ -181,6 +198,44 @@ function App:ShareCoordinate(entry)
         SMK.ShareCodec:Encode({ shareEntry }))
 end
 
+function App:QueueLocationHighlight(entry)
+    self.locationHighlightToken = (self.locationHighlightToken or 0) + 1
+    self.pendingLocationHighlight = {
+        entry = entry,
+        token = self.locationHighlightToken,
+    }
+    if WorldMapFrame and WorldMapFrame:IsShown() then
+        self:ShowPendingLocationHighlight(WorldMapFrame:GetMapID())
+    end
+end
+
+function App:ShowPendingLocationHighlight(mapID)
+    local request = self.pendingLocationHighlight
+    if not request or not WorldMapFrame or not WorldMapFrame:IsShown()
+        or tonumber(mapID) ~= request.entry.mapID then return false end
+    self.pendingLocationHighlight = nil
+    C_Timer.After(0, function()
+        if self.locationHighlightToken == request.token
+            and WorldMapFrame:IsShown()
+            and WorldMapFrame:GetMapID() == request.entry.mapID then
+            SMK.MapPins:ShowTargetHighlight(request.entry)
+        end
+    end)
+    return true
+end
+
+function App:OpenLocationOnMap(entry)
+    if type(entry) ~= "table" or not tonumber(entry.mapID) then return false end
+    self:QueueLocationHighlight(entry)
+    if not SMK.Map:OpenMap(entry.mapID) then
+        self.pendingLocationHighlight = nil
+        return false
+    end
+    SMK.SearchBar:ClosePanel()
+    self:ShowPendingLocationHighlight(WorldMapFrame:GetMapID())
+    return true
+end
+
 function App:AddToRoute(entry)
     local added, reason = SMK.Route:Add(entry)
     if added then
@@ -195,8 +250,81 @@ function App:AddToRoute(entry)
     return false
 end
 
-function App:OpenLocationContext(entry, owner)
-    SMK.LocationContextMenu:Open(entry, owner)
+function App:OpenSavedRoute(route)
+    local saved = SMK.RouteStore:GetByID(route and route.id)
+    if not saved then return SMK:Print(SMK.L.ROUTE_NOT_FOUND) end
+    SMK.SearchBar:ClosePanel()
+    SMK.ModalManager:PrepareToShow(SMK.RouteDialog)
+    SMK.RouteDialog:OpenSaved(saved)
+end
+
+function App:ActivateSavedRoute(route)
+    local saved = SMK.RouteStore:GetByID(route and route.id)
+    if not saved then
+        SMK:Print(SMK.L.ROUTE_NOT_FOUND)
+        return false
+    end
+    local activated, reason = SMK.Route:ActivateSavedRoute(saved)
+    if not activated then
+        if reason == "ACTIVATE_FAILED" then return false end
+        SMK:Print(reason == "ROUTE_ALREADY_ACTIVE"
+            and SMK.L.ROUTE_ALREADY_ACTIVE or SMK.L.ROUTE_INVALID)
+        return false
+    end
+    SMK:Print(string.format(SMK.L.ROUTE_ACTIVATED, saved.name))
+    SMK.SearchBar:ClosePanel()
+    return true
+end
+
+function App:SaveRoute(name, items)
+    local saved, reason = SMK.RouteStore:Add({ name = name, items = items })
+    if not saved then
+        local message = reason == "READ_ONLY" and SMK.DB:GetReadOnlyMessage()
+            or reason == "DUPLICATE_ROUTE_NAME" and SMK.L.ROUTE_DUPLICATE_NAME
+            or SMK.L.ROUTE_INVALID
+        SMK:Print(message)
+        return nil, message
+    end
+    SMK:Print(string.format(SMK.L.ROUTE_SAVED, saved.name))
+    return saved
+end
+
+function App:ShareSavedRoute(route)
+    local saved = SMK.RouteStore:GetByID(route and route.id)
+    local text = saved and SMK.RouteCodec:Encode(saved)
+    if not text then return SMK:Print(SMK.L.ROUTE_NOT_FOUND) end
+    SMK.ModalManager:PrepareToShow(SMK.CopyDialog)
+    SMK.CopyDialog:Open(SMK.L.SHARE_ROUTE_TITLE, text)
+end
+
+function App:DeleteSavedRoute(route)
+    local deleted, reason = SMK.RouteStore:Delete(route)
+    if deleted == 0 then
+        SMK:Print(reason == "READ_ONLY" and SMK.DB:GetReadOnlyMessage()
+            or SMK.L.ROUTE_NOT_FOUND)
+        return false
+    end
+    SMK.Route:SavedRouteDeleted(route)
+    if SMK.RouteDialog:IsOpenRoute(route) then SMK.RouteDialog:Hide() end
+    SMK:Print(string.format(SMK.L.ROUTE_DELETED, route.name))
+    return true
+end
+
+function App:ImportRouteText(text)
+    local route, errorMessage = SMK.RouteCodec:Decode(text)
+    if not route then return nil, errorMessage end
+    local saved, reason = SMK.RouteStore:Add(route)
+    if not saved then
+        return nil, reason == "READ_ONLY" and SMK.DB:GetReadOnlyMessage()
+            or reason == "DUPLICATE_ROUTE_NAME" and SMK.L.ROUTE_DUPLICATE_NAME
+            or SMK.L.ROUTE_INVALID
+    end
+    SMK:Print(string.format(SMK.L.ROUTE_IMPORTED, saved.name))
+    return saved
+end
+
+function App:OpenLocationContext(entry, owner, fromSearchResult)
+    SMK.LocationContextMenu:Open(entry, owner, fromSearchResult)
 end
 
 function App:ActivateRoute(entry)
@@ -283,6 +411,7 @@ function App:CreateUI()
     if self.initialized then return end
     SMK.DB:Initialize()
     SMK.Store:SetChangeHandler(function(reason) self:StoreChanged(reason) end)
+    SMK.RouteStore:SetChangeHandler(function() self:RequestRefresh("search") end)
     SMK.Settings:SetChangeHandler(function(key) self:SettingChanged(key) end)
     SMK.HandyNotesProvider:SetChangeHandler(function(_, mapID)
         self:ExternalDataChanged(mapID)
@@ -307,7 +436,9 @@ function App:CreateUI()
         onShown = function() self:RequestRefresh("visible") end,
         onPlayerContextRequested = function() self:RefreshPlayerSearchContext() end,
         onActivate = function(entry, result) self:Activate(entry, result) end,
-        onContext = function(entry, owner) self:OpenLocationContext(entry, owner) end,
+        onContext = function(entry, owner)
+            self:OpenLocationContext(entry, owner, true)
+        end,
     })
     SMK.MainPanel:Create(bar, {
         onActivate = function(entry, result) self:Activate(entry, result) end,
@@ -324,10 +455,16 @@ function App:CreateUI()
         end,
         onCopy = function(entry) self:CopyCoordinates(entry) end,
         onShare = function(entry) self:ShareCoordinate(entry) end,
+        onOpenMap = function(entry) self:OpenLocationOnMap(entry) end,
         onEdit = function(entry) SMK.MainPanel:OpenEditor("edit", entry) end,
         onDelete = function(entry) self:DeleteLocation(entry) end,
         onRoute = function(entry) self:AddToRoute(entry) end,
         onTemporaryPin = function(entry) SMK.RouteDialog:AddTemporaryPin(entry) end,
+        onOpenRoute = function(route) self:OpenSavedRoute(route) end,
+        onActivateRoute = function(route) self:ActivateSavedRoute(route) end,
+        isRouteActive = function(route) return SMK.Route:IsSavedRouteActive(route) end,
+        onShareRoute = function(route) self:ShareSavedRoute(route) end,
+        onDeleteRoute = function(route) self:DeleteSavedRoute(route) end,
     })
     SMK.Route:SetChangeHandler(function()
         if SMK.RouteDialog:IsShown() then SMK.RouteDialog:Refresh() end
@@ -340,6 +477,7 @@ function App:CreateUI()
         onShown = function(mapID)
             SMK.SearchBar:ShowForMap()
             self:RequestMapRefresh(mapID, false)
+            self:ShowPendingLocationHighlight(mapID)
         end,
         onHidden = function(mapID)
             SMK.SearchBar:HandleWorldMapHidden()
@@ -347,6 +485,7 @@ function App:CreateUI()
         end,
         onMapChanged = function(mapID, forceExternal)
             self:RequestMapRefresh(mapID, forceExternal)
+            self:ShowPendingLocationHighlight(mapID)
         end,
         onMapIndexReady = function()
             self:RequestRefresh("search")
@@ -403,6 +542,7 @@ loader:SetScript("OnEvent", function(self, event, firstArgument)
         SMK.DB:Initialize()
         if App.initialized then
             SMK.Store:InvalidateCache()
+            SMK.RouteStore:InvalidateCache()
             SMK.SearchBar:UpdateSearchIcon()
             App:DataChanged()
         end

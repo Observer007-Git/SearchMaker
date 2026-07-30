@@ -16,6 +16,7 @@ SMK.L = {
     HELP = "How to Use",
     BULK_DELETE = "Bulk Delete",
     ROUTE_TITLE = "Route",
+    ROUTE_SEARCH_KEYWORD = "route",
     SHORTCUT = "Shortcut Key",
     CAPTURE_SHORTCUT = "Press a key...",
     MOVE_HINT = "Hold Shift to move",
@@ -25,6 +26,12 @@ SMK.L = {
     FREQUENT = "Frequent",
     NO_FREQUENT = "No usage yet",
     LOCATION_COUNT = "Locations: %d/%d",
+    LOCATION_FILTER_FORMAT = "Filter: %s",
+    FILTER_ALL_LOCATIONS = "All Locations",
+    FILTER_WITH_PINS = "With Map Pins",
+    FILTER_WITH_NOTES = "With Notes",
+    FILTER_WITH_CUSTOM_ICON = "With Custom Icons",
+    FILTER_NO_LOCATIONS = "No locations match this filter",
     PREFIX = "SearchMaker: ",
     BINDING_HEADER = "SearchMaker",
     BINDING_NAME = "Toggle Search",
@@ -105,6 +112,7 @@ SMK.L = {
 • Left-click the search box to search, right-click it to open the main panel, and middle-click it to toggle the world map. Hold Shift and drag to move the search box.
 • Press Tab to switch between Current Map and All Maps. With the map open, Current Map follows the viewed map; with it closed, it follows your character.
 • Search by location name, or enter coordinates such as “45.2, 63.8”. Left-click the result to create a native waypoint; right-click it to copy, add to the route, or add a temporary pin.
+• With the world map closed, right-click a saved-location search result and choose Open Map to jump to its map and flash the target.
 
 |cffffd100Locations and pins|r
 • Alt+Left-click empty map space to add a location. Use Note for extra details; notes appear in green in tooltips.
@@ -113,6 +121,9 @@ SMK.L = {
 • Each location controls its own pin icon, name, and optional text color. Pin Settings controls icon/text size and text offset. Search Settings controls the search box and shortcut key.
 • External locations are saved to the HandyNotes_MapNotes group by default. Add locations to the Route queue to visit them in a chosen order.
 • A route location can receive a session-only temporary pin. Existing saved pins are never replaced or removed.
+• Before starting, Auto Sort orders nearby locations within each map without moving map sections.
+• Name and save a route to reuse it later. Search for “route” to list saved routes; right-click one to open, activate, share, or delete it. Only one route runs per session, and the running route resets on login or /reload.
+• Main-panel filters affect only the panel and Frequent section; they do not change search results, map pins, or saved data.
 
 |cffffd100Sharing and data|r
 • Import / Export previews new, duplicate, and invalid locations before writing them. It also imports SMK codes sent or received in character and Battle.net whispers since login or /reload; it does not scan channels.
@@ -211,15 +222,26 @@ SMK.L = {
     MENU_FAVORITE = "Save Coordinate",
     MENU_COPY_COORDINATES = "Copy Coordinates",
     MENU_SHARE_COORDINATE = "Share Coordinate",
+    MENU_OPEN_MAP = "Open Map",
     MENU_EDIT_COORDINATE = "Edit Coordinate",
     MENU_DELETE_COORDINATE = "Delete Coordinate",
     MENU_ADD_ROUTE = "Add to Route",
     MENU_ADD_TEMP_PIN = "Add Temporary Pin",
+    MENU_OPEN_ROUTE = "Open Route",
+    MENU_ACTIVATE_ROUTE = "Activate Route",
+    MENU_SHARE_ROUTE = "Share Route",
+    MENU_DELETE_ROUTE = "Delete Route",
     COPY_COORDINATES_TITLE = "Copy Coordinates",
     SHARE_COORDINATE_TITLE = "Share Coordinate",
     COPY_HINT = "Press Ctrl+C to copy.",
     ROUTE_COUNT = "%d/%d locations",
+    ROUTE_SAVED_COUNT = "%d locations",
+    ROUTE_TOOLTIP_INSTRUCTIONS = "Left-click: open route  ·  Right-click: route menu",
     ROUTE_EMPTY = "No locations in the route.",
+    ROUTE_NAME = "Route Name",
+    ROUTE_SAVE = "Save",
+    ROUTE_ACTIVATE = "Activate",
+    ROUTE_ACTIVE = "Active",
     ROUTE_LOCATE = "Locate",
     ROUTE_TEMP_PIN = "Temp Pin",
     ROUTE_TEMP_PIN_ACTIVE = "Temp Pin Added",
@@ -227,12 +249,28 @@ SMK.L = {
     ROUTE_START = "Start Route",
     ROUTE_COMPLETE_NEXT = "Complete & Next",
     ROUTE_CLEAR = "Clear",
+    ROUTE_AUTO_SORT = "Auto Sort",
+    ROUTE_SORTED = "Route sorted by nearest locations within each map.",
+    ROUTE_ALREADY_SORTED = "The route is already in the nearest order.",
     ROUTE_ADDED = "Added %s to the route.",
     ROUTE_DUPLICATE = "This location is already in the route.",
+    ROUTE_DUPLICATE_NAME = "A saved route already uses this name.",
     ROUTE_FULL = "The route supports up to %d locations.",
     ROUTE_TEMP_PIN_ADDED = "Added a temporary map pin for %s.",
     ROUTE_TEMP_PIN_PERSISTENT = "This location already has a saved map pin. It was not changed.",
     ROUTE_TEMP_PIN_EXISTS = "This location already has a temporary map pin.",
+    ROUTE_SAVED = "Saved route: %s.",
+    ROUTE_ACTIVATED = "Activated route: %s.",
+    ROUTE_ALREADY_ACTIVE = "This route is already active.",
+    ROUTE_DELETED = "Deleted route: %s.",
+    ROUTE_IMPORTED = "Imported route: %s.",
+    ROUTE_NOT_FOUND = "This saved route no longer exists.",
+    ROUTE_INVALID = "Enter a route name and add at least one valid location.",
+    SHARE_ROUTE_TITLE = "Share Route",
+    ROUTE_IMPORT_TITLE = "Import Route",
+    ROUTE_IMPORT_ACTION = "Import Route",
+    ROUTE_IMPORT_HINT = "Paste an SMK route string.",
+    ROUTE_IMPORT_INVALID = "Invalid SMK route string.",
 
     -- SearchBar
     KEY_ALREADY_BOUND = "%s is already bound to \"%s\". Choose another key.",

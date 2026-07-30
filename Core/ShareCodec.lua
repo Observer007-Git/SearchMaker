@@ -67,7 +67,13 @@ end
 function Codec:FindShareText(text)
     local value = tostring(text or "")
     local position = value:find(Config.share.prefix, 1, true)
-    return position and value:sub(position) or nil
+    if not position then return nil end
+    local shareText = value:sub(position)
+    if shareText:sub(1, #Config.share.prefix + 2)
+        == Config.share.prefix .. "R|" then
+        return nil
+    end
+    return shareText
 end
 
 function Codec:Encode(entries)

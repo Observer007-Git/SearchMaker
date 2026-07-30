@@ -6,10 +6,29 @@ function ContextMenu:Initialize(callbacks)
     self.callbacks = callbacks or {}
 end
 
-function ContextMenu:Open(entry, owner)
+function ContextMenu:Open(entry, owner, fromSearchResult)
     if type(entry) ~= "table" or entry.isMapPortal then return end
     GameTooltip_Hide()
     self.menu = MenuUtil.CreateContextMenu(owner, function(_, root)
+        if entry.isSavedRoute then
+            root:CreateButton(SMK.L.MENU_OPEN_ROUTE, function()
+                self.callbacks.onOpenRoute(entry)
+            end)
+            local activate = root:CreateButton(SMK.L.MENU_ACTIVATE_ROUTE, function()
+                self.callbacks.onActivateRoute(entry)
+            end)
+            if self.callbacks.isRouteActive
+                and self.callbacks.isRouteActive(entry) and activate.SetEnabled then
+                activate:SetEnabled(false)
+            end
+            root:CreateButton(SMK.L.MENU_SHARE_ROUTE, function()
+                self.callbacks.onShareRoute(entry)
+            end)
+            root:CreateButton(SMK.L.MENU_DELETE_ROUTE, function()
+                self.callbacks.onDeleteRoute(entry)
+            end)
+            return
+        end
         if entry.isCoordinateResult then
             root:CreateButton(SMK.L.MENU_COPY_COORDINATES, function()
                 self.callbacks.onCopy(entry)
@@ -25,6 +44,12 @@ function ContextMenu:Open(entry, owner)
         if entry.isExternal then
             root:CreateButton(SMK.L.MENU_FAVORITE, function()
                 self.callbacks.onFavorite(entry)
+            end)
+        end
+        if fromSearchResult == true and not entry.isExternal
+            and WorldMapFrame and not WorldMapFrame:IsShown() then
+            root:CreateButton(SMK.L.MENU_OPEN_MAP, function()
+                self.callbacks.onOpenMap(entry)
             end)
         end
         root:CreateButton(SMK.L.MENU_COPY_COORDINATES, function()

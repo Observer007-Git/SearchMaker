@@ -5,7 +5,8 @@ local Config = SMK.Config
 local Model = SMK.LocationModel
 local SettingsSchema = SMK.SettingsSchema
 local rootKeys = {
-    schemaVersion = true, locations = true, usageCounts = true, settings = true, nextLocationID = true,
+    schemaVersion = true, locations = true, usageCounts = true, settings = true,
+    nextLocationID = true, savedRoutes = true, nextRouteID = true,
 }
 
 -- Schema 8 removes duplicate Atlas entries and compacts their positive IDs.
@@ -96,8 +97,11 @@ local function CreateFutureRuntime(database)
     local runtime = {
         locations = {},
         usageCounts = {},
+        savedRoutes = type(database.savedRoutes) == "table"
+            and database.savedRoutes or {},
         settings = SettingsSchema:NormalizeAll(database.settings),
         nextLocationID = 1,
+        nextRouteID = database.nextRouteID,
         schemaVersion = database.schemaVersion,
     }
     for _, stored in ipairs(type(database.locations) == "table" and database.locations or {}) do
@@ -113,6 +117,7 @@ local function CreateFutureRuntime(database)
             and database.usageCounts[entry.id]) or 0)
         if count > 0 then runtime.usageCounts[entry.id] = count end
     end
+    SMK.RouteStore:PrepareDatabase(runtime)
     return runtime
 end
 
@@ -132,6 +137,7 @@ function DB:Initialize()
     self.readOnly = false
     database.locations = type(database.locations) == "table" and database.locations or {}
     database.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
+    database.savedRoutes = type(database.savedRoutes) == "table" and database.savedRoutes or {}
     database.settings = SettingsSchema:NormalizeAll(database.settings)
     MigrateCustomIconIDs(database, schemaVersion)
     MigrateCustomIconIDsV11(database, schemaVersion)
@@ -143,6 +149,7 @@ function DB:Initialize()
     NormalizeLocations(database)
     AssignLocationIDs(database)
     PruneUsageCounts(database)
+    SMK.RouteStore:PrepareDatabase(database)
     self.data = database
     return database
 end
@@ -170,6 +177,14 @@ function DB:NextLocationID()
     local database = self:Get()
     local id = database.nextLocationID
     database.nextLocationID = database.nextLocationID + 1
+    return id
+end
+
+function DB:NextRouteID()
+    if self:IsReadOnly() then return nil end
+    local database = self:Get()
+    local id = database.nextRouteID
+    database.nextRouteID = database.nextRouteID + 1
     return id
 end
 

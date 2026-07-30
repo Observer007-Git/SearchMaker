@@ -183,6 +183,8 @@ function SearchResults:Render(source, query, allMaps)
         local display
         if match.isCoordinateResult then
             display = match.entry.name
+        elseif match.isSavedRoute then
+            display = match.entry.name
         elseif match.isMapPortal then
             display = match.entry.name .. SMK.L.MAP_PORTAL_SUFFIX
         elseif allMaps then

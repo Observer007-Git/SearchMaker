@@ -2,7 +2,7 @@ local _, SMK = ...
 
 -- 常用尺寸、视觉和限制集中在本文件；修改后 /reload 即可生效。
 local Config = {
-    databaseSchemaVersion = 11,
+    databaseSchemaVersion = 12,
     panel = {
         height = 512,
         backgroundAtlas = "catalog-list-preview-bg",
@@ -22,7 +22,8 @@ local Config = {
             frequentTitleHeight = 18,
         },
         controls = {
-            buttonAtlas = "housefinder_neighborhood-list-item-highlight",
+            buttonAtlas = "Talent-Selection",
+            closeButtonAtlas = "common-icon-redx",
             buttonHeight = 24,
             buttonMinWidth = 40,
             buttonPadding = 12,
@@ -111,6 +112,8 @@ local Config = {
     },
     route = {
         maxEntries = 20,
+        maxNameWidth = 40,
+        searchIcon = "Interface\\Icons\\INV_Misc_Map_01",
     },
     importPreview = {
         maxVisibleEntries = 100,

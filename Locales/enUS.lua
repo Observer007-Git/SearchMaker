@@ -25,6 +25,9 @@ SMK.L = {
     NO_LOCATIONS = "No locations on this map",
     FREQUENT = "Frequent",
     NO_FREQUENT = "No usage yet",
+    RECENT_SEARCH_RESULTS = "Recent Search Results",
+    NO_RECENT_SEARCH_RESULTS = "No recent search results",
+    SEARCH_HISTORY_TOOLTIP = "Search this again",
     LOCATION_COUNT = "Locations: %d/%d",
     LOCATION_FILTER_FORMAT = "Filter: %s",
     FILTER_ALL_LOCATIONS = "All Locations",
@@ -112,13 +115,15 @@ SMK.L = {
 • Left-click the search box to search, right-click it to open the main panel, and middle-click it to toggle the world map. Hold Shift and drag to move the search box.
 • Press Tab to switch between Current Map and All Maps. With the map open, Current Map follows the viewed map; with it closed, it follows your character.
 • Search by location name, or enter coordinates such as “45.2, 63.8”. Left-click the result to create a native waypoint; right-click it to copy, add to the route, or add a temporary pin.
-• With the world map closed, right-click a saved-location search result and choose Open Map to jump to its map and flash the target.
+• Focus an empty search box to reuse one of the last 10 queries. The main panel also keeps the last 10 successfully selected results.
+• With the world map closed, map results and saved All Maps results outside the character's current map open the target map automatically. Current-map and typed-coordinate results only set a native waypoint.
+• Right-click a saved-location search result and choose Open Map to jump to its map and flash the target.
 
 |cffffd100Locations and pins|r
 • Alt+Left-click empty map space to add a location. Use Note for extra details; notes appear in green in tooltips.
 • Right-click a saved or external location in search results, the main panel, or on the map to open the same action menu.
 • In the location editor, enable Custom Icon to override the group icon for that location.
-• Each location controls its own pin icon, name, and optional text color. Pin Settings controls icon/text size and text offset. Search Settings controls the search box and shortcut key.
+• Each location controls its own pin icon, name, and optional text color. Saved and temporary pins also appear on the minimap. Pin Settings controls icon/text size and text offset. Search Settings controls the search box and shortcut key.
 • External locations are saved to the HandyNotes_MapNotes group by default. Add locations to the Route queue to visit them in a chosen order.
 • A route location can receive a session-only temporary pin. Existing saved pins are never replaced or removed.
 • Before starting, Auto Sort orders nearby locations within each map without moving map sections.
@@ -134,6 +139,7 @@ SMK.L = {
     ERROR_NO_CLIENT_SUPPORT = "Current client does not support built-in map markers.",
     ERROR_MAP_NOT_SUPPORTED = "This map does not support built-in markers.",
     ERROR_MAP_PINS_UNAVAILABLE = "Map pins are unavailable on this client.",
+    ERROR_MINIMAP_PINS_UNAVAILABLE = "Minimap pins are unavailable on this client.",
     LOAD_WORLD_MAP_FAILED = "Failed to load world map: %s",
     UNKNOWN_REASON = "Unknown reason",
 

@@ -300,42 +300,61 @@ function MainPanel:GetFrequent()
     return frequent
 end
 
---- 渲染"常用"行，显示最近使用过的地点。
-function MainPanel:RenderFrequent()
-    local frequent = self:GetFrequent()
-    local visible = math.min(#frequent, Config.location.maxFrequent)
-    self.frequentEmpty:SetShown(visible == 0)
+local function RenderSummaryRow(self, row, empty, buttons, entries, limit, isSearchResult)
+    local visible = math.min(#entries, limit)
+    empty:SetShown(visible == 0)
     local startX = PanelLayout.sidePadding
     local titleHeight = Config.panel.layout.frequentTitleHeight
     local x, y, rowHeight = startX, titleHeight, 0
-    local available = self.frequentRow:GetWidth() > 0 and self.frequentRow:GetWidth() or Config.panel.width - 28
+    local available = row:GetWidth() > 0 and row:GetWidth() or Config.panel.width - 28
     local rowRight = available - PanelLayout.visualSidePadding
     for index = 1, visible do
-        local button = self.frequentButtons[index]
+        local button = buttons[index]
         if not button then
-            button = Widgets:CreateLocationButton(self.frequentRow, self.locationCallbacks)
-            self.frequentButtons[index] = button
+            button = Widgets:CreateLocationButton(row, self.locationCallbacks)
+            buttons[index] = button
         end
         button:ClearAllPoints()
         button:Show()
-        Widgets:SetLocationEntry(button, frequent[index].entry, nil,
+        Widgets:SetLocationEntry(button, entries[index], nil,
             Config.panel.layout.showLocationIcons)
+        button.isSearchResult = isSearchResult == true
         local width, height = button:GetWidth(), button:GetHeight()
+        if width > rowRight - startX then
+            Widgets:StretchSearchResult(button, rowRight - startX)
+            width = button:GetWidth()
+        end
         if x > startX and x + width > rowRight then
             x, y, rowHeight = startX, y + rowHeight + Config.location.verticalGap, 0
         end
-        button:SetPoint("TOPLEFT", self.frequentRow, "TOPLEFT", x, -y)
+        button:SetPoint("TOPLEFT", row, "TOPLEFT", x, -y)
         x, rowHeight = x + width + Config.location.horizontalGap, math.max(rowHeight, height)
     end
-    self.frequentRow:SetHeight(visible > 0 and y + rowHeight
+    row:SetHeight(visible > 0 and y + rowHeight
         or math.max(titleHeight, Config.location.baseHeight))
-    self.frequentRow.title:ClearAllPoints()
-    self.frequentRow.title:SetPoint("TOPLEFT", 4, 0)
-    self.frequentEmpty:ClearAllPoints()
-    self.frequentEmpty:SetPoint("LEFT", self.frequentRow.title, "RIGHT", 8, 0)
-    for index = visible + 1, #self.frequentButtons do
-        Widgets:ReleaseLocationButton(self.frequentButtons[index])
+    row.title:ClearAllPoints()
+    row.title:SetPoint("TOPLEFT", 4, 0)
+    empty:ClearAllPoints()
+    empty:SetPoint("LEFT", row.title, "RIGHT", 8, 0)
+    for index = visible + 1, #buttons do
+        Widgets:ReleaseLocationButton(buttons[index])
     end
+end
+
+--- 渲染"常用"行，显示使用次数最多的地点。
+function MainPanel:RenderFrequent()
+    local entries = {}
+    for _, item in ipairs(self:GetFrequent()) do
+        entries[#entries + 1] = item.entry
+    end
+    RenderSummaryRow(self, self.frequentRow, self.frequentEmpty,
+        self.frequentButtons, entries, Config.location.maxFrequent, false)
+end
+
+function MainPanel:RenderRecentSearchResults()
+    RenderSummaryRow(self, self.recentRow, self.recentEmpty,
+        self.recentButtons, SMK.SearchHistory:GetRecentResults(),
+        Config.search.recentResultLimit, true)
 end
 
 function MainPanel:RefreshHeader()
@@ -353,8 +372,9 @@ end
 --- 全面板刷新：头部、地点列表、常用列表和显示设置。
 function MainPanel:Refresh()
     self:RefreshHeader()
-    self:RenderList()
+    self:RenderRecentSearchResults()
     self:RenderFrequent()
+    self:RenderList()
     if SMK.PanelSettings:IsShown() then SMK.PanelSettings:Refresh() end
 end
 
@@ -380,6 +400,7 @@ function MainPanel:IsExpanded()
 end
 
 function MainPanel:SetSearchActive(active)
+    self.recentRow:SetShown(not active)
     self.frequentRow:SetShown(not active)
 end
 
@@ -460,6 +481,7 @@ function MainPanel:Create(searchBar, callbacks)
     self.widgetPools = { heading = {}, button = {}, message = {} }
     self.widgetUseCounts = { heading = 0, button = 0, message = 0 }
     self.frequentButtons = {}
+    self.recentButtons = {}
     self.filteredEntries = {}
     self.locationFilter = "all"
     self.locationCallbacks = {
@@ -517,9 +539,13 @@ function MainPanel:Create(searchBar, callbacks)
     add:SetPoint("RIGHT", share, "LEFT", -buttonGap, 0)
     add:SetScript("OnClick", function() self:OpenEditor("add") end)
 
+    local route = Widgets:CreatePanelButton(frame, SMK.L.ROUTE_TITLE)
+    route:SetPoint("RIGHT", add, "LEFT", -buttonGap, 0)
+    route:SetScript("OnClick", function() self:OpenRoute() end)
+
     -- 地点缩放控件
     local scaleMinus = Widgets:CreatePanelButton(frame, "-", { width = 24 })
-    scaleMinus:SetPoint("RIGHT", add, "LEFT", -buttonGap, 0)
+    scaleMinus:SetPoint("RIGHT", route, "LEFT", -buttonGap, 0)
     scaleMinus:SetScript("OnClick", function()
         self:ChangeLocationScale(-Config.location.scaleStep)
     end)
@@ -532,9 +558,6 @@ function MainPanel:Create(searchBar, callbacks)
     scalePlus:SetScript("OnClick", function()
         self:ChangeLocationScale(Config.location.scaleStep)
     end)
-    local route = Widgets:CreatePanelButton(frame, SMK.L.ROUTE_TITLE)
-    route:SetPoint("RIGHT", scalePlus, "LEFT", -buttonGap, 0)
-    route:SetScript("OnClick", function() self:OpenRoute() end)
     self.scaleMinus = scaleMinus
     self.scalePlus = scalePlus
 
@@ -611,10 +634,23 @@ function MainPanel:Create(searchBar, callbacks)
     headerDivider:SetHeight(1)
     headerDivider:SetColorTexture(0.72, 0.52, 0.2, 0.45)
 
-    self.frequentRow = CreateFrame("Frame", nil, frame)
-    self.frequentRow:SetPoint("TOPLEFT", headerDivider, "BOTTOMLEFT",
+    self.recentRow = CreateFrame("Frame", nil, frame)
+    self.recentRow:SetPoint("TOPLEFT", headerDivider, "BOTTOMLEFT",
         PanelLayout.scrollLeftInset - Config.panel.layout.outerInset,
         -Config.panel.layout.contentTopGap)
+    self.recentRow:SetWidth(PanelLayout.contentWidth)
+    self.recentRow:SetHeight(Config.location.baseHeight)
+    self.recentRow.title = self.recentRow:CreateFontString(
+        nil, "OVERLAY", "GameFontNormal")
+    self.recentRow.title:SetTextColor(unpack(Config.colors.gold))
+    self.recentRow.title:SetText(SMK.L.RECENT_SEARCH_RESULTS)
+    self.recentEmpty = self.recentRow:CreateFontString(
+        nil, "OVERLAY", "GameFontDisable")
+    self.recentEmpty:SetTextColor(unpack(Config.colors.disabled))
+    self.recentEmpty:SetText(SMK.L.NO_RECENT_SEARCH_RESULTS)
+
+    self.frequentRow = CreateFrame("Frame", nil, frame)
+    self.frequentRow:SetPoint("TOPLEFT", self.recentRow, "BOTTOMLEFT", 0, -5)
     self.frequentRow:SetWidth(PanelLayout.contentWidth)
     self.frequentRow:SetHeight(Config.location.baseHeight)
     self.frequentRow.title = self.frequentRow:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -686,6 +722,9 @@ function MainPanel:Create(searchBar, callbacks)
         self.renderedFirst, self.renderedLast = nil, nil
         self:ReleaseWidgets()
         for _, button in ipairs(self.frequentButtons) do
+            Widgets:ReleaseLocationButton(button)
+        end
+        for _, button in ipairs(self.recentButtons) do
             Widgets:ReleaseLocationButton(button)
         end
         if self.callbacks.onHidden then self.callbacks.onHidden() end

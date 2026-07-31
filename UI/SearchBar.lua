@@ -103,6 +103,16 @@ function SearchBar:HideResults()
     self.searchResults:Hide()
 end
 
+function SearchBar:DismissResults()
+    self:CancelPendingSearch()
+    self:HideResults()
+    self:ClearFocus()
+    if self.panel and self.panel:IsExpanded() then
+        self.panel:SetSearchActive(false)
+    end
+    self:UpdateOutsideListener()
+end
+
 function SearchBar:SetQuery(text)
     self.suppressTextChanged = true
     self.box:SetText(text or "")
@@ -133,14 +143,41 @@ function SearchBar:RefreshResultsIfVisible()
     if query ~= "" or self.searchResults:IsShown() then self:UpdateResults() end
 end
 
+function SearchBar:ShowHistory()
+    self._lastQuery = ""
+    if self.panel and self.panel:IsExpanded() then self.panel:SetSearchActive(false) end
+    self.searchResults:RenderHistory(SMK.SearchHistory:GetQueries())
+end
+
+function SearchBar:ActivateEntry(entry, fromSearchResult)
+    if entry.isSearchHistory then
+        SMK.SearchHistory:RecordQuery(entry.query)
+        self:SetQuery(entry.query)
+        self:UpdateResults()
+        self.box:SetFocus()
+        return
+    end
+    local query = Util.Trim(self.box:GetText())
+    if query ~= "" then SMK.SearchHistory:RecordQuery(query) end
+    if self.callbacks.onActivate then
+        self.callbacks.onActivate(entry, fromSearchResult)
+    end
+end
+
 --- 执行搜索并填充结果下拉框。
 -- 文本变更时防抖 50ms。
 function SearchBar:UpdateResults()
     local query = Util.Trim(self.box:GetText())
     self._lastQuery = Util.Normalize(query)
     if query == "" then
-        self:HideResults()
-        if self.panel and self.panel:IsExpanded() then self.panel:SetSearchActive(false) end
+        if self.box:HasFocus() then
+            self:ShowHistory()
+        else
+            self:HideResults()
+            if self.panel and self.panel:IsExpanded() then
+                self.panel:SetSearchActive(false)
+            end
+        end
         return
     end
     if self.panel then self.panel:SetSearchActive(true) end
@@ -330,12 +367,19 @@ function SearchBar:Create(callbacks)
             self:OpenPanel()
         elseif button == "MiddleButton" then
             ToggleWorldMap()
+        elseif button == "LeftButton" and Util.Trim(box:GetText()) == "" then
+            self:ShowHistory()
         end
     end)
     self.box:HookScript("OnLeave", function(box) box.moveHint:Hide() end)
 
     self.searchResults = SMK.SearchResults:New(bar, self.box, {
-        onActivate = self.callbacks.onActivate,
+        onActivate = function(entry, fromSearchResult)
+            self:ActivateEntry(entry, fromSearchResult)
+        end,
+        onHistory = function(query)
+            self:ActivateEntry({ isSearchHistory = true, query = query })
+        end,
         onContext = self.callbacks.onContext,
         onVisibilityChanged = function() self:UpdateOutsideListener() end,
     })
@@ -367,7 +411,7 @@ function SearchBar:Create(callbacks)
             self:UpdateResults()
         end
         local match = self.searchResults:GetSelected()
-        if match and self.callbacks.onActivate then self.callbacks.onActivate(match.entry, true) end
+        if match then self:ActivateEntry(match.entry, true) end
     end)
     self.box:SetScript("OnEscapePressed", function()
         if self.panel and self.panel:IsExpanded() then

@@ -7,6 +7,7 @@ local SettingsSchema = SMK.SettingsSchema
 local rootKeys = {
     schemaVersion = true, locations = true, usageCounts = true, settings = true,
     nextLocationID = true, savedRoutes = true, nextRouteID = true,
+    searchHistory = true, recentSearchResults = true,
 }
 
 -- Schema 8 removes duplicate Atlas entries and compacts their positive IDs.
@@ -102,6 +103,8 @@ local function CreateFutureRuntime(database)
         settings = SettingsSchema:NormalizeAll(database.settings),
         nextLocationID = 1,
         nextRouteID = database.nextRouteID,
+        searchHistory = database.searchHistory,
+        recentSearchResults = database.recentSearchResults,
         schemaVersion = database.schemaVersion,
     }
     for _, stored in ipairs(type(database.locations) == "table" and database.locations or {}) do
@@ -118,6 +121,7 @@ local function CreateFutureRuntime(database)
         if count > 0 then runtime.usageCounts[entry.id] = count end
     end
     SMK.RouteStore:PrepareDatabase(runtime)
+    SMK.SearchHistory:PrepareDatabase(runtime)
     return runtime
 end
 
@@ -138,6 +142,10 @@ function DB:Initialize()
     database.locations = type(database.locations) == "table" and database.locations or {}
     database.usageCounts = type(database.usageCounts) == "table" and database.usageCounts or {}
     database.savedRoutes = type(database.savedRoutes) == "table" and database.savedRoutes or {}
+    database.searchHistory = type(database.searchHistory) == "table"
+        and database.searchHistory or {}
+    database.recentSearchResults = type(database.recentSearchResults) == "table"
+        and database.recentSearchResults or {}
     database.settings = SettingsSchema:NormalizeAll(database.settings)
     MigrateCustomIconIDs(database, schemaVersion)
     MigrateCustomIconIDsV11(database, schemaVersion)
@@ -150,6 +158,7 @@ function DB:Initialize()
     AssignLocationIDs(database)
     PruneUsageCounts(database)
     SMK.RouteStore:PrepareDatabase(database)
+    SMK.SearchHistory:PrepareDatabase(database)
     self.data = database
     return database
 end

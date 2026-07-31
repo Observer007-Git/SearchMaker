@@ -297,6 +297,10 @@ function MapPins:HasTemporaryRoutePin(entry)
         and self.temporaryPins[GetTemporaryKey(entry)] ~= nil or false
 end
 
+function MapPins:GetTemporaryRoutePins()
+    return self.temporaryPins
+end
+
 function MapPins:HasPersistentMarker(entry)
     return type(entry) == "table" and HasPersistentMarker(entry) or false
 end
@@ -318,6 +322,7 @@ end
 
 function MapPins:Refresh()
     if self.provider then self.provider:RefreshAllData() end
+    if SMK.MinimapPins then SMK.MinimapPins:Refresh() end
 end
 
 function MapPins:ClearTargetHighlight()
@@ -364,7 +369,11 @@ end
 -- @param entry table 地点条目。
 -- @param color table|nil {r, g, b} 或 nil 表示恢复默认颜色。
 function MapPins:UpdatePinPreviewColor(entry, color)
-    if not self.provider or not entry then return end
+    if not entry then return end
+    if SMK.MinimapPins then
+        SMK.MinimapPins:UpdatePinPreviewColor(entry, color)
+    end
+    if not self.provider then return end
     local map = self.provider:GetMap()
     if not map or not map:IsShown() or map:GetMapID() ~= entry.mapID then return end
     local pin = self.activePins[entry.id]
@@ -378,7 +387,12 @@ function MapPins:UpdatePinPreviewColor(entry, color)
 end
 
 function MapPins:UpdatePinVisibility(entry, showPinName, showPinTexture)
-    if not self.provider or not entry then return end
+    if not entry then return end
+    if SMK.MinimapPins then
+        SMK.MinimapPins:UpdatePinVisibility(
+            entry, showPinName, showPinTexture)
+    end
+    if not self.provider then return end
     local map = self.provider:GetMap()
     if not map or not map:IsShown() or map:GetMapID() ~= entry.mapID then return end
     local pin = self.activePins[entry.id]

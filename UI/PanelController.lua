@@ -61,9 +61,12 @@ function PanelController:HandleGlobalMouseDown(button)
     if SMK.LocationContextMenu:IsShown() or SMK.ModalManager:IsMenuOpen() then return end
     local panelExpanded = self.panel and self.panel:IsExpanded()
     if not panelExpanded and not results:IsShown() then return end
-    if self.panel and self.panel:ContainsMouseFocus(foci)
-        or SMK.ModalManager:ContainsMouseFocus(foci)
+    if SMK.ModalManager:ContainsMouseFocus(foci)
         or DoesAncestryIncludeAny(searchBar.results, foci) then return end
+    if self.panel and self.panel:ContainsMouseFocus(foci) then
+        if results:IsShown() then searchBar:DismissResults() end
+        return
+    end
     if panelExpanded then
         if button == "RightButton" and DoesAncestryIncludeAny(searchBar.box, foci) then return end
     elseif DoesAncestryIncludeAny(searchBar.bar, foci) then

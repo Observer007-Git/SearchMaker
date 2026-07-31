@@ -10,6 +10,36 @@ local function ColorText(text, color)
         math.floor(color[3] * 255 + 0.5), text)
 end
 
+local function HighlightMatch(text, query)
+    text = tostring(text or "")
+    if query == "" then return text end
+    local lowerText, lowerQuery = text:lower(), query:lower()
+    local first, last = lowerText:find(lowerQuery, 1, true)
+    if first then
+        local parts, cursor = {}, 1
+        while first do
+            parts[#parts + 1] = text:sub(cursor, first - 1)
+            parts[#parts + 1] = ColorText(
+                text:sub(first, last), SMK.Config.colors.searchMatch)
+            cursor = last + 1
+            first, last = lowerText:find(lowerQuery, cursor, true)
+        end
+        parts[#parts + 1] = text:sub(cursor)
+        return table.concat(parts)
+    end
+    local ranges = SMK.Util.GetNormalizedMatchRanges(text, query)
+    if #ranges == 0 then return text end
+    local parts, cursor = {}, 1
+    for _, range in ipairs(ranges) do
+        parts[#parts + 1] = text:sub(cursor, range.first - 1)
+        parts[#parts + 1] = ColorText(
+            text:sub(range.first, range.last), SMK.Config.colors.searchMatch)
+        cursor = range.last + 1
+    end
+    parts[#parts + 1] = text:sub(cursor)
+    return table.concat(parts)
+end
+
 local function GetMaximumContentWidth(frame, minimumWidth)
     local search = SMK.Config.search
     local maximumWidth = math.max(minimumWidth, search.resultMaxContentWidth)
@@ -52,8 +82,18 @@ function SearchResults:New(parent, box, callbacks)
     view.empty:SetText(SMK.L.NO_MATCH)
     view.empty:Hide()
     view.widgetCallbacks = {
-        onActivate = view.callbacks.onActivate,
-        onContext = view.callbacks.onContext,
+        onActivate = function(entry, fromSearchResult)
+            if entry.isSearchHistory then
+                if view.callbacks.onHistory then view.callbacks.onHistory(entry.query) end
+            elseif view.callbacks.onActivate then
+                view.callbacks.onActivate(entry, fromSearchResult)
+            end
+        end,
+        onContext = function(entry, owner)
+            if not entry.isSearchHistory and view.callbacks.onContext then
+                view.callbacks.onContext(entry, owner)
+            end
+        end,
         onEnter = function(button)
             view:Select(button)
             view:ScheduleHoverHighlight(button)
@@ -147,15 +187,16 @@ function SearchResults:GetSelected()
     return self.matches[index]
 end
 
---- 渲染搜索结果；SearchService 负责文本归一化和坐标识别。
-function SearchResults:Render(source, query, allMaps)
+function SearchResults:RenderMatches(matches, query, allMaps, hideWhenEmpty)
     self:CancelHoverHighlight()
     self.allMaps = allMaps == true
-    local matches = SMK.Search:Find(source, query, allMaps,
-        SMK.MapContext:GetMapID(), SMK.MapContext:GetExternalEntries())
     self.matches = matches
     local visible = #matches
     if visible == 0 then
+        if hideWhenEmpty then
+            self:Hide()
+            return
+        end
         self.selectedIndex, self.visibleCount = 0, 0
         for _, button in ipairs(self.widgets) do
             SMK.Widgets:ReleaseLocationButton(button)
@@ -171,6 +212,7 @@ function SearchResults:Render(source, query, allMaps)
 
     self.empty:Hide()
     self.visibleCount, self.selectedIndex = visible, 1
+    local highlightQuery = SMK.Util.Trim(query)
     local frameInset = SMK.Config.search.resultFrameInset
     local frameWidth = math.max(1, self.box:GetWidth() - frameInset * 2)
     for index, match in ipairs(matches) do
@@ -181,17 +223,23 @@ function SearchResults:Render(source, query, allMaps)
         end
         button:ClearAllPoints()
         local display
-        if match.isCoordinateResult then
+        if match.entry.isSearchHistory then
+            display = match.entry.name
+        elseif match.isCoordinateResult then
             display = match.entry.name
         elseif match.isSavedRoute then
             display = match.entry.name
         elseif match.isMapPortal then
             display = match.entry.name .. SMK.L.MAP_PORTAL_SUFFIX
         elseif allMaps then
-            display = string.format(SMK.L.SEARCH_RESULT_FORMAT, match.mapName, match.entry.name)
+            display = string.format(SMK.L.SEARCH_RESULT_FORMAT,
+                match.mapName, match.entry.name)
+        end
+        if not match.entry.isSearchHistory then
+            display = HighlightMatch(display or match.entry.name, highlightQuery)
         end
         if match.entry.isExternal then
-            display = (display or match.entry.name) .. " "
+            display = display .. " "
                 .. ColorText(SMK.L.HANDYNOTES_SOURCE_SUFFIX, SMK.Config.colors.externalSource)
         end
         button:Show()
@@ -204,7 +252,7 @@ function SearchResults:Render(source, query, allMaps)
         maxWidth = math.max(maxWidth, self.widgets[index]:GetWidth())
     end
     maxWidth = math.min(maxWidth, GetMaximumContentWidth(self.frame, frameWidth - 8))
-    for index, match in ipairs(matches) do
+    for index = 1, visible do
         local button = self.widgets[index]
         button.isSearchResult = true
         SMK.Widgets:StretchSearchResult(button, maxWidth)
@@ -219,6 +267,27 @@ function SearchResults:Render(source, query, allMaps)
     self.frame:Show()
     self:UpdateSelection()
     self:NotifyVisibilityChanged()
+end
+
+--- 渲染搜索结果；SearchService 负责文本归一化和坐标识别。
+function SearchResults:Render(source, query, allMaps)
+    local matches = SMK.Search:Find(source, query, allMaps,
+        SMK.MapContext:GetMapID(), SMK.MapContext:GetExternalEntries())
+    self:RenderMatches(matches, query, allMaps, false)
+end
+
+function SearchResults:RenderHistory(queries)
+    local matches = {}
+    for _, query in ipairs(queries or {}) do
+        matches[#matches + 1] = {
+            entry = {
+                name = query,
+                query = query,
+                isSearchHistory = true,
+            },
+        }
+    end
+    self:RenderMatches(matches, "", false, true)
 end
 
 SMK.SearchResults = SearchResults

@@ -426,10 +426,12 @@ SMK.testPendingHighlightBlock = nil
 assert(mainPanelSource:find(
         "Widgets:CreatePanelButton(frame, SMK.L.ROUTE_TITLE)", 1, true)
     and mainPanelSource:find(
-        "route:SetPoint(\"RIGHT\", scalePlus, \"LEFT\", -buttonGap, 0)", 1, true)
+        "route:SetPoint(\"RIGHT\", add, \"LEFT\", -buttonGap, 0)", 1, true)
+    and mainPanelSource:find(
+        "scaleMinus:SetPoint(\"RIGHT\", route, \"LEFT\", -buttonGap, 0)", 1, true)
     and not mainPanelSource:find(
         "Widgets:CreatePanelButton(moreFrame, SMK.L.ROUTE_TITLE)", 1, true),
-    "route button was not moved beside the location scale controls")
+    "route button was not moved to the right of the location scale controls")
 assert(select(2, mainPanelSource:gsub(
         "PanelLayout%.visualSidePadding", "")) >= 2
     and mainPanelSource:find("rowX + width > rowRight", 1, true)
@@ -510,6 +512,7 @@ assert(select(2, closeButtonSources:gsub(
     "panel buttons do not share the configured Atlas, hover, or close-button style")
 
 local panelExpanded, resultsUpdated, outsideRegistered = false, 0, false
+local resultsShown, resultsDismissed = false, 0
 local pickerHidden, pinPickerHidden = false, false
 local transientEditor = setmetatable({
     customIconPicker = {
@@ -530,8 +533,9 @@ assert(pickerHidden and pinPickerHidden,
 local controllerSearchBar = {
     suppressPanelHidden = false,
     searchResults = {
-        IsShown = function() return false end,
+        IsShown = function() return resultsShown end,
     },
+    results = {},
     outsideListener = {
         RegisterEvent = function() outsideRegistered = true end,
         UnregisterEvent = function() outsideRegistered = false end,
@@ -539,18 +543,33 @@ local controllerSearchBar = {
     box = { ClearFocus = function() end },
     UpdateResults = function() resultsUpdated = resultsUpdated + 1 end,
     HideResults = function() end,
+    DismissResults = function()
+        resultsShown = false
+        resultsDismissed = resultsDismissed + 1
+    end,
     CancelPendingSearch = function() end,
     SetQuery = function() end,
 }
 local managedPanel = {
     SetExpanded = function(_, value) panelExpanded = value end,
     IsExpanded = function() return panelExpanded end,
+    ContainsMouseFocus = function() return true end,
 }
 local panelController = SMK.PanelController:New(controllerSearchBar)
 panelController:AttachPanel(managedPanel)
 panelController:Open()
 assert(panelExpanded and resultsUpdated == 1 and outsideRegistered,
     "panel controller did not own panel opening and listener registration")
+local originalGetMouseFoci = GetMouseFoci
+local originalContextMenuIsShown = SMK.LocationContextMenu.IsShown
+GetMouseFoci = function() return { {} } end
+SMK.LocationContextMenu.IsShown = function() return false end
+resultsShown = true
+panelController:HandleGlobalMouseDown("LeftButton")
+GetMouseFoci = originalGetMouseFoci
+SMK.LocationContextMenu.IsShown = originalContextMenuIsShown
+assert(panelExpanded and resultsDismissed == 1,
+    "clicking the main panel did not dismiss the overlapping search history")
 panelController:Close()
 assert(not panelExpanded and not outsideRegistered,
     "panel controller did not close the panel and release its listener")

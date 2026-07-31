@@ -5,6 +5,7 @@ local context = bootstrap()(root)
 for _, path in ipairs({
     "ConfigAndModel.lua",
     "StoreAndSettings.lua",
+    "HistoryAndMinimap.lua",
     "SearchAndExternal.lua",
     "SharingAndImport.lua",
     "MapIndexAndStatic.lua",

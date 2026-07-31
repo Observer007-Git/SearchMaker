@@ -118,6 +118,46 @@ function SMK.Util.Normalize(text)
     return table.concat(parts)
 end
 
+--- 返回按 Normalize 规则匹配到的原始文本字节范围。
+-- 归一化会移除空白并折叠 Unicode 大小写，不能直接用普通字符串下标高亮。
+function SMK.Util.GetNormalizedMatchRanges(text, query)
+    local value = tostring(text or "")
+    local normalizedQuery = SMK.Util.Normalize(query)
+    if normalizedQuery == "" then return {} end
+
+    local parts, starts, ends = {}, {}, {}
+    local index, normalizedLength = 1, 0
+    while index <= #value do
+        local codepoint, nextIndex = DecodeCodepoint(value, index)
+        local folded
+        if not codepoint then
+            folded = value:sub(index, index):lower()
+            nextIndex = index + 1
+        elseif not (codepoint == 0x20 or codepoint >= 0x09 and codepoint <= 0x0D) then
+            folded = EncodeCodepoint(FoldCodepoint(codepoint))
+        end
+        if folded and folded ~= "" then
+            parts[#parts + 1] = folded
+            for offset = 1, #folded do
+                starts[normalizedLength + offset] = index
+                ends[normalizedLength + offset] = nextIndex - 1
+            end
+            normalizedLength = normalizedLength + #folded
+        end
+        index = nextIndex
+    end
+
+    local normalizedText = table.concat(parts)
+    local ranges, cursor = {}, 1
+    local first, last = normalizedText:find(normalizedQuery, cursor, true)
+    while first do
+        ranges[#ranges + 1] = { first = starts[first], last = ends[last] }
+        cursor = last + 1
+        first, last = normalizedText:find(normalizedQuery, cursor, true)
+    end
+    return ranges
+end
+
 function SMK.Util.SortKey(text)
     return SMK.Util.Normalize(text)
 end

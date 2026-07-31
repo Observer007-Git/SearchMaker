@@ -13,6 +13,7 @@ for _, path in ipairs({
     "Core/IconCatalog.lua", "Core/PinTextures.lua", "Config.lua",
     "Locales/init.lua", "Locales/enUS.lua", "Locales/zhCN.lua",
     "Core/LocationModel.lua", "Core/RouteStore.lua", "Core/SettingsSchema.lua",
+    "Core/SearchHistory.lua",
     "Core/Database.lua", "Core/RouteService.lua", "Core/RouteCodec.lua",
     "Core/SearchService.lua", "Core/ShareCodec.lua",
 }) do

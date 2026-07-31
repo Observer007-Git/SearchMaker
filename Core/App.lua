@@ -25,6 +25,7 @@ local RefreshProfiles = {
     scope = { searchIcon = true, instructions = true, search = true },
     external = { context = true, instructions = true, search = true },
     usage = { frequent = true },
+    history = { recent = true },
 }
 
 function App:GetRefreshCoordinator()
@@ -55,8 +56,9 @@ function App:FlushRefresh(flags)
     if SMK.MainPanel:IsExpanded() then
         if flags.panel then
             SMK.MainPanel:Refresh()
-        elseif flags.frequent then
-            SMK.MainPanel:RenderFrequent()
+        else
+            if flags.frequent then SMK.MainPanel:RenderFrequent() end
+            if flags.recent then SMK.MainPanel:RenderRecentSearchResults() end
         end
     end
     if flags.searchIcon then SMK.SearchBar:UpdateSearchIcon() end
@@ -124,11 +126,13 @@ end
 -- @param fromSearchResult boolean 是否来自搜索结果下拉框。
 function App:Activate(entry, fromSearchResult, keepPanelOpen)
     if entry.isSavedRoute then
-        self:OpenSavedRoute(entry)
-        return
+        local opened = self:OpenSavedRoute(entry)
+        if opened and fromSearchResult then SMK.SearchHistory:RecordResult(entry) end
+        return opened
     end
     if entry.isMapPortal then
         if SMK.Map:OpenMap(entry.mapID) then
+            if fromSearchResult then SMK.SearchHistory:RecordResult(entry) end
             -- 播放传送门音效
             PlaySound(SMK.Config.share.portalSoundID)
             if not keepPanelOpen then SMK.SearchBar:ClosePanel() end
@@ -152,6 +156,7 @@ function App:Activate(entry, fromSearchResult, keepPanelOpen)
     local marked, message = SMK.Map:SetWaypoint(entry)
     GameTooltip_Hide()
     if marked then
+        if fromSearchResult then SMK.SearchHistory:RecordResult(entry) end
         PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_SUPER_TRACK_ON)
         SMK.Store:RecordUsage(entry)
         if openedTargetMap then
@@ -252,10 +257,14 @@ end
 
 function App:OpenSavedRoute(route)
     local saved = SMK.RouteStore:GetByID(route and route.id)
-    if not saved then return SMK:Print(SMK.L.ROUTE_NOT_FOUND) end
+    if not saved then
+        SMK:Print(SMK.L.ROUTE_NOT_FOUND)
+        return false
+    end
     SMK.SearchBar:ClosePanel()
     SMK.ModalManager:PrepareToShow(SMK.RouteDialog)
     SMK.RouteDialog:OpenSaved(saved)
+    return true
 end
 
 function App:ActivateSavedRoute(route)
@@ -405,11 +414,24 @@ function App:DataChanged()
     self:RequestRefresh("data")
 end
 
+function App:InitializeMinimapPins()
+    local called, ready = pcall(SMK.MinimapPins.Initialize, SMK.MinimapPins)
+    if called and ready then return true end
+    if not self.warnedMinimapPins then
+        self.warnedMinimapPins = true
+        SMK:Print(SMK.L.ERROR_MINIMAP_PINS_UNAVAILABLE)
+    end
+    return false
+end
+
 --- 初始化整个界面：搜索栏、主面板、对话框和世界地图钩子。
 -- 在 Blizzard_WorldMap 的 ADDON_LOADED 事件时调用一次（如果已加载则立即调用）。
 function App:CreateUI()
     if self.initialized then return end
     SMK.DB:Initialize()
+    SMK.SearchHistory:SetChangeHandler(function(kind)
+        if kind == "result" then self:RequestRefresh("history") end
+    end)
     SMK.Store:SetChangeHandler(function(reason) self:StoreChanged(reason) end)
     SMK.RouteStore:SetChangeHandler(function() self:RequestRefresh("search") end)
     SMK.Settings:SetChangeHandler(function(key) self:SettingChanged(key) end)
@@ -432,6 +454,7 @@ function App:CreateUI()
     if not initializedPins or not pinsReady then
         SMK:Print(SMK.L.ERROR_MAP_PINS_UNAVAILABLE)
     end
+    self:InitializeMinimapPins()
     local bar = SMK.SearchBar:Create({
         onShown = function() self:RequestRefresh("visible") end,
         onPlayerContextRequested = function() self:RefreshPlayerSearchContext() end,
@@ -540,6 +563,7 @@ loader:SetScript("OnEvent", function(self, event, firstArgument)
     if addonName == SMK.name then
         loadedSearchMaker = true
         SMK.DB:Initialize()
+        App:InitializeMinimapPins()
         if App.initialized then
             SMK.Store:InvalidateCache()
             SMK.RouteStore:InvalidateCache()

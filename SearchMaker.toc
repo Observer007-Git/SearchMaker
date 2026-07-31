@@ -1,8 +1,8 @@
 ## Interface: 120007, 120001, 120000
 ## Title: SearchMaker
 ## Title-zhCN: SearchMaker
-## Notes: Search and mark locations on the world map, using in-game tools.
-## Notes-zhCN: 在世界地图上搜索并标记地点，使用游戏内置功能。
+## Notes: Search, save, route, and mark locations on the world map and minimap.
+## Notes-zhCN: 在世界地图和小地图上搜索、保存、规划路线并标记地点。
 ## Author: Codex
 ## Version: 1.25.0
 ## SavedVariables: SearchMakerDB
@@ -20,6 +20,7 @@ Locales/zhCN.lua
 Core/LocationModel.lua
 Core/RouteStore.lua
 Core/SettingsSchema.lua
+Core/SearchHistory.lua
 Core/Database.lua
 Core/SettingsService.lua
 Core/LocationStore.lua
@@ -35,6 +36,7 @@ Core/MapContextService.lua
 Core/ImportService.lua
 Core/MapPinPoolAdapter.lua
 Core/MapPinProvider.lua
+Core/MinimapPinProvider.lua
 Core/RefreshCoordinator.lua
 UI/Widgets.lua
 UI/IconGridPicker.lua

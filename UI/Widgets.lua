@@ -191,7 +191,10 @@ end
 --- 设置地点条目的图标。
 -- 已保存的自定义图标优先；否则使用地图、HandyNotes 来源或地点分组的默认图标。
 function Widgets:SetLocationIcon(texture, entry)
-    if entry.isSavedRoute then
+    if entry.isSearchHistory then
+        texture:SetTexture(Config.art.searchIcon)
+        texture:SetTexCoord(0, 1, 0, 1)
+    elseif entry.isSavedRoute then
         texture:SetTexture(Config.route.searchIcon)
         texture:SetTexCoord(0, 1, 0, 1)
     elseif entry.customIconID and SMK.IconCatalog:Apply(texture, entry.customIconID) then
@@ -313,7 +316,9 @@ function Widgets:CreateLocationButton(parent, callbacks)
         owner.label:SetTextColor(unpack(Config.colors.locationHover))
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
         GameTooltip:SetText(owner.entry.name)
-        if owner.entry.isSavedRoute then
+        if owner.entry.isSearchHistory then
+            GameTooltip:AddLine(SMK.L.SEARCH_HISTORY_TOOLTIP, 0.35, 0.85, 1)
+        elseif owner.entry.isSavedRoute then
             GameTooltip:AddLine(string.format(
                 SMK.L.ROUTE_SAVED_COUNT, #(owner.entry.items or {})), 1, 1, 1)
             GameTooltip:AddLine(SMK.L.ROUTE_TOOLTIP_INSTRUCTIONS, 0.35, 0.85, 1)
@@ -339,7 +344,8 @@ function Widgets:CreateLocationButton(parent, callbacks)
             local color = Config.colors.note
             GameTooltip:AddLine(owner.entry.note, color[1], color[2], color[3])
         end
-        if not owner.entry.isMapPortal and not owner.entry.isSavedRoute then
+        if not owner.entry.isSearchHistory and not owner.entry.isMapPortal
+            and not owner.entry.isSavedRoute then
             GameTooltip:AddLine(SMK.L.TOOLTIP_INSTRUCTIONS, 0.35, 0.85, 1)
         end
         GameTooltip:Show()

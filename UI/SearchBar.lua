@@ -145,7 +145,11 @@ end
 
 function SearchBar:ShowHistory()
     self._lastQuery = ""
-    if self.panel and self.panel:IsExpanded() then self.panel:SetSearchActive(false) end
+    if self.panel and self.panel:IsExpanded() then
+        self.panel:SetSearchActive(false)
+        self:HideResults()
+        return
+    end
     self.searchResults:RenderHistory(SMK.SearchHistory:GetQueries())
 end
 

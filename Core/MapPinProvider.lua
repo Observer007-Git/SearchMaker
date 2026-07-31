@@ -370,9 +370,6 @@ end
 -- @param color table|nil {r, g, b} 或 nil 表示恢复默认颜色。
 function MapPins:UpdatePinPreviewColor(entry, color)
     if not entry then return end
-    if SMK.MinimapPins then
-        SMK.MinimapPins:UpdatePinPreviewColor(entry, color)
-    end
     if not self.provider then return end
     local map = self.provider:GetMap()
     if not map or not map:IsShown() or map:GetMapID() ~= entry.mapID then return end
@@ -389,8 +386,7 @@ end
 function MapPins:UpdatePinVisibility(entry, showPinName, showPinTexture)
     if not entry then return end
     if SMK.MinimapPins then
-        SMK.MinimapPins:UpdatePinVisibility(
-            entry, showPinName, showPinTexture)
+        SMK.MinimapPins:UpdatePinVisibility(entry, showPinTexture)
     end
     if not self.provider then return end
     local map = self.provider:GetMap()

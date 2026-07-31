@@ -123,7 +123,7 @@ SMK.L = {
 • Alt+Left-click empty map space to add a location. Use Note for extra details; notes appear in green in tooltips.
 • Right-click a saved or external location in search results, the main panel, or on the map to open the same action menu.
 • In the location editor, enable Custom Icon to override the group icon for that location.
-• Each location controls its own pin icon, name, and optional text color. Saved and temporary pins also appear on the minimap. Pin Settings controls icon/text size and text offset. Search Settings controls the search box and shortcut key.
+• Each location controls its own world-map pin icon, name, and optional text color. The minimap only shows saved locations with pin icons enabled, plus temporary route pins; it does not show location names. Pin Settings controls icon/text size and text offset. Search Settings controls the search box and shortcut key.
 • External locations are saved to the HandyNotes_MapNotes group by default. Add locations to the Route queue to visit them in a chosen order.
 • A route location can receive a session-only temporary pin. Existing saved pins are never replaced or removed.
 • Before starting, Auto Sort orders nearby locations within each map without moving map sections.

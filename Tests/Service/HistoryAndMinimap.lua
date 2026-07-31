@@ -49,6 +49,25 @@ assert(searchResultsSource:find("function SearchResults:RenderHistory", 1, true)
     and searchResultsSource:find("Config.colors.searchMatch", 1, true)
     and searchBarSource:find("SMK.SearchHistory:RecordQuery(query)", 1, true),
     "search history dropdown or match highlighting is not wired")
+local historyRendered, historyHidden = 0, 0
+local panelExpanded = true
+local historySearchBar = setmetatable({
+    panel = {
+        IsExpanded = function() return panelExpanded end,
+        SetSearchActive = function() end,
+    },
+    searchResults = {
+        Hide = function() historyHidden = historyHidden + 1 end,
+        RenderHistory = function() historyRendered = historyRendered + 1 end,
+    },
+}, { __index = SMK.SearchBar })
+historySearchBar:ShowHistory()
+assert(historyRendered == 0 and historyHidden == 1,
+    "search history remained visible while the main panel was open")
+panelExpanded = false
+historySearchBar:ShowHistory()
+assert(historyRendered == 1,
+    "search history did not remain available while the main panel was closed")
 local spacedRanges = SMK.Util.GetNormalizedMatchRanges("SilverMoon", "Silver Moon")
 assert(#spacedRanges == 1 and spacedRanges[1].first == 1
     and spacedRanges[1].last == #"SilverMoon",
@@ -67,8 +86,10 @@ assert(SMK.Config.locationEditor.dropdownBorderOutset == 5
 assert(minimapSource:find("pin.icon:SetAtlas(texture.atlas, false)", 1, true)
     and minimapSource:find(
         "updater:SetScript(\"OnUpdate\", function() self:UpdatePositions() end)",
-        1, true),
-    "native minimap pins do not keep fixed texture bounds or frame-synced movement")
+        1, true)
+    and minimapSource:find("if entry.showPinTexture == 1 then", 1, true)
+    and not minimapSource:find("CreateFontString", 1, true),
+    "minimap pins are not texture-only or do not use stable movement")
 
 local oldMinimap, oldUnitPosition = Minimap, UnitPosition
 local oldCMinimap, oldGetCVar = C_Minimap, GetCVar
@@ -107,13 +128,9 @@ SMK.MinimapPins.positionDirty = true
 SMK.MinimapPins:UpdatePositions()
 assert(not shown, "native minimap fallback did not hide an out-of-range pin")
 SMK.MinimapPins.active = {}
-local previewColor, previewNameShown, previewIconShown
+local previewIconShown
 SMK.MinimapPins.activeByID = {
     [77] = {
-        label = {
-            SetTextColor = function(_, r, g, b) previewColor = { r, g, b } end,
-            SetShown = function(_, value) previewNameShown = value end,
-        },
         icon = {
             SetShown = function(_, value) previewIconShown = value end,
         },
@@ -124,11 +141,10 @@ SMK.MinimapPins.Refresh = function()
     error("single-pin preview rebuilt all minimap pins")
 end
 SMK.MapPins:UpdatePinPreviewColor({ id = 77 }, { r = 0.1, g = 0.2, b = 0.3 })
-SMK.MapPins:UpdatePinVisibility({ id = 77 }, true, false)
+SMK.MapPins:UpdatePinVisibility({ id = 77 }, true, true)
 SMK.MinimapPins.Refresh = originalMinimapRefresh
-assert(previewColor and previewColor[1] == 0.1 and previewColor[3] == 0.3
-    and previewNameShown and previewIconShown == false,
-    "minimap editor preview did not update exactly one active pin")
+assert(previewIconShown == true,
+    "minimap editor preview did not update exactly one active texture")
 SMK.MinimapPins.activeByID = {}
 
 local oldCreateFrame = CreateFrame

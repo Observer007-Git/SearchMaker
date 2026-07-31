@@ -19,24 +19,12 @@ local function ApplyPinAppearance(pin, entry, temporary)
     pin:SetSize(size, size)
     if temporary then
         pin.icon:SetAtlas(config.atlas, false)
-        pin.icon:Show()
-        pin.label:Show()
     else
         local texture = SMK.PinTextureByID[tonumber(entry.pinTextureID)]
             or SMK.PinTextureByID[SMK.DefaultPinTextureID]
         pin.icon:SetAtlas(texture.atlas, false)
-        pin.icon:SetShown(entry.showPinTexture == 1)
-        pin.label:SetShown(entry.showPinName == 1)
     end
-    pin.label:SetText(entry.name or "")
-    pin.label:SetScale(SMK.Settings:Get("mapPinTextScale"))
-    pin.label:ClearAllPoints()
-    pin.label:SetPoint("CENTER", pin, "CENTER",
-        SMK.Settings:Get("mapPinNameOffsetX"),
-        SMK.Settings:Get("mapPinNameOffsetY"))
-    local color = entry.pinColor or SMK.Config.colors.gold
-    pin.label:SetTextColor(
-        color.r or color[1], color.g or color[2], color.b or color[3])
+    pin.icon:Show()
 end
 
 function MinimapPins:Acquire(entry, temporary)
@@ -48,9 +36,6 @@ function MinimapPins:Acquire(entry, temporary)
         pin:EnableMouse(false)
         pin.icon = pin:CreateTexture(nil, "ARTWORK")
         pin.icon:SetAllPoints(pin)
-        pin.label = pin:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        pin.label:SetJustifyH("CENTER")
-        pin.label:SetWordWrap(false)
     end
     pin.entry = entry
     pin.temporary = temporary == true
@@ -66,7 +51,6 @@ function MinimapPins:ReleaseAll()
         pin.entry = nil
         pin.targetX, pin.targetY, pin.instanceID = nil, nil, nil
         pin.icon:Hide()
-        pin.label:Hide()
         pin:Hide()
         self.pool[#self.pool + 1] = pin
     end
@@ -108,7 +92,7 @@ function MinimapPins:Refresh()
     local mapID = SMK.Map:GetPlayerMapID()
     if mapID then
         for _, entry in ipairs(SMK.Store:GetByMap(mapID)) do
-            if entry.showPinName == 1 or entry.showPinTexture == 1 then
+            if entry.showPinTexture == 1 then
                 self:AddEntry(entry, false)
             end
         end
@@ -187,18 +171,9 @@ function MinimapPins:UpdatePositions(force)
     end
 end
 
-function MinimapPins:UpdatePinPreviewColor(entry, color)
+function MinimapPins:UpdatePinVisibility(entry, showPinTexture)
     local pin = entry and self.activeByID[entry.id]
     if not pin then return end
-    color = color or SMK.Config.colors.gold
-    pin.label:SetTextColor(
-        color.r or color[1], color.g or color[2], color.b or color[3])
-end
-
-function MinimapPins:UpdatePinVisibility(entry, showPinName, showPinTexture)
-    local pin = entry and self.activeByID[entry.id]
-    if not pin then return end
-    pin.label:SetShown(showPinName == true)
     pin.icon:SetShown(showPinTexture == true)
 end
 

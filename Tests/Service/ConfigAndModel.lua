@@ -160,8 +160,10 @@ assert(SMK.Util.GetTextWidth("e\204\129") == 1
 assert(SMK.Config.mapPins.size == 30
     and SMK.Config.mapPins.defaultNameOffsetX == 0
     and SMK.Config.mapPins.defaultNameOffsetY == 0
-    and SMK.Config.mapPins.targetHighlight.atlas == "MonsterEnemy"
-    and SMK.Config.mapPins.targetHighlight.ringTexture == "Interface\\Cooldown\\starburst"
+    and SMK.Config.mapPins.targetHighlight.atlas == "Warfront-HordeDot"
+    and SMK.Config.mapPins.targetHighlight.ringAtlas
+        == "PowerSwirlAnimation-StarBurst-Soulbinds"
+    and SMK.Config.mapPins.targetHighlight.ringTexture == nil
     and SMK.Config.mapPins.targetHighlight.size == 32
     and SMK.Config.mapPins.targetHighlight.ringSize == 80
     and SMK.Config.mapPins.targetHighlight.duration == 3

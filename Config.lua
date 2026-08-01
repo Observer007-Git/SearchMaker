@@ -28,7 +28,6 @@ local Config = {
             buttonMinWidth = 40,
             buttonPadding = 12,
             buttonGap = 4,
-            popupPadding = 12,
             settingsWidth = 330,
         },
     },
@@ -149,8 +148,8 @@ local Config = {
         nameOffsetYMin = -50,
         nameOffsetYMax = 50,
         targetHighlight = {
-            atlas = "MonsterEnemy",
-            ringTexture = "Interface\\Cooldown\\starburst",
+            atlas = "Warfront-HordeDot",
+            ringAtlas = "PowerSwirlAnimation-StarBurst-Soulbinds",
             size = 32,
             ringSize = 80,
             duration = 3,

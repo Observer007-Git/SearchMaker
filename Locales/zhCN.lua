@@ -14,7 +14,6 @@ local translations = {
     ADD = "新增坐标",
     SETTINGS = "标记设置",
     DISPLAY_SETTINGS = "显示设置",
-    MORE = "更多",
     HELP = "使用说明",
     BULK_DELETE = "批量删除",
     ROUTE_TITLE = "路线规划",

@@ -190,7 +190,7 @@ local function CreateHighlightPinMixin()
 
             self.ring = self:CreateTexture(nil, "OVERLAY")
             self.ring:SetPoint("CENTER", self, "CENTER")
-            self.ring:SetTexture(config.ringTexture)
+            self.ring:SetAtlas(config.ringAtlas, false)
             self.ring:SetBlendMode("ADD")
             self.ring:SetVertexColor(1, 1, 1)
 

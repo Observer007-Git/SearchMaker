@@ -81,8 +81,8 @@ local highlightPin = fakeMap.pins[2]
 assert(highlightPin.pinTemplate == "SearchMakerTargetHighlightPinTemplate"
     and highlightPin.frameLevelType == "PIN_FRAME_LEVEL_TOPMOST"
     and highlightPin.x == 0.25 and highlightPin.y == 0.75
-    and highlightPin.icon.atlas == "MonsterEnemy"
-    and highlightPin.ring.texture == "Interface\\Cooldown\\starburst"
+    and highlightPin.icon.atlas == "Warfront-HordeDot"
+    and highlightPin.ring.atlas == "PowerSwirlAnimation-StarBurst-Soulbinds"
     and highlightPin.ring.width == 80
     and highlightPin.ring.color.r == 1
     and highlightPin.ring.color.g == 1
@@ -429,9 +429,17 @@ assert(mainPanelSource:find(
         "route:SetPoint(\"RIGHT\", add, \"LEFT\", -buttonGap, 0)", 1, true)
     and mainPanelSource:find(
         "scaleMinus:SetPoint(\"RIGHT\", route, \"LEFT\", -buttonGap, 0)", 1, true)
-    and not mainPanelSource:find(
-        "Widgets:CreatePanelButton(moreFrame, SMK.L.ROUTE_TITLE)", 1, true),
-    "route button was not moved to the right of the location scale controls")
+    and mainPanelSource:find(
+        "help:SetPoint(\"TOPRIGHT\", frame, \"TOPRIGHT\", -14, -39)", 1, true)
+    and mainPanelSource:find(
+        "settings:SetPoint(\"RIGHT\", help, \"LEFT\", -buttonGap, 0)", 1, true)
+    and mainPanelSource:find(
+        "bulk:SetPoint(\"RIGHT\", share, \"LEFT\", -buttonGap, 0)", 1, true)
+    and mainPanelSource:find(
+        "add:SetPoint(\"RIGHT\", bulk, \"LEFT\", -buttonGap, 0)", 1, true)
+    and not mainPanelSource:find("moreMenu", 1, true)
+    and not mainPanelSource:find("SMK.L.MORE", 1, true),
+    "main panel header controls are missing or incorrectly ordered")
 assert(select(2, mainPanelSource:gsub(
         "PanelLayout%.visualSidePadding", "")) >= 2
     and mainPanelSource:find("rowX + width > rowRight", 1, true)

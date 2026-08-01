@@ -12,7 +12,6 @@ SMK.L = {
     ADD = "Add Coordinate",
     SETTINGS = "Pin Settings",
     DISPLAY_SETTINGS = "Display Settings",
-    MORE = "More",
     HELP = "How to Use",
     BULK_DELETE = "Bulk Delete",
     ROUTE_TITLE = "Route",

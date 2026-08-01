@@ -467,15 +467,6 @@ function MainPanel:ToggleSearchSettings()
     end
 end
 
-function MainPanel:ToggleMoreMenu()
-    if self.moreMenu:IsShown() then
-        self.moreMenu:Hide()
-    else
-        SMK.ModalManager:PrepareToShow(self.moreMenu)
-        self.moreMenu:Open()
-    end
-end
-
 function MainPanel:Create(searchBar, callbacks)
     self.callbacks = callbacks or {}
     self.widgetPools = { heading = {}, button = {}, message = {} }
@@ -523,20 +514,23 @@ function MainPanel:Create(searchBar, callbacks)
     end)
 
     local buttonGap = Config.panel.controls.buttonGap
+    local help = Widgets:CreatePanelButton(frame, SMK.L.HELP)
+    help:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -39)
+    help:SetScript("OnClick", function() self:OpenHelp() end)
     local settings = Widgets:CreatePanelButton(frame, SMK.L.SETTINGS)
-    settings:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -39)
+    settings:SetPoint("RIGHT", help, "LEFT", -buttonGap, 0)
     settings:SetScript("OnClick", function() self:ToggleSettings() end)
     local searchSettings = Widgets:CreatePanelButton(frame, SMK.L.SEARCH_BAR_SETTINGS)
     searchSettings:SetPoint("RIGHT", settings, "LEFT", -buttonGap, 0)
     searchSettings:SetScript("OnClick", function() self:ToggleSearchSettings() end)
-    local more = Widgets:CreatePanelButton(frame, SMK.L.MORE)
-    more:SetPoint("RIGHT", searchSettings, "LEFT", -buttonGap, 0)
-    more:SetScript("OnClick", function() self:ToggleMoreMenu() end)
     local share = Widgets:CreatePanelButton(frame, SMK.L.SHARE)
-    share:SetPoint("RIGHT", more, "LEFT", -buttonGap, 0)
+    share:SetPoint("RIGHT", searchSettings, "LEFT", -buttonGap, 0)
     share:SetScript("OnClick", function() self:OpenShare() end)
+    local bulk = Widgets:CreatePanelButton(frame, SMK.L.BULK_DELETE)
+    bulk:SetPoint("RIGHT", share, "LEFT", -buttonGap, 0)
+    bulk:SetScript("OnClick", function() self:OpenBulkDelete() end)
     local add = Widgets:CreatePanelButton(frame, SMK.L.ADD)
-    add:SetPoint("RIGHT", share, "LEFT", -buttonGap, 0)
+    add:SetPoint("RIGHT", bulk, "LEFT", -buttonGap, 0)
     add:SetScript("OnClick", function() self:OpenEditor("add") end)
 
     local route = Widgets:CreatePanelButton(frame, SMK.L.ROUTE_TITLE)
@@ -590,41 +584,6 @@ function MainPanel:Create(searchBar, callbacks)
     SMK.SearchBarSettings:Create(searchSettings)
     self.shortcutButton = SMK.SearchBarSettings.shortcutButton
     SMK.ModalManager:Register(SMK.SearchBarSettings)
-
-    local moreMenu = {}
-    local moreFrame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    moreMenu.frame = moreFrame
-    moreFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    moreFrame:SetFrameLevel(frame:GetFrameLevel() + 10)
-    moreFrame:SetClampedToScreen(true)
-    moreFrame:EnableMouse(true)
-    moreFrame:SetBackdrop(Config.panelBackdrop)
-    moreFrame:SetBackdropColor(unpack(Config.colors.dialogBackground))
-    moreFrame:SetBackdropBorderColor(unpack(Config.colors.panelBorder))
-    moreFrame:SetPoint("TOPRIGHT", more, "BOTTOMRIGHT", 0, -4)
-    local bulk = Widgets:CreatePanelButton(moreFrame, SMK.L.BULK_DELETE)
-    local help = Widgets:CreatePanelButton(moreFrame, SMK.L.HELP)
-    local popupPadding = Config.panel.controls.popupPadding
-    local menuWidth = math.max(bulk:GetWidth(), help:GetWidth())
-    bulk:SetWidth(menuWidth)
-    help:SetWidth(menuWidth)
-    bulk:SetPoint("TOPLEFT", popupPadding, -popupPadding)
-    help:SetPoint("TOPLEFT", bulk, "BOTTOMLEFT", 0, -buttonGap)
-    moreFrame:SetSize(menuWidth + popupPadding * 2,
-        Config.panel.controls.buttonHeight * 2 + buttonGap + popupPadding * 2)
-    bulk:SetScript("OnClick", function()
-        moreMenu:Hide()
-        self:OpenBulkDelete()
-    end)
-    help:SetScript("OnClick", function()
-        moreMenu:Hide()
-        self:OpenHelp()
-    end)
-    function moreMenu:Open() moreFrame:Show() end
-    function moreMenu:Hide() moreFrame:Hide() end
-    function moreMenu:IsShown() return moreFrame:IsShown() end
-    moreFrame:Hide()
-    self.moreMenu = moreMenu
 
     local headerDivider = frame:CreateTexture(nil, "ARTWORK")
     headerDivider:SetPoint("TOPLEFT", Config.panel.layout.outerInset,
@@ -703,7 +662,6 @@ function MainPanel:Create(searchBar, callbacks)
     SMK.BulkDeleteDialog:Create(frame)
     SMK.HelpDialog:Create(frame)
     SMK.ModalManager:Register(SMK.PanelSettings)
-    SMK.ModalManager:Register(self.moreMenu)
     SMK.ModalManager:Register(SMK.LocationEditor)
     SMK.ModalManager:Register(SMK.CopyDialog)
     SMK.ModalManager:Register(SMK.RouteImportDialog)

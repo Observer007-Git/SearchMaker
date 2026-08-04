@@ -3,6 +3,19 @@ local _, SMK = ...
 local SearchResults = {}
 SearchResults.__index = SearchResults
 
+local function UsesSearchBoxWidth()
+    local styles = SMK.Config.search.appearance.styles
+    return SMK.Settings:Get("searchBarStyle") == styles.noPortrait
+end
+
+local function GetFrameInsets()
+    if UsesSearchBoxWidth() then
+        return SMK.Config.search.resultNoPortraitLeftInset, 0
+    end
+    local inset = SMK.Config.search.resultFrameInset
+    return inset, inset
+end
+
 local function ColorText(text, color)
     return string.format("|cff%02x%02x%02x%s|r",
         math.floor(color[1] * 255 + 0.5),
@@ -67,9 +80,9 @@ function SearchResults:New(parent, box, callbacks)
 
     local frame = CreateFrame("Frame", SMK.name .. "SearchResults", parent, "BackdropTemplate")
     view.frame = frame
-    local frameInset = SMK.Config.search.resultFrameInset
-    frame:SetWidth(math.max(1, box:GetWidth() - frameInset * 2))
-    frame:SetPoint("TOPLEFT", box, "BOTTOMLEFT", frameInset, -SMK.Config.search.resultGap)
+    local leftInset, rightInset = GetFrameInsets()
+    frame:SetWidth(math.max(1, box:GetWidth() - leftInset - rightInset))
+    frame:SetPoint("TOPLEFT", box, "BOTTOMLEFT", leftInset, -SMK.Config.search.resultGap)
     frame:SetFrameLevel(parent:GetFrameLevel() + 20)
     frame:SetBackdrop(SMK.Config.searchResultBackdrop)
     frame:SetBackdropColor(0.02, 0.02, 0.02, 1)
@@ -137,6 +150,54 @@ function SearchResults:IsShown()
     return self.frame:IsShown()
 end
 
+function SearchResults:LayoutVisibleResults(resetGeometry)
+    local visible = self.visibleCount
+    local leftInset, rightInset = GetFrameInsets()
+    local frameWidth = math.max(
+        1, self.box:GetWidth() - leftInset - rightInset)
+    if visible == 0 then
+        self.frame:SetWidth(frameWidth)
+        return
+    end
+    if resetGeometry then
+        for index = 1, visible do
+            SMK.Widgets:UpdateLocationGeometry(self.widgets[index])
+        end
+    end
+    local maxWidth = math.max(1, frameWidth - 8)
+    if not UsesSearchBoxWidth() then
+        for index = 1, visible do
+            maxWidth = math.max(maxWidth, self.widgets[index]:GetWidth())
+        end
+        maxWidth = math.min(
+            maxWidth, GetMaximumContentWidth(self.frame, frameWidth - 8))
+    end
+    local y = 4
+    for index = 1, visible do
+        local button = self.widgets[index]
+        SMK.Widgets:StretchSearchResult(button, maxWidth)
+        button:ClearAllPoints()
+        button:SetPoint("TOPLEFT", 4, -y)
+        y = y + button:GetHeight() + SMK.Config.location.verticalGap
+    end
+    self.frame:SetWidth(maxWidth + 8)
+    self.frame:SetHeight(math.max(1, y) + 2)
+end
+
+function SearchResults:RefreshStyleAlignment()
+    local leftInset, rightInset = GetFrameInsets()
+    self.frame:ClearAllPoints()
+    self.frame:SetPoint(
+        "TOPLEFT", self.box, "BOTTOMLEFT", leftInset, -SMK.Config.search.resultGap)
+    if not self.frame:IsShown() then
+        self.frame:SetWidth(math.max(
+            1, self.box:GetWidth() - leftInset - rightInset))
+        return
+    end
+    self:LayoutVisibleResults(true)
+    self:UpdateSelection()
+end
+
 function SearchResults:Hide()
     self:CancelHoverHighlight()
     self.selectedIndex, self.visibleCount = 0, 0
@@ -202,8 +263,9 @@ function SearchResults:RenderMatches(matches, query, allMaps, hideWhenEmpty)
             SMK.Widgets:ReleaseLocationButton(button)
         end
         self.empty:Show()
-        local frameInset = SMK.Config.search.resultFrameInset
-        self.frame:SetWidth(math.max(1, self.box:GetWidth() - frameInset * 2))
+        local leftInset, rightInset = GetFrameInsets()
+        self.frame:SetWidth(math.max(
+            1, self.box:GetWidth() - leftInset - rightInset))
         self.frame:SetHeight(SMK.Config.location.baseHeight + 8)
         self.frame:Show()
         self:NotifyVisibilityChanged()
@@ -213,8 +275,6 @@ function SearchResults:RenderMatches(matches, query, allMaps, hideWhenEmpty)
     self.empty:Hide()
     self.visibleCount, self.selectedIndex = visible, 1
     local highlightQuery = SMK.Util.Trim(query)
-    local frameInset = SMK.Config.search.resultFrameInset
-    local frameWidth = math.max(1, self.box:GetWidth() - frameInset * 2)
     for index, match in ipairs(matches) do
         local button = self.widgets[index]
         if not button then
@@ -246,24 +306,11 @@ function SearchResults:RenderMatches(matches, query, allMaps, hideWhenEmpty)
         SMK.Widgets:SetLocationEntry(button, match.entry, display, true)
         button.resultIndex = index
     end
-    local y = 4
-    local maxWidth = math.max(1, frameWidth - 8)
-    for index = 1, visible do
-        maxWidth = math.max(maxWidth, self.widgets[index]:GetWidth())
-    end
-    maxWidth = math.min(maxWidth, GetMaximumContentWidth(self.frame, frameWidth - 8))
-    for index = 1, visible do
-        local button = self.widgets[index]
-        button.isSearchResult = true
-        SMK.Widgets:StretchSearchResult(button, maxWidth)
-        button:SetPoint("TOPLEFT", 4, -y)
-        y = y + button:GetHeight() + SMK.Config.location.verticalGap
-    end
+    for index = 1, visible do self.widgets[index].isSearchResult = true end
     for index = visible + 1, #self.widgets do
         SMK.Widgets:ReleaseLocationButton(self.widgets[index])
     end
-    self.frame:SetWidth(maxWidth + 8)
-    self.frame:SetHeight(math.max(1, y) + 2)
+    self:LayoutVisibleResults(false)
     self.frame:Show()
     self:UpdateSelection()
     self:NotifyVisibilityChanged()

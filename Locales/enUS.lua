@@ -4,6 +4,9 @@ SMK.L = {
     SEARCH_BAR_SETTINGS = "Search Settings",
     SEARCH_BAR_SCALE = "Search Bar Scale",
     SEARCH_BAR_OPACITY = "Search Bar Opacity",
+    SEARCH_BAR_STYLE = "UI Style",
+    SEARCH_BAR_STYLE_PORTRAIT = "With Portrait",
+    SEARCH_BAR_STYLE_NO_PORTRAIT = "Without Portrait",
     SHORTCUT_KEY = "Shortcut Key",
     EXTERNAL_SOURCE = "External Source",
     SEARCH_CURRENT_MAP = "Search %s",
@@ -122,7 +125,7 @@ SMK.L = {
 • Alt+Left-click empty map space to add a location. Use Note for extra details; notes appear in green in tooltips.
 • Right-click a saved or external location in search results, the main panel, or on the map to open the same action menu.
 • In the location editor, enable Custom Icon to override the group icon for that location.
-• Each location controls its own world-map pin icon, name, and optional text color. The minimap only shows saved locations with pin icons enabled, plus temporary route pins; it does not show location names. Pin Settings controls icon/text size and text offset. Search Settings controls the search box and shortcut key.
+• Each location controls its own world-map pin icon, name, and optional text color. The minimap only shows saved locations with pin icons enabled, plus temporary route pins; it does not show location names. Pin Settings controls icon/text size and text offset. Search Settings controls the search box style, scale, opacity, and shortcut key.
 • External locations are saved to the HandyNotes_MapNotes group by default. Add locations to the Route queue to visit them in a chosen order.
 • A route location can receive a session-only temporary pin. Existing saved pins are never replaced or removed.
 • Before starting, Auto Sort orders nearby locations within each map without moving map sections.

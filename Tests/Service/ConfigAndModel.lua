@@ -90,7 +90,8 @@ assert(panelConfig.scrollbarReserve == 48 and panelLayout.scrollRightInset == 29
     "main panel scrollbar is not inset from the border")
 assert(panelConfig.headerHeight == 68 and panelConfig.contentTopGap == 8
     and panelConfig.frequentTitleHeight == 18
-    and panelControls.buttonAtlas == "Talent-Selection"
+    and SMK.Config.panel.backgroundAtlas == "house-drawing-stone-bg"
+    and panelControls.buttonAtlas == "pet-list-bg-ferocity-active"
     and panelControls.closeButtonAtlas == "common-icon-redx"
     and panelControls.buttonHeight == 24 and panelControls.settingsWidth == 330,
     "main panel controls are not configured")
@@ -130,10 +131,20 @@ assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
 assert(SMK.Config.search.resultFrameInset == 5
+    and SMK.Config.search.resultNoPortraitLeftInset == 5
     and SMK.Config.search.resultGap == 2
     and SMK.Config.search.resultMaxContentWidth == 520
     and SMK.Config.search.resultScreenMargin == 12
     and SMK.Config.search.hoverHighlightDelay == 0.08
+    and SMK.Config.search.appearance.styles.default
+        == SMK.Config.search.appearance.styles.portrait
+    and SMK.Config.search.appearance.styles.allianceAtlas
+        == "Objective-Header-CampaignAlliance"
+    and SMK.Config.search.appearance.styles.hordeAtlas
+        == "Objective-Header-CampaignHorde"
+    and SMK.Config.search.appearance.styles.atlasWidth == 274
+    and SMK.Config.search.appearance.styles.atlasHeight == 42
+    and SMK.Config.search.appearance.styles.circleGap == 1
     and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
     "search result frame is not aligned inside the search box border")
 assert(SMK.Config.handyNotes.npcCacheMaxEntries == 512

@@ -567,6 +567,7 @@ loader:SetScript("OnEvent", function(self, event, firstArgument)
         if App.initialized then
             SMK.Store:InvalidateCache()
             SMK.RouteStore:InvalidateCache()
+            SMK.SearchBar:ApplyStyle()
             SMK.SearchBar:UpdateSearchIcon()
             App:DataChanged()
         end

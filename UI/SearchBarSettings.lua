@@ -4,6 +4,13 @@ local SearchBarSettings = {}
 local Config = SMK.Config
 local Widgets = SMK.Widgets
 
+function SearchBarSettings:GetStyleLabel()
+    local styles = Config.search.appearance.styles
+    return SMK.Settings:Get("searchBarStyle") == styles.noPortrait
+        and SMK.L.SEARCH_BAR_STYLE_NO_PORTRAIT
+        or SMK.L.SEARCH_BAR_STYLE_PORTRAIT
+end
+
 function SearchBarSettings:Refresh()
     local appearance = Config.search.appearance
     local scale = math.max(appearance.minScale,
@@ -16,6 +23,9 @@ function SearchBarSettings:Refresh()
     self.opacityValue:SetText(string.format("%d%%", math.floor(opacity * 100 + 0.5)))
     self.opacityMinus:SetEnabled(opacity > appearance.minOpacity)
     self.opacityPlus:SetEnabled(opacity < appearance.maxOpacity)
+    if self.styleDropdown and self.styleDropdown.Text then
+        self.styleDropdown.Text:SetText(self:GetStyleLabel())
+    end
 end
 
 function SearchBarSettings:ChangeScale(delta)
@@ -36,6 +46,14 @@ function SearchBarSettings:ChangeOpacity(delta)
     self:Refresh()
 end
 
+function SearchBarSettings:SetStyle(value)
+    if SMK.Settings:Get("searchBarStyle") == value then return end
+    local changed, message = SMK.Settings:Set("searchBarStyle", value)
+    if not changed then return SMK:Print(message) end
+    SMK.SearchBar:ApplyStyle()
+    self:Refresh()
+end
+
 function SearchBarSettings:Open()
     self:Refresh()
     self.frame:Show()
@@ -49,6 +67,11 @@ function SearchBarSettings:IsShown()
     return self.frame and self.frame:IsShown()
 end
 
+function SearchBarSettings:IsMenuOpen()
+    return self.styleDropdown and self.styleDropdown.IsMenuOpen
+        and self.styleDropdown:IsMenuOpen()
+end
+
 function SearchBarSettings:ContainsMouseFocus() return false end
 
 function SearchBarSettings:Create(anchor)
@@ -56,7 +79,7 @@ function SearchBarSettings:Create(anchor)
     local frame = CreateFrame(
         "Frame", SMK.name .. "SearchBarSettings", UIParent, "BackdropTemplate")
     self.frame = frame
-    frame:SetSize(controls.settingsWidth, 210)
+    frame:SetSize(controls.settingsWidth, 245)
     frame:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -4)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:SetFrameLevel(anchor:GetFrameLevel() + 10)
@@ -120,8 +143,32 @@ function SearchBarSettings:Create(anchor)
         self:ChangeOpacity(Config.search.appearance.opacityStep)
     end)
 
+    -- 搜索框 UI 样式
+    local styleY = -123
+    self.styleLabel = Label(SMK.L.SEARCH_BAR_STYLE, styleY, 0)
+    self.styleDropdown = CreateFrame(
+        "DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
+    self.styleDropdown:SetSize(140, controls.buttonHeight)
+    self.styleDropdown:SetPoint("TOPLEFT", 164, styleY + 3)
+    self.styleDropdown:SetSelectionText(function()
+        return self:GetStyleLabel()
+    end)
+    self.styleDropdown:SetupMenu(function(_, root)
+        local styles = Config.search.appearance.styles
+        local function AddStyle(label, value)
+            root:CreateRadio(label,
+                function(selected)
+                    return SMK.Settings:Get("searchBarStyle") == selected
+                end,
+                function(selected) self:SetStyle(selected) end,
+                value)
+        end
+        AddStyle(SMK.L.SEARCH_BAR_STYLE_PORTRAIT, styles.portrait)
+        AddStyle(SMK.L.SEARCH_BAR_STYLE_NO_PORTRAIT, styles.noPortrait)
+    end)
+
     -- 呼出快捷键按钮
-    local shortcutY = -123
+    local shortcutY = -158
     self.shortcutLabel = Label(SMK.L.SHORTCUT, shortcutY, 0)
     self.shortcutButton = Widgets:CreatePanelButton(frame, SMK.L.SHORTCUT_KEY, { minWidth = 140 })
     self.shortcutButton:SetPoint("TOPLEFT", 140, shortcutY + 3)

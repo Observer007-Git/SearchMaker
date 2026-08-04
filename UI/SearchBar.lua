@@ -9,9 +9,17 @@ local function IsAllMaps()
     return SMK.Settings:Get("searchAllMaps")
 end
 
---- 检查已保存的栏位置表是否包含有效坐标。
--- @param position table
--- @return boolean
+local function GetAtlasDimensions(atlas, styles)
+    local info = C_Texture and C_Texture.GetAtlasInfo
+        and C_Texture.GetAtlasInfo(atlas)
+    if info and info.width and info.width > 0
+        and info.height and info.height > 0 then
+        return info.width, info.height
+    end
+    return styles.atlasWidth, styles.atlasHeight
+end
+
+--- 创建两套搜索框材质，显示状态由持久化 UI 样式决定。
 function SearchBar:ApplyArt()
     local box = self.box
     local verticalScale = Config.search.boxHeight / Art.buttonArtHeight
@@ -34,19 +42,54 @@ function SearchBar:ApplyArt()
     box.backgroundRight:SetTexture(Art.button)
     box.backgroundRight:SetTexCoord(Art.textLeft / Art.buttonTextureWidth,
         Art.buttonArtWidth / Art.buttonTextureWidth, 0, Art.buttonArtHeight / Art.buttonTextureHeight)
+    box.factionBackground = box:CreateTexture(nil, "BACKGROUND")
+    box.factionBackground:SetAllPoints()
     box.locationIcon = box:CreateTexture(nil, "ARTWORK")
     box.locationIcon:SetPoint("TOPLEFT", Art.iconLeft * verticalScale, -Art.iconTop * verticalScale)
     box.locationIcon:SetSize(Art.iconWidth * verticalScale, Art.iconHeight * verticalScale)
     self:UpdateSearchIcon()
-    box:SetTextInsets(leftWidth + 1, 20, 0, 0)
     box:SetTextColor(unpack(Config.colors.gold))
+    box:SetClipsChildren(true)
+    self.portraitTextInset = leftWidth + 1
+    self:ApplyStyle()
+end
+
+function SearchBar:ApplyStyle()
+    if not self.box then return end
+    local box = self.box
+    local styles = Config.search.appearance.styles
+    local noPortrait = SMK.Settings:Get("searchBarStyle") == styles.noPortrait
+    box.backgroundLeft:SetShown(not noPortrait)
+    box.backgroundRight:SetShown(not noPortrait)
+    box.locationIcon:SetShown(not noPortrait)
+    box.factionBackground:SetShown(noPortrait)
+    local leftInset, rightInset, verticalInset = self.portraitTextInset, 20, 0
+    local boxWidth, barWidth = Config.search.boxWidth, Config.search.barWidth
+    if noPortrait then
+        local faction = UnitFactionGroup("player")
+        local atlas = faction == "Horde"
+            and styles.hordeAtlas or styles.allianceAtlas
+        local atlasWidth, atlasHeight = GetAtlasDimensions(atlas, styles)
+        boxWidth = Config.search.boxHeight * atlasWidth / atlasHeight
+        barWidth = Config.search.barWidth + boxWidth - Config.search.boxWidth
+        box:SetWidth(boxWidth)
+        box.factionBackground:SetAtlas(atlas, false)
+        leftInset = atlasHeight * boxWidth / atlasWidth + styles.circleGap
+        rightInset = styles.rightInset
+        verticalInset = styles.verticalInset
+    else
+        box:SetWidth(boxWidth)
+    end
+    if self.bar then self.bar:SetWidth(barWidth) end
+    box:SetTextInsets(leftInset, rightInset, verticalInset, verticalInset)
     if box.Instructions then
         box.Instructions:ClearAllPoints()
-        box.Instructions:SetPoint("LEFT", leftWidth + 1, 0)
-        box.Instructions:SetPoint("RIGHT", -20, 0)
+        box.Instructions:SetPoint("LEFT", leftInset, 0)
+        box.Instructions:SetPoint("RIGHT", -rightInset, 0)
         box.Instructions:SetJustifyH("LEFT")
         box.Instructions:SetTextColor(0.7, 0.62, 0.42)
     end
+    if self.searchResults then self.searchResults:RefreshStyleAlignment() end
 end
 
 --- 切换搜索框图标：当前地图模式 ↔ 全图搜索模式。

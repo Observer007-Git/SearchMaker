@@ -11,6 +11,135 @@ local mainPanelSource = context.mainPanelSource
 local widgetsSource = context.widgetsSource
 local panelSettingsSource = context.panelSettingsSource
 local ReadSource = context.readSource
+local searchBarSource = ReadSource("UI/SearchBar.lua")
+local searchBarSettingsSource = ReadSource("UI/SearchBarSettings.lua")
+
+assert(searchBarSource:find("function SearchBar:ApplyStyle()", 1, true)
+    and searchBarSource:find("box.locationIcon:SetShown(not noPortrait)", 1, true)
+    and searchBarSource:find("GetAtlasDimensions(", 1, true)
+    and searchBarSettingsSource:find("WowStyle1DropdownTemplate", 1, true)
+    and searchBarSettingsSource:find(
+        "function SearchBarSettings:IsMenuOpen()", 1, true),
+    "search bar UI style selection or faction background layout is not wired")
+assert(appSource:find("SMK.SearchBar:ApplyStyle()", 1, true),
+    "saved search bar style is not reapplied after addon data loads")
+local searchResultsSource = ReadSource("UI/SearchResults.lua")
+assert(searchResultsSource:find("function SearchResults:RefreshStyleAlignment()", 1, true)
+    and searchResultsSource:find("function SearchResults:LayoutVisibleResults(", 1, true)
+    and searchResultsSource:find("function GetFrameInsets()", 1, true)
+    and searchResultsSource:find(
+        "return SMK.Config.search.resultNoPortraitLeftInset, 0", 1, true)
+    and searchResultsSource:find("if not UsesSearchBoxWidth() then", 1, true),
+    "no-portrait search results are not locked to the search box width")
+
+local originalSettingsGet = SMK.Settings.Get
+local originalFactionGroup, originalTextureAPI =
+    UnitFactionGroup, C_Texture
+local originalSearchBox = SMK.SearchBar.box
+local originalSearchBar = SMK.SearchBar.bar
+local originalPortraitInset = SMK.SearchBar.portraitTextInset
+local originalSearchResults = SMK.SearchBar.searchResults
+local selectedStyle = SMK.Config.search.appearance.styles.noPortrait
+SMK.Settings.Get = function(settings, key)
+    if key == "searchBarStyle" then return selectedStyle end
+    return originalSettingsGet(settings, key)
+end
+UnitFactionGroup = function() return "Horde" end
+C_Texture = {
+    GetAtlasInfo = function()
+        return { width = 274, height = 42 }
+    end,
+}
+local function StyleTexture()
+    return {
+        SetShown = function(self, shown) self.shown = shown end,
+        SetAtlas = function(self, atlas) self.atlas = atlas end,
+    }
+end
+local appliedInsets
+local styleBoxWidth = 240
+local styleBox = {
+    backgroundLeft = StyleTexture(),
+    backgroundRight = StyleTexture(),
+    locationIcon = StyleTexture(),
+    factionBackground = StyleTexture(),
+    GetWidth = function() return styleBoxWidth end,
+    GetHeight = function() return 44 end,
+    SetWidth = function(_, width) styleBoxWidth = width end,
+    SetTextInsets = function(_, ...) appliedInsets = { ... } end,
+    Instructions = {
+        ClearAllPoints = function() end,
+        SetPoint = function() end,
+        SetJustifyH = function() end,
+        SetTextColor = function() end,
+    },
+}
+local alignmentRefreshes = 0
+local styleBarWidth
+SMK.SearchBar.box = styleBox
+SMK.SearchBar.bar = {
+    SetWidth = function(_, width) styleBarWidth = width end,
+}
+SMK.SearchBar.portraitTextInset = 43
+SMK.SearchBar.searchResults = {
+    RefreshStyleAlignment = function() alignmentRefreshes = alignmentRefreshes + 1 end,
+}
+SMK.SearchBar:ApplyStyle()
+local expectedNoPortraitWidth = 44 * 274 / 42
+local expectedCircleRight = 45
+assert(not styleBox.backgroundLeft.shown
+    and not styleBox.backgroundRight.shown
+    and not styleBox.locationIcon.shown
+    and styleBox.factionBackground.shown
+    and styleBox.factionBackground.atlas == "Objective-Header-CampaignHorde"
+    and math.abs(styleBoxWidth - expectedNoPortraitWidth) < 0.001
+    and math.abs(styleBarWidth - expectedNoPortraitWidth) < 0.001
+    and math.abs(appliedInsets[1] - expectedCircleRight) < 0.001
+    and appliedInsets[2] == 8 and appliedInsets[3] == 2
+    and alignmentRefreshes == 1,
+    "Horde no-portrait search style or text bounds were applied incorrectly")
+UnitFactionGroup = function() return "Alliance" end
+SMK.SearchBar:ApplyStyle()
+assert(styleBox.factionBackground.atlas
+        == "Objective-Header-CampaignAlliance"
+    and alignmentRefreshes == 2,
+    "Alliance no-portrait search style used the wrong Atlas")
+selectedStyle = SMK.Config.search.appearance.styles.portrait
+SMK.SearchBar:ApplyStyle()
+assert(styleBox.backgroundLeft.shown and styleBox.backgroundRight.shown
+    and styleBox.locationIcon.shown and not styleBox.factionBackground.shown
+    and styleBoxWidth == 240 and styleBarWidth == 240
+    and appliedInsets[1] == 43 and appliedInsets[2] == 20
+    and appliedInsets[3] == 0 and alignmentRefreshes == 3,
+    "portrait search style was not restored correctly")
+SMK.SearchBar.box = originalSearchBox
+SMK.SearchBar.bar = originalSearchBar
+SMK.SearchBar.portraitTextInset = originalPortraitInset
+SMK.SearchBar.searchResults = originalSearchResults
+UnitFactionGroup, C_Texture = originalFactionGroup, originalTextureAPI
+
+local alignmentPoint, alignmentWidth
+local alignmentView = setmetatable({
+    box = { GetWidth = function() return 240 end },
+    frame = {
+        IsShown = function() return false end,
+        ClearAllPoints = function() end,
+        SetPoint = function(_, _, _, _, x) alignmentPoint = x end,
+        SetWidth = function(_, width) alignmentWidth = width end,
+    },
+}, { __index = SMK.SearchResults })
+selectedStyle = SMK.Config.search.appearance.styles.noPortrait
+alignmentView:RefreshStyleAlignment()
+assert(alignmentPoint == SMK.Config.search.resultNoPortraitLeftInset
+    and alignmentWidth
+        == 240 - SMK.Config.search.resultNoPortraitLeftInset,
+    "no-portrait result panel did not align to both search box edges")
+selectedStyle = SMK.Config.search.appearance.styles.portrait
+alignmentView:RefreshStyleAlignment()
+assert(alignmentPoint == SMK.Config.search.resultFrameInset
+    and alignmentWidth == 230,
+    "portrait result panel alignment did not retain its original inset")
+SMK.Settings.Get = originalSettingsGet
 
 mapInfo[100] = { name = "测试地图", mapType = Enum.UIMapType.Zone }
 local fakeMap = { pinPools = {}, pins = {}, mapID = 100 }
@@ -604,6 +733,35 @@ assert(whisperListener.registered.ADDON_LOADED
     and whisperListener.registered.CHAT_MSG_BN_WHISPER_INFORM
     and not whisperListener.registered.CHAT_MSG_CHANNEL,
     "app did not register exactly the supported whisper sources")
+local originalDBInitialize = SMK.DB.Initialize
+local originalMinimapInitialize = SMK.App.InitializeMinimapPins
+local originalStoreInvalidate = SMK.Store.InvalidateCache
+local originalRouteInvalidate = SMK.RouteStore.InvalidateCache
+local originalApplyStyle = SMK.SearchBar.ApplyStyle
+local originalUpdateSearchIcon = SMK.SearchBar.UpdateSearchIcon
+local originalDataChanged = SMK.App.DataChanged
+local loadedStyleApplications = 0
+SMK.DB.Initialize = function() end
+SMK.App.InitializeMinimapPins = function() end
+SMK.Store.InvalidateCache = function() end
+SMK.RouteStore.InvalidateCache = function() end
+SMK.SearchBar.ApplyStyle = function()
+    loadedStyleApplications = loadedStyleApplications + 1
+end
+SMK.SearchBar.UpdateSearchIcon = function() end
+SMK.App.DataChanged = function() end
+SMK.App.initialized = true
+whisperListener.OnEvent(whisperListener, "ADDON_LOADED", SMK.name)
+assert(loadedStyleApplications == 1,
+    "saved search bar style was not applied after addon data loaded")
+SMK.DB.Initialize = originalDBInitialize
+SMK.App.InitializeMinimapPins = originalMinimapInitialize
+SMK.Store.InvalidateCache = originalStoreInvalidate
+SMK.RouteStore.InvalidateCache = originalRouteInvalidate
+SMK.SearchBar.ApplyStyle = originalApplyStyle
+SMK.SearchBar.UpdateSearchIcon = originalUpdateSearchIcon
+SMK.App.DataChanged = originalDataChanged
+SMK.App.initialized = false
 local originalWorldMapFrame = WorldMapFrame
 local originalSettingsGet = SMK.Settings.Get
 local originalGetPlayerMapID = SMK.Map.GetPlayerMapID

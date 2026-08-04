@@ -117,6 +117,7 @@ SearchMakerDB = {
         locationScale = 1.2,
         searchBarScale = 1.4,
         searchBarOpacity = 0.6,
+        searchBarStyle = 2,
         exportBatchSize = 75,
         pinTextureScale = 9,
         mapPinNameOffsetX = -80,
@@ -147,7 +148,9 @@ assert(SMK.Settings:Get("locationScale") == 1.2
     and SearchMakerDB.settings.showPinTextures == nil,
     "nested settings were not initialized")
 assert(SMK.Settings:Get("searchBarScale") == 1.4
-    and SMK.Settings:Get("searchBarOpacity") == 0.6,
+    and SMK.Settings:Get("searchBarOpacity") == 0.6
+    and SMK.Settings:Get("searchBarStyle")
+        == SMK.Config.search.appearance.styles.noPortrait,
     "search bar appearance settings were not persisted")
 assert(SMK.Settings:Get("exportBatchSize") == SMK.Config.export.defaultBatchSize,
     "export batch size default was not initialized")
@@ -172,6 +175,8 @@ assert(SMK.Settings:Set("locationScale", 1.3) and changedSetting == "locationSca
     "setting change was not normalized and announced")
 assert(SMK.Settings:Set("mapPinTextScale", 1.4) and changedSetting == "mapPinTextScale",
     "pin text scale was not persisted and announced")
+assert(not SMK.Settings:Set("searchBarStyle", 3),
+    "invalid search bar UI style was accepted")
 assert(SMK.Settings:Set("shortcutSearchBarPosition", { x = 10, y = 20 })
     and SMK.Settings:Set("shortcutSearchBarPosition", { x = 30, y = 40 })
     and SMK.Settings:Get("shortcutSearchBarPosition").x == 30,

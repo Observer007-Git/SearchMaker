@@ -21,8 +21,10 @@ assert(searchBarSource:find("function SearchBar:ApplyStyle()", 1, true)
     and searchBarSettingsSource:find(
         "function SearchBarSettings:IsMenuOpen()", 1, true),
     "search bar UI style selection or faction background layout is not wired")
-assert(appSource:find("SMK.SearchBar:ApplyStyle()", 1, true),
-    "saved search bar style is not reapplied after addon data loads")
+assert(appSource:find("SMK.SearchBar:ApplyStyle()", 1, true)
+    and appSource:find("SMK.SearchBar:ApplyScale()", 1, true)
+    and appSource:find("SMK.SearchBar:ApplyOpacity()", 1, true),
+    "saved search bar appearance is not reapplied after addon data loads")
 local searchResultsSource = ReadSource("UI/SearchResults.lua")
 assert(searchResultsSource:find("function SearchResults:RefreshStyleAlignment()", 1, true)
     and searchResultsSource:find("function SearchResults:LayoutVisibleResults(", 1, true)
@@ -738,9 +740,12 @@ local originalMinimapInitialize = SMK.App.InitializeMinimapPins
 local originalStoreInvalidate = SMK.Store.InvalidateCache
 local originalRouteInvalidate = SMK.RouteStore.InvalidateCache
 local originalApplyStyle = SMK.SearchBar.ApplyStyle
+local originalApplyScale = SMK.SearchBar.ApplyScale
+local originalApplyOpacity = SMK.SearchBar.ApplyOpacity
 local originalUpdateSearchIcon = SMK.SearchBar.UpdateSearchIcon
 local originalDataChanged = SMK.App.DataChanged
-local loadedStyleApplications = 0
+local loadedStyleApplications, loadedScaleApplications, loadedOpacityApplications =
+    0, 0, 0
 SMK.DB.Initialize = function() end
 SMK.App.InitializeMinimapPins = function() end
 SMK.Store.InvalidateCache = function() end
@@ -748,17 +753,26 @@ SMK.RouteStore.InvalidateCache = function() end
 SMK.SearchBar.ApplyStyle = function()
     loadedStyleApplications = loadedStyleApplications + 1
 end
+SMK.SearchBar.ApplyScale = function()
+    loadedScaleApplications = loadedScaleApplications + 1
+end
+SMK.SearchBar.ApplyOpacity = function()
+    loadedOpacityApplications = loadedOpacityApplications + 1
+end
 SMK.SearchBar.UpdateSearchIcon = function() end
 SMK.App.DataChanged = function() end
 SMK.App.initialized = true
 whisperListener.OnEvent(whisperListener, "ADDON_LOADED", SMK.name)
-assert(loadedStyleApplications == 1,
-    "saved search bar style was not applied after addon data loaded")
+assert(loadedStyleApplications == 1 and loadedScaleApplications == 1
+    and loadedOpacityApplications == 1,
+    "saved search bar appearance was not applied after addon data loaded")
 SMK.DB.Initialize = originalDBInitialize
 SMK.App.InitializeMinimapPins = originalMinimapInitialize
 SMK.Store.InvalidateCache = originalStoreInvalidate
 SMK.RouteStore.InvalidateCache = originalRouteInvalidate
 SMK.SearchBar.ApplyStyle = originalApplyStyle
+SMK.SearchBar.ApplyScale = originalApplyScale
+SMK.SearchBar.ApplyOpacity = originalApplyOpacity
 SMK.SearchBar.UpdateSearchIcon = originalUpdateSearchIcon
 SMK.App.DataChanged = originalDataChanged
 SMK.App.initialized = false

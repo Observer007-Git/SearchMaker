@@ -568,6 +568,8 @@ loader:SetScript("OnEvent", function(self, event, firstArgument)
             SMK.Store:InvalidateCache()
             SMK.RouteStore:InvalidateCache()
             SMK.SearchBar:ApplyStyle()
+            SMK.SearchBar:ApplyScale()
+            SMK.SearchBar:ApplyOpacity()
             SMK.SearchBar:UpdateSearchIcon()
             App:DataChanged()
         end

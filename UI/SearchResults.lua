@@ -5,12 +5,17 @@ SearchResults.__index = SearchResults
 
 local function UsesSearchBoxWidth()
     local styles = SMK.Config.search.appearance.styles
-    return SMK.Settings:Get("searchBarStyle") == styles.noPortrait
+    local style = SMK.Settings:Get("searchBarStyle")
+    return style == styles.noPortrait or style == styles.blizzard
 end
 
 local function GetFrameInsets()
-    if UsesSearchBoxWidth() then
+    local styles = SMK.Config.search.appearance.styles
+    local style = SMK.Settings:Get("searchBarStyle")
+    if style == styles.noPortrait then
         return SMK.Config.search.resultNoPortraitLeftInset, 0
+    elseif style == styles.blizzard then
+        return -styles.blizzardLeftOutset, 0
     end
     local inset = SMK.Config.search.resultFrameInset
     return inset, inset
@@ -303,7 +308,8 @@ function SearchResults:RenderMatches(matches, query, allMaps, hideWhenEmpty)
                 .. ColorText(SMK.L.HANDYNOTES_SOURCE_SUFFIX, SMK.Config.colors.externalSource)
         end
         button:Show()
-        SMK.Widgets:SetLocationEntry(button, match.entry, display, true)
+        SMK.Widgets:SetLocationEntry(
+            button, match.entry, display, not match.entry.isSearchHistory)
         button.resultIndex = index
     end
     for index = 1, visible do self.widgets[index].isSearchResult = true end

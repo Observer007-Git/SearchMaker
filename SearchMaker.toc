@@ -3,7 +3,7 @@
 ## Title-zhCN: SearchMaker
 ## Notes: Search, save, route, and mark locations on the world map and minimap.
 ## Notes-zhCN: 在世界地图和小地图上搜索、保存、规划路线并标记地点。
-## IconTexture: Interface\AddOns\SearchMaker\icon.tga
+## IconAtlas: decor-controls-inspect-active
 ## Author: Codex
 ## Version: 1.25.0
 ## SavedVariables: SearchMakerDB

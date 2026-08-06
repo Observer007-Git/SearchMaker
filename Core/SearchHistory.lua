@@ -145,6 +145,7 @@ function History:GetRecentResults()
     local resolved = {}
     local database = SMK.DB:Get()
     local validRecords = {}
+    local includeExternal = SMK.Settings:Get("thirdPartySearchEnabled") == true
     for _, record in ipairs(database.recentSearchResults) do
         local entry
         if record.kind == "saved" then
@@ -161,8 +162,10 @@ function History:GetRecentResults()
             entry = record
         end
         if entry then
-            resolved[#resolved + 1] = entry
             validRecords[#validRecords + 1] = record
+            if not entry.isExternal or includeExternal then
+                resolved[#resolved + 1] = entry
+            end
         end
     end
     if not SMK.DB:IsReadOnly() and #validRecords ~= #database.recentSearchResults then

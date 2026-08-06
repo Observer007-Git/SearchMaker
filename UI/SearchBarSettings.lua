@@ -6,9 +6,13 @@ local Widgets = SMK.Widgets
 
 function SearchBarSettings:GetStyleLabel()
     local styles = Config.search.appearance.styles
-    return SMK.Settings:Get("searchBarStyle") == styles.noPortrait
-        and SMK.L.SEARCH_BAR_STYLE_NO_PORTRAIT
-        or SMK.L.SEARCH_BAR_STYLE_PORTRAIT
+    local style = SMK.Settings:Get("searchBarStyle")
+    if style == styles.noPortrait then
+        return SMK.L.SEARCH_BAR_STYLE_NO_PORTRAIT
+    elseif style == styles.blizzard then
+        return SMK.L.SEARCH_BAR_STYLE_BLIZZARD
+    end
+    return SMK.L.SEARCH_BAR_STYLE_PORTRAIT
 end
 
 function SearchBarSettings:Refresh()
@@ -26,6 +30,9 @@ function SearchBarSettings:Refresh()
     if self.styleDropdown and self.styleDropdown.Text then
         self.styleDropdown.Text:SetText(self:GetStyleLabel())
     end
+    self.mapOnlyCheck:SetChecked(SMK.Settings:Get("searchBarMapOnly") == true)
+    self.thirdPartyCheck:SetChecked(
+        SMK.Settings:Get("thirdPartySearchEnabled") == true)
 end
 
 function SearchBarSettings:ChangeScale(delta)
@@ -79,7 +86,7 @@ function SearchBarSettings:Create(anchor)
     local frame = CreateFrame(
         "Frame", SMK.name .. "SearchBarSettings", UIParent, "BackdropTemplate")
     self.frame = frame
-    frame:SetSize(controls.settingsWidth, 245)
+    frame:SetSize(controls.settingsWidth, 280)
     frame:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -4)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:SetFrameLevel(anchor:GetFrameLevel() + 10)
@@ -165,6 +172,7 @@ function SearchBarSettings:Create(anchor)
         end
         AddStyle(SMK.L.SEARCH_BAR_STYLE_PORTRAIT, styles.portrait)
         AddStyle(SMK.L.SEARCH_BAR_STYLE_NO_PORTRAIT, styles.noPortrait)
+        AddStyle(SMK.L.SEARCH_BAR_STYLE_BLIZZARD, styles.blizzard)
     end)
 
     -- 呼出快捷键按钮
@@ -175,6 +183,43 @@ function SearchBarSettings:Create(anchor)
     self.shortcutButton:SetScript("OnClick", function()
         SMK.ShortcutController:OnClick()
     end)
+
+    self.mapOnlyCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    self.mapOnlyCheck:SetSize(24, 24)
+    self.mapOnlyCheck:SetPoint("TOPLEFT", 20, -193)
+    self.mapOnlyCheck:SetScript("OnClick", function(button)
+        local changed, message = SMK.Settings:Set(
+            "searchBarMapOnly", button:GetChecked() == true)
+        if not changed then
+            button:SetChecked(not button:GetChecked())
+            if message then SMK:Print(message) end
+        end
+    end)
+    local mapOnlyLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    mapOnlyLabel:SetPoint("LEFT", self.mapOnlyCheck, "RIGHT", 4, 0)
+    mapOnlyLabel:SetPoint("RIGHT", frame, "RIGHT", -16, 0)
+    mapOnlyLabel:SetJustifyH("LEFT")
+    mapOnlyLabel:SetText(SMK.L.SEARCH_BAR_MAP_ONLY)
+    mapOnlyLabel:SetTextColor(unpack(Config.colors.gold))
+
+    self.thirdPartyCheck = CreateFrame(
+        "CheckButton", nil, frame, "UICheckButtonTemplate")
+    self.thirdPartyCheck:SetSize(24, 24)
+    self.thirdPartyCheck:SetPoint("TOPLEFT", 20, -225)
+    self.thirdPartyCheck:SetScript("OnClick", function(button)
+        local changed, message = SMK.Settings:Set(
+            "thirdPartySearchEnabled", button:GetChecked() == true)
+        if not changed then
+            button:SetChecked(not button:GetChecked())
+            if message then SMK:Print(message) end
+        end
+    end)
+    local thirdPartyLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    thirdPartyLabel:SetPoint("LEFT", self.thirdPartyCheck, "RIGHT", 4, 0)
+    thirdPartyLabel:SetPoint("RIGHT", frame, "RIGHT", -16, 0)
+    thirdPartyLabel:SetJustifyH("LEFT")
+    thirdPartyLabel:SetText(SMK.L.THIRD_PARTY_SEARCH_ENABLED)
+    thirdPartyLabel:SetTextColor(unpack(Config.colors.gold))
 
     frame:HookScript("OnHide", function()
         if self.shortcutButton and self.shortcutButton.isCapturing and SMK.SearchBar then

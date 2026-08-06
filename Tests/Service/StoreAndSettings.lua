@@ -118,6 +118,8 @@ SearchMakerDB = {
         searchBarScale = 1.4,
         searchBarOpacity = 0.6,
         searchBarStyle = 2,
+        searchBarMapOnly = true,
+        thirdPartySearchEnabled = false,
         exportBatchSize = 75,
         pinTextureScale = 9,
         mapPinNameOffsetX = -80,
@@ -150,7 +152,9 @@ assert(SMK.Settings:Get("locationScale") == 1.2
 assert(SMK.Settings:Get("searchBarScale") == 1.4
     and SMK.Settings:Get("searchBarOpacity") == 0.6
     and SMK.Settings:Get("searchBarStyle")
-        == SMK.Config.search.appearance.styles.noPortrait,
+        == SMK.Config.search.appearance.styles.noPortrait
+    and SMK.Settings:Get("searchBarMapOnly") == true
+    and SMK.Settings:Get("thirdPartySearchEnabled") == false,
     "search bar appearance settings were not persisted")
 assert(SMK.Settings:Get("exportBatchSize") == SMK.Config.export.defaultBatchSize,
     "export batch size default was not initialized")
@@ -175,8 +179,19 @@ assert(SMK.Settings:Set("locationScale", 1.3) and changedSetting == "locationSca
     "setting change was not normalized and announced")
 assert(SMK.Settings:Set("mapPinTextScale", 1.4) and changedSetting == "mapPinTextScale",
     "pin text scale was not persisted and announced")
-assert(not SMK.Settings:Set("searchBarStyle", 3),
+assert(SMK.Settings:Set("searchBarStyle",
+        SMK.Config.search.appearance.styles.blizzard)
+    and SMK.Settings:Get("searchBarStyle")
+        == SMK.Config.search.appearance.styles.blizzard,
+    "Blizzard-native search bar UI style was not accepted")
+assert(not SMK.Settings:Set("searchBarStyle", 4),
     "invalid search bar UI style was accepted")
+assert(SMK.Settings:Set("searchBarMapOnly", false)
+    and SMK.Settings:Get("searchBarMapOnly") == false,
+    "world-map-only search bar visibility was not persisted")
+assert(SMK.Settings:Set("thirdPartySearchEnabled", true)
+    and SMK.Settings:Get("thirdPartySearchEnabled") == true,
+    "third-party coordinate search setting was not persisted")
 assert(SMK.Settings:Set("shortcutSearchBarPosition", { x = 10, y = 20 })
     and SMK.Settings:Set("shortcutSearchBarPosition", { x = 30, y = 40 })
     and SMK.Settings:Get("shortcutSearchBarPosition").x == 30,

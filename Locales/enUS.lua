@@ -7,6 +7,9 @@ SMK.L = {
     SEARCH_BAR_STYLE = "UI Style",
     SEARCH_BAR_STYLE_PORTRAIT = "With Portrait",
     SEARCH_BAR_STYLE_NO_PORTRAIT = "Without Portrait",
+    SEARCH_BAR_STYLE_BLIZZARD = "Blizzard Native",
+    SEARCH_BAR_MAP_ONLY = "Show Only While World Map Is Open",
+    THIRD_PARTY_SEARCH_ENABLED = "Enable Third-Party Addon Coordinate Search",
     SHORTCUT_KEY = "Shortcut Key",
     EXTERNAL_SOURCE = "External Source",
     SEARCH_CURRENT_MAP = "Search %s",
@@ -113,28 +116,33 @@ SMK.L = {
     LOCATION_SCALE = "Icon Scale",
     HELP_TITLE = "SearchMaker Guide",
     HELP_TEXT = [[
-|cffffd100Search and access|r
-• Left-click the search box to search, right-click it to open the main panel, and middle-click it to toggle the world map. Hold Shift and drag to move the search box.
-• Press Tab to switch between Current Map and All Maps. With the map open, Current Map follows the viewed map; with it closed, it follows your character.
-• Search by location name, or enter coordinates such as “45.2, 63.8”. Left-click the result to create a native waypoint; right-click it to copy, add to the route, or add a temporary pin.
-• Focus an empty search box to reuse one of the last 10 queries. The main panel also keeps the last 10 successfully selected results.
-• With the world map closed, map results and saved All Maps results outside the character's current map open the target map automatically. Current-map and typed-coordinate results only set a native waypoint.
-• Right-click a saved-location search result and choose Open Map to jump to its map and flash the target.
+Left-click to search; right-click for the main panel; middle-click to toggle the world map; Shift-drag to move the search box. Press Tab to switch between Current Map and All Maps. Search Settings controls the shortcut, UI style, scale, opacity, world-map-only display, and third-party addon coordinate search.
 
-|cffffd100Locations and pins|r
-• Alt+Left-click empty map space to add a location. Use Note for extra details; notes appear in green in tooltips.
-• Right-click a saved or external location in search results, the main panel, or on the map to open the same action menu.
-• In the location editor, enable Custom Icon to override the group icon for that location.
-• Each location controls its own world-map pin icon, name, and optional text color. The minimap only shows saved locations with pin icons enabled, plus temporary route pins; it does not show location names. Pin Settings controls icon/text size and text offset. Search Settings controls the search box style, scale, opacity, and shortcut key.
-• External locations are saved to the HandyNotes_MapNotes group by default. Add locations to the Route queue to visit them in a chosen order.
-• A route location can receive a session-only temporary pin. Existing saved pins are never replaced or removed.
-• Before starting, Auto Sort orders nearby locations within each map without moving map sections.
-• Name and save a route to reuse it later. Search for “route” to list saved routes; right-click one to open, activate, share, or delete it. Only one route runs per session, and the running route resets on login or /reload.
-• Main-panel filters affect only the panel and Frequent section; they do not change search results, map pins, or saved data.
+|cffffd100Add Locations and Pins|r
+• Click Add Location in the main panel, or Alt+Left-click empty world-map space, to create a location on that map.
+• A location can store its category, name, note, coordinates, custom icon, and whether its world-map pin icon and name are shown. Notes appear in green in tooltips.
+• Right-click a HandyNotes_MapNotes result to save it as a local location. You can also paste SMK text or import codes from character and Battle.net whispers. Import Preview separates new, duplicate, and invalid records.
+• Import / Export supports current-map-only and batched exports, plus sharing one location. Routes use a separate SMK route string.
+• World-map pins provide tooltips and open the editor from the pin or its name. The minimap shows only saved locations with pin icons enabled and temporary route pins; it never shows names.
 
-|cffffd100Sharing and data|r
-• Import / Export previews new, duplicate, and invalid locations before writing them. It also imports SMK codes sent or received in character and Battle.net whispers since login or /reload; it does not scan channels.
-• Locations and settings are stored account-wide. Export a backup before making large changes.
+|cffffd100Search and Locate|r
+• Current Map searches saved and HandyNotes_MapNotes locations on the viewed map while the world map is open, or the character's map while it is closed. All Maps searches every saved location and map region, but excludes external locations.
+• Search supports exact, prefix, and substring matches. Enter “22 22”, “22,22”, or coordinates with one or two decimals to create a native waypoint on the current map.
+• Left-click a location to navigate. Map results and saved All Maps results outside the character's current map open the target map and flash the location. With the map closed, saved results also offer Open Map in the right-click menu.
+• Location menus can copy numeric coordinates, share, or add to the route. External results can be saved; typed coordinates can receive temporary route pins. Focusing an empty search box shows the last 10 queries, and the main panel shows the last 10 selected results.
+• Routes support reordering, nearest-neighbor sorting within each map, step-by-step navigation, and temporary pins. Routes can be saved, shared, and imported; search the full word “route” to list saved routes. Only one route runs at a time, and its progress and temporary pins reset on logout or /reload.
+• Main-panel filters select category, pin, note, or custom-icon views. They affect only the panel and Frequent section, not search, map pins, or saved data.
+
+|cffffd100Edit Locations|r
+• Right-click a saved search result or main-panel location and choose Edit Location. Clicking its world-map pin or name opens the editor directly.
+• You can change the name, note, category, coordinates, icon, and pin options. Get Character Coordinates is available only when the character and location use the same map ID.
+• Pin Settings controls global pin icon size, text size, and text offset. Each location still controls whether its icon and name are shown.
+• HandyNotes_MapNotes locations cannot be edited directly; save them as local locations first.
+
+|cffffd100Delete Locations|r
+• Right-click a saved location and choose Delete Location, or click Delete in the editor.
+• Bulk Delete removes saved locations by category or map ID after showing a count for confirmation.
+• HandyNotes_MapNotes locations are not stored by SearchMaker and cannot be deleted. Delete saved routes separately from the route context menu.
 ]],
 
     -- Namespace

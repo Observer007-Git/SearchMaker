@@ -31,6 +31,8 @@ local definitions = {
         kind = "enum", values = Config.search.appearance.styles.values,
     },
     shortcutSearchVisible = { kind = "boolean" },
+    searchBarMapOnly = { kind = "boolean" },
+    thirdPartySearchEnabled = { kind = "boolean" },
     searchAllMaps = { kind = "boolean" },
     exportBatchSize = { kind = "enum", values = Config.export.batchSizes },
     shortcutSearchBarPosition = { kind = "position" },
@@ -41,7 +43,8 @@ local keys = {
     "locationScale", "mapPinTextScale", "pinTextureScale",
     "mapPinNameOffsetX", "mapPinNameOffsetY", "searchBarScale", "searchBarOpacity",
     "searchBarStyle",
-    "shortcutSearchVisible", "searchAllMaps", "exportBatchSize",
+    "shortcutSearchVisible", "searchBarMapOnly", "thirdPartySearchEnabled",
+    "searchAllMaps", "exportBatchSize",
     "shortcutSearchBarPosition", "mapSearchBarPosition",
 }
 

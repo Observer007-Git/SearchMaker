@@ -78,8 +78,15 @@ assert(english.L.SEARCH_BAR_SETTINGS == "Search Settings"
     and chinese.L.SEARCH_BAR_SETTINGS == "搜索设置"
     and english.L.SEARCH_BAR_STYLE_PORTRAIT == "With Portrait"
     and english.L.SEARCH_BAR_STYLE_NO_PORTRAIT == "Without Portrait"
+    and english.L.SEARCH_BAR_STYLE_BLIZZARD == "Blizzard Native"
     and chinese.L.SEARCH_BAR_STYLE_PORTRAIT == "带头像"
     and chinese.L.SEARCH_BAR_STYLE_NO_PORTRAIT == "不带头像"
+    and chinese.L.SEARCH_BAR_STYLE_BLIZZARD == "暴雪原生"
+    and english.L.SEARCH_BAR_MAP_ONLY == "Show Only While World Map Is Open"
+    and chinese.L.SEARCH_BAR_MAP_ONLY == "只在打开世界地图时显示"
+    and english.L.THIRD_PARTY_SEARCH_ENABLED
+        == "Enable Third-Party Addon Coordinate Search"
+    and chinese.L.THIRD_PARTY_SEARCH_ENABLED == "开启第三方插件坐标搜索"
     and english.L.SEARCH_ALL_MAPS == "Search All Maps"
     and chinese.L.SEARCH_ALL_MAPS == "搜索 所有地图"
     and english.L.EXTERNAL_SOURCE == "External Source"
@@ -93,10 +100,18 @@ assert(english.L.HELP == "How to Use" and chinese.L.HELP == "使用说明"
     and chinese.L.HELP_TEXT:find("搜索所有地图", 1, true)
     and chinese.L.HELP_TEXT:find("从私聊接收的分享消息中导入", 1, true)
     and chinese.L.HELP_TEXT:find("非角色当前地图", 1, true)
+    and chinese.L.HELP_TEXT:find("坐标新增，地图标记", 1, true)
+    and chinese.L.HELP_TEXT:find("坐标查询及定位", 1, true)
+    and chinese.L.HELP_TEXT:find("坐标修改", 1, true)
+    and chinese.L.HELP_TEXT:find("坐标删除", 1, true)
     and not chinese.L.HELP_TEXT:find("坐标结果仅标记，不会打开世界地图", 1, true)
     and english.L.HELP_TEXT:find("character and Battle.net whispers", 1, true)
     and english.L.HELP_TEXT:find("outside the character's current map", 1, true)
     and english.L.HELP_TEXT:find("All Maps", 1, true)
+    and english.L.HELP_TEXT:find("Add Locations and Pins", 1, true)
+    and english.L.HELP_TEXT:find("Search and Locate", 1, true)
+    and english.L.HELP_TEXT:find("Edit Locations", 1, true)
+    and english.L.HELP_TEXT:find("Delete Locations", 1, true)
     and not chinese.L.HELP_TEXT:find("当前地图/全图", 1, true),
     "help dialog locale is missing")
 assert(english.L.ROUTE_SEARCH_KEYWORD == "route"

@@ -83,7 +83,10 @@ function Widgets:UpdateLocationGeometry(button)
         button.background:SetPoint("TOPLEFT")
     end
     button.background:SetPoint("BOTTOMRIGHT")
-    button.background:SetAtlas(Sign.atlas, false)
+    button.background:SetAtlas(
+        button.entry and button.entry.isSearchHistory
+            and Config.search.historyBackgroundAtlas or Sign.atlas,
+        false)
     button.background:Show()
     button.hitArea:ClearAllPoints()
     button.hitArea:SetAllPoints(button)

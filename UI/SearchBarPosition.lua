@@ -75,10 +75,11 @@ end
 
 function SearchBarPosition:StartDrag()
     local owner = self.owner
-    if not IsShiftKeyDown() then return end
+    if not IsShiftKeyDown() then return false end
     owner.bar.isDragging = true
     owner.box:ClearFocus()
     owner.bar:StartMoving()
+    return true
 end
 
 function SearchBarPosition:StopDrag()

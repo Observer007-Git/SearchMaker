@@ -46,8 +46,12 @@ local mainPanelSource = assert(io.open(
 local minimapSource = assert(io.open(
     context.root .. "/Core/MinimapPinProvider.lua", "r")):read("*a")
 assert(searchResultsSource:find("function SearchResults:RenderHistory", 1, true)
+    and searchResultsSource:find(
+        "display, not match.entry.isSearchHistory", 1, true)
     and searchResultsSource:find("Config.colors.searchMatch", 1, true)
-    and searchBarSource:find("SMK.SearchHistory:RecordQuery(query)", 1, true),
+    and searchBarSource:find("SMK.SearchHistory:RecordQuery(query)", 1, true)
+    and searchBarSource:find(
+        'button == "LeftButton" and not IsShiftKeyDown()', 1, true),
     "search history dropdown or match highlighting is not wired")
 local historyRendered, historyHidden = 0, 0
 local panelExpanded = true
@@ -68,6 +72,12 @@ panelExpanded = false
 historySearchBar:ShowHistory()
 assert(historyRendered == 1,
     "search history did not remain available while the main panel was closed")
+historySearchBar.positionController = {
+    StartDrag = function() return true end,
+}
+historySearchBar:StartDrag()
+assert(historyHidden == 2,
+    "starting a Shift-drag did not hide search history")
 local spacedRanges = SMK.Util.GetNormalizedMatchRanges("SilverMoon", "Silver Moon")
 assert(#spacedRanges == 1 and spacedRanges[1].first == 1
     and spacedRanges[1].last == #"SilverMoon",
@@ -81,7 +91,12 @@ assert(mainPanelSource:find("function MainPanel:RenderRecentSearchResults()", 1,
     and SMK.Config.search.recentResultLimit == 10,
     "main panel recent search results are not wired")
 assert(SMK.Config.locationEditor.dropdownBorderOutset == 5
-    and editorSource:find("EditorConfig.inputWidth + dropdownOutset * 2", 1, true),
+    and editorSource:find(
+        "EditorConfig.inputWidth + dropdownOutset, EditorConfig.buttonHeight",
+        1, true)
+    and editorSource:find(
+        "\"RIGHT\", frame, \"TOPRIGHT\", -18, EditorConfig.categoryRowY",
+        1, true),
     "category dropdown border is not aligned with the input field")
 assert(minimapSource:find("pin.icon:SetAtlas(texture.atlas, false)", 1, true)
     and minimapSource:find(

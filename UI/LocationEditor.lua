@@ -173,9 +173,9 @@ function Editor:Create(parent, callbacks)
     self.dropdown = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
     local dropdownOutset = EditorConfig.dropdownBorderOutset
     self.dropdown:SetSize(
-        EditorConfig.inputWidth + dropdownOutset * 2, EditorConfig.buttonHeight)
-    self.dropdown:SetPoint("RIGHT", frame, "TOPRIGHT",
-        -18 + dropdownOutset, EditorConfig.categoryRowY)
+        EditorConfig.inputWidth + dropdownOutset, EditorConfig.buttonHeight)
+    self.dropdown:SetPoint(
+        "RIGHT", frame, "TOPRIGHT", -18, EditorConfig.categoryRowY)
     self.dropdown:SetDefaultText(SMK.L.CAT_OTHER or Config.defaultCategoryKey)
     local _, fontSize = self.dropdown.Text:GetFont()
     local iconSize = math.max(10, math.floor((fontSize or 12) + 0.5))

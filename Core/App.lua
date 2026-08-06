@@ -23,7 +23,7 @@ local RefreshProfiles = {
     scale = { panel = true, search = true },
     pins = { pins = true },
     scope = { searchIcon = true, instructions = true, search = true },
-    external = { context = true, instructions = true, search = true },
+    external = { context = true, instructions = true, search = true, recent = true },
     usage = { frequent = true },
     history = { recent = true },
 }
@@ -101,6 +101,13 @@ function App:SettingChanged(key)
         self:RequestRefresh("pins")
     elseif key == "searchAllMaps" then
         self:RequestRefresh("scope")
+    elseif key == "searchBarMapOnly" then
+        SMK.SearchBar:RestoreVisibility()
+    elseif key == "thirdPartySearchEnabled" then
+        SMK.HandyNotesProvider:SetEnabled(
+            SMK.Settings:Get("thirdPartySearchEnabled") == true)
+        self.pendingContextMapID = SMK.MapContext:GetMapID()
+        self:RequestRefresh("external")
     end
 end
 
@@ -438,6 +445,8 @@ function App:CreateUI()
     SMK.HandyNotesProvider:SetChangeHandler(function(_, mapID)
         self:ExternalDataChanged(mapID)
     end)
+    SMK.HandyNotesProvider:SetEnabled(
+        SMK.Settings:Get("thirdPartySearchEnabled") == true)
     local readOnlyMessage = SMK.DB:GetReadOnlyMessage()
     if readOnlyMessage and not self.warnedReadOnlyDatabase then
         self.warnedReadOnlyDatabase = true
@@ -567,10 +576,13 @@ loader:SetScript("OnEvent", function(self, event, firstArgument)
         if App.initialized then
             SMK.Store:InvalidateCache()
             SMK.RouteStore:InvalidateCache()
+            SMK.HandyNotesProvider:SetEnabled(
+                SMK.Settings:Get("thirdPartySearchEnabled") == true)
             SMK.SearchBar:ApplyStyle()
             SMK.SearchBar:ApplyScale()
             SMK.SearchBar:ApplyOpacity()
             SMK.SearchBar:UpdateSearchIcon()
+            SMK.SearchBar:RestoreVisibility()
             App:DataChanged()
         end
     elseif addonName == "Blizzard_WorldMap" then

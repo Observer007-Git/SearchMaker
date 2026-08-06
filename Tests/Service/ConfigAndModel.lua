@@ -1,6 +1,14 @@
 local context = assert(...)
 local SMK = context.SMK
 
+local tocFile = assert(io.open(context.root .. "/SearchMaker.toc", "r"))
+local toc = tocFile:read("*a")
+tocFile:close()
+assert(toc:find("## IconAtlas: decor-controls-inspect-active", 1, true)
+    and not toc:find("## IconTexture:", 1, true)
+    and not io.open(context.root .. "/icon.tga", "r"),
+    "addon icon is not using the configured native Atlas")
+
 assert(#SMK.AtlasTextures == 38 and #SMK.PathTextures == 16
     and #SMK.IconCatalog.all == 54
     and SMK.IconCatalog.all[#SMK.AtlasTextures].id > 0
@@ -71,6 +79,8 @@ local columnsWidth = panelLayout.locationButtonWidth * panelConfig.targetColumns
     + SMK.Config.location.horizontalGap * (panelConfig.targetColumns - 1)
 assert(panelConfig.targetColumns == 5 and SMK.Config.panel.width == panelLayout.panelWidth
     and panelConfig.showLocationIcons
+    and SMK.Config.settingsDefaults.searchBarMapOnly == false
+    and SMK.Config.settingsDefaults.thirdPartySearchEnabled == true
     and panelLayout.locationButtonWidth
         == SMK.Config.location.baseWidth + SMK.Config.location.baseHeight
     and math.abs(panelLayout.sidePadding - panelLayout.iconFrameExpand
@@ -86,11 +96,18 @@ assert(math.abs(firstColumnLeft - fifthColumnRight) <= 1
     and panelLayout.panelWidth - panelLayout.scrollLeftInset - panelLayout.scrollRightInset
         == panelLayout.contentWidth + panelConfig.scrollChildInset,
     "main panel scrollbar reserve is not split symmetrically")
-assert(panelConfig.scrollbarReserve == 48 and panelLayout.scrollRightInset == 29,
+assert(panelConfig.scrollbarReserve == 48 and panelLayout.scrollRightInset == 29
+    and panelConfig.scrollFrameBottomInset == 50,
     "main panel scrollbar is not inset from the border")
 assert(panelConfig.headerHeight == 68 and panelConfig.contentTopGap == 8
     and panelConfig.frequentTitleHeight == 18
     and SMK.Config.panel.backgroundAtlas == "house-drawing-stone-bg"
+    and SMK.Config.panel.bottomRightDecorationAtlas
+        == "catalog-corbel-bottom-right"
+    and SMK.Config.panel.bottomRightDecorationOffset == 2
+    and SMK.Config.panel.mapTitle.backgroundAtlas == "housing-woodsign"
+    and SMK.Config.panel.mapTitle.foliageAtlas == "housing-foliage-header_right"
+    and SMK.Config.panel.mapTitle.topOffset == 2
     and panelControls.buttonAtlas == "pet-list-bg-ferocity-active"
     and panelControls.closeButtonAtlas == "common-icon-redx"
     and panelControls.buttonHeight == 24 and panelControls.settingsWidth == 330,
@@ -131,13 +148,17 @@ assert(SMK.Config.art.searchIcon == "Interface\\ICONS\\VAS_NameChange"
     and SMK.Config.art.searchResultIconFrameExpand == 4,
     "search scope icon art is not configured")
 assert(SMK.Config.search.resultFrameInset == 5
-    and SMK.Config.search.resultNoPortraitLeftInset == 5
+    and SMK.Config.search.resultNoPortraitLeftInset == 6
     and SMK.Config.search.resultGap == 2
+    and SMK.Config.search.historyBackgroundAtlas
+        == "housing-basic-panel-footer"
     and SMK.Config.search.resultMaxContentWidth == 520
     and SMK.Config.search.resultScreenMargin == 12
     and SMK.Config.search.hoverHighlightDelay == 0.08
     and SMK.Config.search.appearance.styles.default
         == SMK.Config.search.appearance.styles.portrait
+    and SMK.Config.search.appearance.styles.blizzard == 3
+    and #SMK.Config.search.appearance.styles.values == 3
     and SMK.Config.search.appearance.styles.allianceAtlas
         == "Objective-Header-CampaignAlliance"
     and SMK.Config.search.appearance.styles.hordeAtlas
@@ -145,6 +166,8 @@ assert(SMK.Config.search.resultFrameInset == 5
     and SMK.Config.search.appearance.styles.atlasWidth == 274
     and SMK.Config.search.appearance.styles.atlasHeight == 42
     and SMK.Config.search.appearance.styles.circleGap == 1
+    and SMK.Config.search.appearance.styles.blizzardHeight == 20
+    and SMK.Config.search.appearance.styles.blizzardLeftOutset == 5
     and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
     "search result frame is not aligned inside the search box border")
 assert(SMK.Config.handyNotes.npcCacheMaxEntries == 512

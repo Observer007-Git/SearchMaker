@@ -357,10 +357,22 @@ function MainPanel:RenderRecentSearchResults()
         Config.search.recentResultLimit, true)
 end
 
+function MainPanel:UpdateMapTitle(text)
+    local title = Config.panel.mapTitle
+    local label = self.frame.mapName
+    label:SetText(text)
+    local textWidth = label.GetUnboundedStringWidth
+        and label:GetUnboundedStringWidth() or label:GetStringWidth()
+    local maximum = math.max(title.minWidth,
+        Config.panel.width - title.rightReserve - title.foliageWidth)
+    self.frame.mapTitleBackground:SetWidth(math.min(maximum,
+        math.max(title.minWidth, math.ceil(textWidth) + title.textPadding * 2)))
+end
+
 function MainPanel:RefreshHeader()
     local mapID = SMK.MapContext:GetMapID()
-    self.frame.mapName:SetText(mapID and string.format(SMK.L.MAP_FORMAT, SMK.Map:GetMapName(mapID), mapID)
-        or SMK.L.UNKNOWN_MAP)
+    self:UpdateMapTitle(mapID and string.format(
+        SMK.L.MAP_FORMAT, SMK.Map:GetMapName(mapID), mapID) or SMK.L.UNKNOWN_MAP)
     self.frame.locationCount:SetText(string.format(SMK.L.LOCATION_COUNT,
         #SMK.MapContext:GetEntries(), SMK.MapContext:GetTotalLocationCount()))
     local scale = SMK.Settings:Get("locationScale")
@@ -491,16 +503,35 @@ function MainPanel:Create(searchBar, callbacks)
     frame.backgroundAtlas:SetAllPoints(frame)
     frame.backgroundAtlas:SetAtlas(Config.panel.backgroundAtlas, false)
     Widgets:ApplyPanelBorder(frame)
+    frame.bottomRightDecoration = frame:CreateTexture(nil, "ARTWORK", nil, -7)
+    frame.bottomRightDecoration:SetAtlas(
+        Config.panel.bottomRightDecorationAtlas, true)
+    frame.bottomRightDecoration:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT",
+        Config.panel.bottomRightDecorationOffset,
+        -Config.panel.bottomRightDecorationOffset)
     frame.isExpanded = false
     frame:Hide()
     table.insert(UISpecialFrames, frame:GetName())
 
+    local mapTitle = Config.panel.mapTitle
+    frame.mapTitleBackground = frame:CreateTexture(nil, "ARTWORK", nil, -5)
+    frame.mapTitleBackground:SetPoint(
+        "TOPLEFT", frame, "TOPLEFT", 0, mapTitle.topOffset)
+    frame.mapTitleBackground:SetSize(mapTitle.minWidth, mapTitle.height)
+    frame.mapTitleBackground:SetAtlas(mapTitle.backgroundAtlas, false)
+    frame.mapTitleFoliage = frame:CreateTexture(nil, "ARTWORK", nil, -4)
+    frame.mapTitleFoliage:SetAtlas(mapTitle.foliageAtlas, true)
+    frame.mapTitleFoliage:SetPoint(
+        "TOPLEFT", frame.mapTitleBackground, "TOPRIGHT", 0, 0)
     frame.mapName = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    frame.mapName:SetPoint("TOPLEFT", 18, -17)
-    frame.mapName:SetPoint("RIGHT", frame, "TOPRIGHT", -190, -17)
+    frame.mapName:SetPoint(
+        "LEFT", frame.mapTitleBackground, "LEFT", mapTitle.textPadding, 0)
+    frame.mapName:SetPoint(
+        "RIGHT", frame.mapTitleBackground, "RIGHT", -mapTitle.textPadding, 0)
     frame.mapName:SetJustifyH("LEFT")
+    frame.mapName:SetJustifyV("MIDDLE")
     frame.mapName:SetWordWrap(false)
-    frame.mapName:SetTextColor(unpack(Config.colors.gold))
+    frame.mapName:SetTextColor(1, 1, 1)
     frame.locationCount = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     frame.locationCount:SetPoint("TOPRIGHT", -44, -17)
     frame.locationCount:SetWidth(140)
@@ -628,7 +659,7 @@ function MainPanel:Create(searchBar, callbacks)
         -Config.panel.layout.dividerInset, -6)
     scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT",
         -Config.panel.layout.scrollFrameRightInset,
-        Config.panel.layout.outerInset)
+        Config.panel.layout.scrollFrameBottomInset)
     self.listContent = CreateFrame("Frame", nil, scroll)
     self.listContent:SetWidth(PanelLayout.contentWidth)
     self.listContent:SetHeight(100)

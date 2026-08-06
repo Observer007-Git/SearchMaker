@@ -9,6 +9,7 @@ local npcInfoCache = {}
 local npcInfoCacheSize = 0
 local changeHandler
 local updateHooked = false
+local enabled = false
 local buildGeneration = 0
 local buildingMapID
 
@@ -23,6 +24,11 @@ local function ResetMissingNpcRetries()
             cached.partialRetried = false
         end
     end
+end
+
+local function ClearNpcInfoCache()
+    npcInfoCache = {}
+    npcInfoCacheSize = 0
 end
 
 local function CacheNpcInfo(key, name, title, retryAt, partialRetried)
@@ -146,7 +152,8 @@ local function EnsureUpdateHook()
     end
     updateHooked = true
     hooksecurefunc(HandyNotes, "SendMessage", function(_, message, source)
-        if message ~= "HandyNotes_NotifyUpdate" or source ~= pluginName then return end
+        if not enabled or message ~= "HandyNotes_NotifyUpdate"
+            or source ~= pluginName then return end
         local mapID = HandyNotesProvider:Invalidate(true)
         if changeHandler then changeHandler("invalidated", mapID) end
     end)
@@ -154,7 +161,24 @@ end
 
 function HandyNotesProvider:SetChangeHandler(callback)
     changeHandler = callback
-    EnsureUpdateHook()
+    if enabled then EnsureUpdateHook() end
+end
+
+function HandyNotesProvider:SetEnabled(value)
+    value = value == true
+    if enabled == value then return false end
+    enabled = value
+    local invalidatedMapID = self:Invalidate(false)
+    if enabled then
+        EnsureUpdateHook()
+    else
+        ClearNpcInfoCache()
+    end
+    return true, invalidatedMapID
+end
+
+function HandyNotesProvider:IsEnabled()
+    return enabled
 end
 
 local function AddSearchText(parts, seen, text, budget)
@@ -248,6 +272,7 @@ local function BuildNodeText(nodeData)
 end
 
 function HandyNotesProvider:RebuildCache(mapID, force)
+    if not enabled then return cachedEntries end
     EnsureUpdateHook()
     mapID = tonumber(mapID) or SMK.Map:GetContextMapID()
     if not mapID then
@@ -366,7 +391,8 @@ function HandyNotesProvider:RebuildCache(mapID, force)
 end
 
 function HandyNotesProvider:GetByMap(mapID)
-    return cacheReady and tonumber(mapID) == cachedMapID and cachedEntries or {}
+    return enabled and cacheReady
+        and tonumber(mapID) == cachedMapID and cachedEntries or {}
 end
 
 SMK.HandyNotesProvider = HandyNotesProvider

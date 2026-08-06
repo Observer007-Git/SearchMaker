@@ -14,23 +14,115 @@ local ReadSource = context.readSource
 local searchBarSource = ReadSource("UI/SearchBar.lua")
 local searchBarSettingsSource = ReadSource("UI/SearchBarSettings.lua")
 
+assert(mainPanelSource:find(
+        "Config.panel.bottomRightDecorationOffset,", 1, true)
+    and mainPanelSource:find(
+        "-Config.panel.bottomRightDecorationOffset)", 1, true)
+    and not mainPanelSource:find("topRightDecoration", 1, true)
+    and not mainPanelSource:find("bottomLeftDecoration", 1, true)
+    and mainPanelSource:find(
+        '"TOPLEFT", frame, "TOPLEFT", 0, mapTitle.topOffset', 1, true)
+    and mainPanelSource:find(
+        '"TOPLEFT", frame.mapTitleBackground, "TOPRIGHT", 0, 0', 1, true)
+    and mainPanelSource:find("frame.mapName:SetTextColor(1, 1, 1)", 1, true),
+    "main panel decorations or map title sign are not anchored correctly")
+assert(mainPanelSource:find(
+        "Config.panel.layout.scrollFrameBottomInset)", 1, true),
+    "main panel scrollbar bottom inset is not configurable")
+
+local originalMainPanelFrame = SMK.MainPanel.frame
+local measuredTitleWidth, appliedTitleWidth = 300
+SMK.MainPanel.frame = {
+    mapName = {
+        SetText = function(self, text) self.text = text end,
+        GetUnboundedStringWidth = function() return measuredTitleWidth end,
+    },
+    mapTitleBackground = {
+        SetWidth = function(_, width) appliedTitleWidth = width end,
+    },
+}
+SMK.MainPanel:UpdateMapTitle("测试地图 (2393)")
+assert(appliedTitleWidth == 316,
+    "main panel map title sign did not expand with its text")
+measuredTitleWidth = 20
+SMK.MainPanel:UpdateMapTitle("短")
+assert(appliedTitleWidth == SMK.Config.panel.mapTitle.minWidth,
+    "main panel map title sign did not retain its minimum width")
+SMK.MainPanel.frame = originalMainPanelFrame
+
 assert(searchBarSource:find("function SearchBar:ApplyStyle()", 1, true)
-    and searchBarSource:find("box.locationIcon:SetShown(not noPortrait)", 1, true)
+    and searchBarSource:find("box.locationIcon:SetShown(portrait)", 1, true)
     and searchBarSource:find("GetAtlasDimensions(", 1, true)
+    and searchBarSource:find("function SearchBar:UpdateNativeClearButton()", 1, true)
     and searchBarSettingsSource:find("WowStyle1DropdownTemplate", 1, true)
+    and searchBarSettingsSource:find(
+        "AddStyle(SMK.L.SEARCH_BAR_STYLE_BLIZZARD, styles.blizzard)", 1, true)
+    and searchBarSettingsSource:find(
+        '"searchBarMapOnly", button:GetChecked() == true', 1, true)
+    and searchBarSettingsSource:find(
+        '"thirdPartySearchEnabled", button:GetChecked() == true', 1, true)
     and searchBarSettingsSource:find(
         "function SearchBarSettings:IsMenuOpen()", 1, true),
     "search bar UI style selection or faction background layout is not wired")
 assert(appSource:find("SMK.SearchBar:ApplyStyle()", 1, true)
     and appSource:find("SMK.SearchBar:ApplyScale()", 1, true)
-    and appSource:find("SMK.SearchBar:ApplyOpacity()", 1, true),
+    and appSource:find("SMK.SearchBar:ApplyOpacity()", 1, true)
+    and appSource:find("SMK.SearchBar:RestoreVisibility()", 1, true),
     "saved search bar appearance is not reapplied after addon data loads")
+
+local visibilityMapShown = false
+local visibilityMapOnly = true
+local visibilityShortcut = true
+local visibilityBar = {
+    shown = true,
+    IsShown = function(self) return self.shown end,
+    Show = function(self) self.shown = true end,
+    Hide = function(self) self.shown = false end,
+}
+local visibilityPosition
+local visibilitySearchBar = setmetatable({
+    bar = visibilityBar,
+    ApplyPosition = function(_, mode) visibilityPosition = mode end,
+    SetPanelExpanded = function() end,
+}, { __index = SMK.SearchBar })
+local visibilityOriginalWorldMap = WorldMapFrame
+local visibilityOriginalSettingsGet = SMK.Settings.Get
+WorldMapFrame = { IsShown = function() return visibilityMapShown end }
+SMK.Settings.Get = function(_, key)
+    if key == "searchBarMapOnly" then return visibilityMapOnly end
+    if key == "shortcutSearchVisible" then return visibilityShortcut end
+    return visibilityOriginalSettingsGet(SMK.Settings, key)
+end
+visibilitySearchBar:HandleWorldMapHidden()
+assert(not visibilityBar.shown,
+    "world-map-only search bar remained visible after the map closed")
+visibilityMapShown = true
+visibilitySearchBar:RestoreVisibility()
+assert(visibilityBar.shown and visibilityPosition == "map",
+    "world-map-only search bar did not return with the world map")
+visibilityMapShown, visibilityMapOnly = false, false
+visibilitySearchBar:RestoreVisibility()
+assert(visibilityBar.shown and visibilityPosition == "shortcut",
+    "disabling world-map-only mode did not restore shortcut visibility")
+visibilityShortcut = false
+visibilitySearchBar:RestoreVisibility()
+assert(not visibilityBar.shown,
+    "search bar remained visible without a world map or shortcut state")
+visibilityMapOnly, visibilityShortcut, visibilityBar.shown = true, true, true
+visibilitySearchBar:ToggleShortcut()
+assert(not visibilityBar.shown,
+    "shortcut opened the search bar outside the world map in map-only mode")
+WorldMapFrame = visibilityOriginalWorldMap
+SMK.Settings.Get = visibilityOriginalSettingsGet
+
 local searchResultsSource = ReadSource("UI/SearchResults.lua")
 assert(searchResultsSource:find("function SearchResults:RefreshStyleAlignment()", 1, true)
     and searchResultsSource:find("function SearchResults:LayoutVisibleResults(", 1, true)
     and searchResultsSource:find("function GetFrameInsets()", 1, true)
     and searchResultsSource:find(
         "return SMK.Config.search.resultNoPortraitLeftInset, 0", 1, true)
+    and searchResultsSource:find(
+        "return -styles.blizzardLeftOutset, 0", 1, true)
     and searchResultsSource:find("if not UsesSearchBoxWidth() then", 1, true),
     "no-portrait search results are not locked to the search box width")
 
@@ -58,17 +150,30 @@ local function StyleTexture()
         SetAtlas = function(self, atlas) self.atlas = atlas end,
     }
 end
-local appliedInsets
-local styleBoxWidth = 240
+local appliedInsets, appliedTextColor, styleBoxOffset
+local styleBoxWidth, styleBoxHeight = 240, 44
 local styleBox = {
     backgroundLeft = StyleTexture(),
     backgroundRight = StyleTexture(),
     locationIcon = StyleTexture(),
     factionBackground = StyleTexture(),
+    Left = StyleTexture(),
+    Middle = StyleTexture(),
+    Right = StyleTexture(),
+    searchIcon = StyleTexture(),
+    clearButton = StyleTexture(),
     GetWidth = function() return styleBoxWidth end,
-    GetHeight = function() return 44 end,
-    SetWidth = function(_, width) styleBoxWidth = width end,
+    GetHeight = function() return styleBoxHeight end,
+    GetText = function(self) return self.text or "" end,
+    HasFocus = function(self) return self.hasFocus == true end,
+    SetSize = function(_, width, height)
+        styleBoxWidth, styleBoxHeight = width, height
+    end,
+    SetClipsChildren = function(self, value) self.clipsChildren = value end,
+    ClearAllPoints = function() end,
+    SetPoint = function(_, _, x) styleBoxOffset = x end,
     SetTextInsets = function(_, ...) appliedInsets = { ... } end,
+    SetTextColor = function(_, ...) appliedTextColor = { ... } end,
     Instructions = {
         ClearAllPoints = function() end,
         SetPoint = function() end,
@@ -77,10 +182,12 @@ local styleBox = {
     },
 }
 local alignmentRefreshes = 0
-local styleBarWidth
+local styleBarWidth, styleBarHeight
 SMK.SearchBar.box = styleBox
 SMK.SearchBar.bar = {
-    SetWidth = function(_, width) styleBarWidth = width end,
+    SetSize = function(_, width, height)
+        styleBarWidth, styleBarHeight = width, height
+    end,
 }
 SMK.SearchBar.portraitTextInset = 43
 SMK.SearchBar.searchResults = {
@@ -93,9 +200,12 @@ assert(not styleBox.backgroundLeft.shown
     and not styleBox.backgroundRight.shown
     and not styleBox.locationIcon.shown
     and styleBox.factionBackground.shown
+    and not styleBox.Left.shown and not styleBox.Middle.shown
+    and not styleBox.Right.shown and not styleBox.searchIcon.shown
     and styleBox.factionBackground.atlas == "Objective-Header-CampaignHorde"
     and math.abs(styleBoxWidth - expectedNoPortraitWidth) < 0.001
     and math.abs(styleBarWidth - expectedNoPortraitWidth) < 0.001
+    and styleBoxHeight == 44 and styleBarHeight == 52 and styleBoxOffset == 0
     and math.abs(appliedInsets[1] - expectedCircleRight) < 0.001
     and appliedInsets[2] == 8 and appliedInsets[3] == 2
     and alignmentRefreshes == 1,
@@ -106,13 +216,41 @@ assert(styleBox.factionBackground.atlas
         == "Objective-Header-CampaignAlliance"
     and alignmentRefreshes == 2,
     "Alliance no-portrait search style used the wrong Atlas")
+selectedStyle = SMK.Config.search.appearance.styles.blizzard
+SMK.SearchBar:ApplyStyle()
+assert(not styleBox.backgroundLeft.shown
+    and not styleBox.backgroundRight.shown
+    and not styleBox.locationIcon.shown
+    and not styleBox.factionBackground.shown
+    and styleBox.Left.shown and styleBox.Middle.shown
+    and styleBox.Right.shown and styleBox.searchIcon.shown
+    and not styleBox.clearButton.shown
+    and styleBoxWidth == 225 and styleBoxHeight == 20
+    and styleBarWidth == 230 and styleBarHeight == 28
+    and not styleBox.clipsChildren
+    and styleBoxOffset == 2.5
+    and appliedInsets[1] == 16 and appliedInsets[2] == 20
+    and appliedInsets[3] == 0
+    and appliedTextColor[1] == 1 and appliedTextColor[2] == 1
+    and appliedTextColor[3] == 1 and alignmentRefreshes == 3,
+    "Blizzard-native search style did not use native geometry and controls")
+styleBox.hasFocus = true
+SMK.SearchBar:UpdateNativeClearButton()
+assert(styleBox.clearButton.shown,
+    "Blizzard-native clear button did not follow focus state")
+styleBox.hasFocus = false
 selectedStyle = SMK.Config.search.appearance.styles.portrait
 SMK.SearchBar:ApplyStyle()
 assert(styleBox.backgroundLeft.shown and styleBox.backgroundRight.shown
     and styleBox.locationIcon.shown and not styleBox.factionBackground.shown
+    and not styleBox.Left.shown and not styleBox.Middle.shown
+    and not styleBox.Right.shown and not styleBox.searchIcon.shown
+    and not styleBox.clearButton.shown
     and styleBoxWidth == 240 and styleBarWidth == 240
+    and styleBoxHeight == 44 and styleBarHeight == 52 and styleBoxOffset == 0
+    and styleBox.clipsChildren
     and appliedInsets[1] == 43 and appliedInsets[2] == 20
-    and appliedInsets[3] == 0 and alignmentRefreshes == 3,
+    and appliedInsets[3] == 0 and alignmentRefreshes == 4,
     "portrait search style was not restored correctly")
 SMK.SearchBar.box = originalSearchBox
 SMK.SearchBar.bar = originalSearchBar
@@ -120,9 +258,10 @@ SMK.SearchBar.portraitTextInset = originalPortraitInset
 SMK.SearchBar.searchResults = originalSearchResults
 UnitFactionGroup, C_Texture = originalFactionGroup, originalTextureAPI
 
-local alignmentPoint, alignmentWidth
+local alignmentPoint, alignmentWidth, alignmentBoxWidth
+alignmentBoxWidth = 240
 local alignmentView = setmetatable({
-    box = { GetWidth = function() return 240 end },
+    box = { GetWidth = function() return alignmentBoxWidth end },
     frame = {
         IsShown = function() return false end,
         ClearAllPoints = function() end,
@@ -136,7 +275,15 @@ assert(alignmentPoint == SMK.Config.search.resultNoPortraitLeftInset
     and alignmentWidth
         == 240 - SMK.Config.search.resultNoPortraitLeftInset,
     "no-portrait result panel did not align to both search box edges")
+selectedStyle = SMK.Config.search.appearance.styles.blizzard
+alignmentBoxWidth = 225
+alignmentView:RefreshStyleAlignment()
+assert(alignmentPoint
+        == -SMK.Config.search.appearance.styles.blizzardLeftOutset
+    and alignmentWidth == 230,
+    "Blizzard-native search result panel did not match the search background")
 selectedStyle = SMK.Config.search.appearance.styles.portrait
+alignmentBoxWidth = 240
 alignmentView:RefreshStyleAlignment()
 assert(alignmentPoint == SMK.Config.search.resultFrameInset
     and alignmentWidth == 230,
@@ -402,7 +549,7 @@ local layoutButton = {
     background = {
         ClearAllPoints = function() end,
         SetPoint = function() end,
-        SetAtlas = function() end,
+        SetAtlas = function(self, atlas) self.atlas = atlas end,
         Show = function() end,
     },
     hitArea = { ClearAllPoints = function() end, SetAllPoints = function() end },
@@ -420,8 +567,15 @@ local layoutButton = {
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
 assert(layoutButton.height == 38 and layoutButton.width == 179
     and layoutButton.iconBox.width == 0 and not layoutButton.iconBox.shown
+    and layoutButton.background.atlas == SMK.Config.art.locationSign.atlas
     and layoutButton.label.leftOffset == 8 and layoutButton.label.yOffset == 1,
     "main panel location sign geometry is incorrect")
+layoutButton.entry = { isSearchHistory = true }
+SMK.Widgets:UpdateLocationGeometry(layoutButton)
+assert(layoutButton.background.atlas
+        == SMK.Config.search.historyBackgroundAtlas,
+    "search history retained the location sign background")
+layoutButton.entry = nil
 layoutButton.showIcon = true
 SMK.Widgets:UpdateLocationGeometry(layoutButton)
 assert(layoutButton.width == 217 and layoutButton.iconBox.width == 38
@@ -577,11 +731,23 @@ assert(select(2, mainPanelSource:gsub(
     and mainPanelSource:find("x + width > rowRight", 1, true),
     "main panel rows do not use the asymmetric icon-frame visual bounds")
 assert(ReadSource("UI/HelpDialog.lua"):find("UIPanelScrollFrameTemplate", 1, true)
+    and ReadSource("UI/HelpDialog.lua"):find(
+        "body:SetIndentedWordWrap(true)", 1, true)
     and ReadSource("UI/RouteDialog.lua"):find(
         "close:SetFrameLevel(frame:GetFrameLevel() + 20)", 1, true)
     and ReadSource("UI/RouteDialog.lua"):find(
         "SMK.Widgets:ApplyPanelBorder(frame)", 1, true),
     "help scrolling, route close-button priority, or picker-style route border is missing")
+local bulkDeleteSource = ReadSource("UI/BulkDeleteDialog.lua")
+assert(bulkDeleteSource:find(
+        "local labelLeft, fieldLeft, actionLeft = 28, 160, 292", 1, true)
+    and select(2, bulkDeleteSource:gsub(
+        "frame, \"TOPLEFT\", labelLeft", "")) == 2
+    and select(2, bulkDeleteSource:gsub(
+        "frame, \"TOPLEFT\", fieldLeft", "")) == 2
+    and select(2, bulkDeleteSource:gsub(
+        "frame, \"TOPLEFT\", actionLeft", "")) == 2,
+    "bulk-delete labels, fields, or action buttons are not column-aligned")
 assert(SMK.Config.panelBackdrop.edgeFile
         == "Interface\\Tooltips\\UI-Tooltip-Border"
     and SMK.Config.resultBackdrop.edgeFile
@@ -743,9 +909,13 @@ local originalApplyStyle = SMK.SearchBar.ApplyStyle
 local originalApplyScale = SMK.SearchBar.ApplyScale
 local originalApplyOpacity = SMK.SearchBar.ApplyOpacity
 local originalUpdateSearchIcon = SMK.SearchBar.UpdateSearchIcon
+local originalRestoreVisibility = SMK.SearchBar.RestoreVisibility
+local originalThirdPartySetEnabled = SMK.HandyNotesProvider.SetEnabled
 local originalDataChanged = SMK.App.DataChanged
 local loadedStyleApplications, loadedScaleApplications, loadedOpacityApplications =
     0, 0, 0
+local loadedVisibilityRestores = 0
+local loadedThirdPartyEnables = 0
 SMK.DB.Initialize = function() end
 SMK.App.InitializeMinimapPins = function() end
 SMK.Store.InvalidateCache = function() end
@@ -760,11 +930,18 @@ SMK.SearchBar.ApplyOpacity = function()
     loadedOpacityApplications = loadedOpacityApplications + 1
 end
 SMK.SearchBar.UpdateSearchIcon = function() end
+SMK.SearchBar.RestoreVisibility = function()
+    loadedVisibilityRestores = loadedVisibilityRestores + 1
+end
+SMK.HandyNotesProvider.SetEnabled = function()
+    loadedThirdPartyEnables = loadedThirdPartyEnables + 1
+end
 SMK.App.DataChanged = function() end
 SMK.App.initialized = true
 whisperListener.OnEvent(whisperListener, "ADDON_LOADED", SMK.name)
 assert(loadedStyleApplications == 1 and loadedScaleApplications == 1
-    and loadedOpacityApplications == 1,
+    and loadedOpacityApplications == 1 and loadedVisibilityRestores == 1
+    and loadedThirdPartyEnables == 1,
     "saved search bar appearance was not applied after addon data loaded")
 SMK.DB.Initialize = originalDBInitialize
 SMK.App.InitializeMinimapPins = originalMinimapInitialize
@@ -774,6 +951,8 @@ SMK.SearchBar.ApplyStyle = originalApplyStyle
 SMK.SearchBar.ApplyScale = originalApplyScale
 SMK.SearchBar.ApplyOpacity = originalApplyOpacity
 SMK.SearchBar.UpdateSearchIcon = originalUpdateSearchIcon
+SMK.SearchBar.RestoreVisibility = originalRestoreVisibility
+SMK.HandyNotesProvider.SetEnabled = originalThirdPartySetEnabled
 SMK.App.DataChanged = originalDataChanged
 SMK.App.initialized = false
 local originalWorldMapFrame = WorldMapFrame

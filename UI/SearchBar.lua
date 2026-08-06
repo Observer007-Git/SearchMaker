@@ -19,7 +19,7 @@ local function GetAtlasDimensions(atlas, styles)
     return styles.atlasWidth, styles.atlasHeight
 end
 
---- 创建两套搜索框材质，显示状态由持久化 UI 样式决定。
+--- 创建插件搜索框材质；暴雪原生部件由 SearchBoxTemplate 提供。
 function SearchBar:ApplyArt()
     local box = self.box
     local verticalScale = Config.search.boxHeight / Art.buttonArtHeight
@@ -28,7 +28,8 @@ function SearchBar:ApplyArt()
         if box[key] then box[key]:Hide() end
     end
     if box.searchIcon then box.searchIcon:Hide() end
-    if box.ClearButton then box.ClearButton:Hide() end
+    local clearButton = box.clearButton or box.ClearButton
+    if clearButton then clearButton:Hide() end
     box.backgroundLeft = box:CreateTexture(nil, "BACKGROUND")
     box.backgroundLeft:SetPoint("TOPLEFT")
     box.backgroundLeft:SetPoint("BOTTOMLEFT")
@@ -54,41 +55,82 @@ function SearchBar:ApplyArt()
     self:ApplyStyle()
 end
 
+function SearchBar:UpdateNativeClearButton()
+    if not self.box then return end
+    local clearButton = self.box.clearButton or self.box.ClearButton
+    if not clearButton then return end
+    local styles = Config.search.appearance.styles
+    local native = SMK.Settings:Get("searchBarStyle") == styles.blizzard
+    clearButton:SetShown(native
+        and (self.box:HasFocus() or self.box:GetText() ~= ""))
+end
+
 function SearchBar:ApplyStyle()
     if not self.box then return end
     local box = self.box
     local styles = Config.search.appearance.styles
-    local noPortrait = SMK.Settings:Get("searchBarStyle") == styles.noPortrait
-    box.backgroundLeft:SetShown(not noPortrait)
-    box.backgroundRight:SetShown(not noPortrait)
-    box.locationIcon:SetShown(not noPortrait)
+    local style = SMK.Settings:Get("searchBarStyle")
+    local portrait = style == styles.portrait
+    local noPortrait = style == styles.noPortrait
+    local blizzard = style == styles.blizzard
+    box.backgroundLeft:SetShown(portrait)
+    box.backgroundRight:SetShown(portrait)
+    box.locationIcon:SetShown(portrait)
     box.factionBackground:SetShown(noPortrait)
+    for _, key in ipairs({ "Left", "Middle", "Right" }) do
+        if box[key] then box[key]:SetShown(blizzard) end
+    end
+    if box.searchIcon then box.searchIcon:SetShown(blizzard) end
+    box:SetClipsChildren(not blizzard)
     local leftInset, rightInset, verticalInset = self.portraitTextInset, 20, 0
-    local boxWidth, barWidth = Config.search.boxWidth, Config.search.barWidth
+    local boxWidth, boxHeight = Config.search.boxWidth, Config.search.boxHeight
+    local barWidth, barHeight = Config.search.barWidth, Config.search.barHeight
+    local boxOffsetX = 0
     if noPortrait then
         local faction = UnitFactionGroup("player")
         local atlas = faction == "Horde"
             and styles.hordeAtlas or styles.allianceAtlas
         local atlasWidth, atlasHeight = GetAtlasDimensions(atlas, styles)
-        boxWidth = Config.search.boxHeight * atlasWidth / atlasHeight
+        boxWidth = boxHeight * atlasWidth / atlasHeight
         barWidth = Config.search.barWidth + boxWidth - Config.search.boxWidth
-        box:SetWidth(boxWidth)
         box.factionBackground:SetAtlas(atlas, false)
         leftInset = atlasHeight * boxWidth / atlasWidth + styles.circleGap
         rightInset = styles.rightInset
         verticalInset = styles.verticalInset
-    else
-        box:SetWidth(boxWidth)
+    elseif blizzard then
+        local resultWidth = Config.search.boxWidth
+            - Config.search.resultFrameInset * 2
+        boxWidth = resultWidth - styles.blizzardLeftOutset
+        boxHeight = styles.blizzardHeight
+        barWidth = resultWidth
+        barHeight = Config.search.barHeight
+            + boxHeight - Config.search.boxHeight
+        boxOffsetX = styles.blizzardLeftOutset / 2
+        leftInset, rightInset = 16, 20
     end
-    if self.bar then self.bar:SetWidth(barWidth) end
+    box:SetSize(boxWidth, boxHeight)
+    box:ClearAllPoints()
+    box:SetPoint("CENTER", boxOffsetX, 0)
+    if self.bar then self.bar:SetSize(barWidth, barHeight) end
     box:SetTextInsets(leftInset, rightInset, verticalInset, verticalInset)
+    if blizzard then
+        box:SetTextColor(1, 1, 1)
+    else
+        local color = Config.colors.gold
+        box:SetTextColor(color[1], color[2], color[3])
+    end
     if box.Instructions then
         box.Instructions:ClearAllPoints()
         box.Instructions:SetPoint("LEFT", leftInset, 0)
         box.Instructions:SetPoint("RIGHT", -rightInset, 0)
         box.Instructions:SetJustifyH("LEFT")
-        box.Instructions:SetTextColor(0.7, 0.62, 0.42)
+        if blizzard then
+            box.Instructions:SetTextColor(0.35, 0.35, 0.35)
+        else
+            box.Instructions:SetTextColor(0.7, 0.62, 0.42)
+        end
     end
+    self:UpdateNativeClearButton()
     if self.searchResults then self.searchResults:RefreshStyleAlignment() end
 end
 
@@ -135,7 +177,9 @@ function SearchBar:ApplyPosition(mode)
 end
 
 function SearchBar:StartDrag()
-    self.positionController:StartDrag()
+    if not self.positionController:StartDrag() then return end
+    self:CancelPendingSearch()
+    self:HideResults()
 end
 
 function SearchBar:StopDrag()
@@ -324,7 +368,9 @@ function SearchBar:ShowForMap()
 end
 
 function SearchBar:HandleWorldMapHidden()
-    if SMK.Settings:Get("shortcutSearchVisible") then
+    if SMK.Settings:Get("searchBarMapOnly") then
+        self.bar:Hide()
+    elseif SMK.Settings:Get("shortcutSearchVisible") then
         self:ApplyPosition("shortcut")
         self:SetPanelExpanded(false)
     else
@@ -335,9 +381,13 @@ end
 function SearchBar:RestoreVisibility()
     if WorldMapFrame:IsShown() then
         self:ShowForMap()
+    elseif SMK.Settings:Get("searchBarMapOnly") then
+        self.bar:Hide()
     elseif SMK.Settings:Get("shortcutSearchVisible") then
         self:ApplyPosition("shortcut")
         self.bar:Show()
+    else
+        self.bar:Hide()
     end
 end
 
@@ -355,6 +405,10 @@ function SearchBar:ToggleShortcut()
         self:ApplyPosition("map")
         if not self.bar:IsShown() then self.bar:Show() end
         self.box:SetFocus()
+        return
+    end
+    if SMK.Settings:Get("searchBarMapOnly") then
+        if self.bar:IsShown() then self.bar:Hide() end
         return
     end
     if self.bar:IsShown() then
@@ -414,7 +468,8 @@ function SearchBar:Create(callbacks)
             self:OpenPanel()
         elseif button == "MiddleButton" then
             ToggleWorldMap()
-        elseif button == "LeftButton" and Util.Trim(box:GetText()) == "" then
+        elseif button == "LeftButton" and not IsShiftKeyDown()
+            and Util.Trim(box:GetText()) == "" then
             self:ShowHistory()
         end
     end)
@@ -433,12 +488,22 @@ function SearchBar:Create(callbacks)
     self.results = self.searchResults.frame
 
     self.box:HookScript("OnTextChanged", function()
+        self:UpdateNativeClearButton()
         if not self.suppressTextChanged then self:ScheduleResults() end
     end)
     self.box:HookScript("OnEditFocusGained", function()
+        self:UpdateNativeClearButton()
         self:StopShortcutCapture()
         self.box.moveHint:Hide()
-        self:UpdateResults()
+        if IsShiftKeyDown() then
+            self:CancelPendingSearch()
+            self:HideResults()
+        else
+            self:UpdateResults()
+        end
+    end)
+    self.box:HookScript("OnEditFocusLost", function()
+        self:UpdateNativeClearButton()
     end)
     self.box:SetScript("OnTabPressed", function() self:ToggleScope() end)
     self.box:HookScript("OnArrowPressed", function(_, key)

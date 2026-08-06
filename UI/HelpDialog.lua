@@ -42,6 +42,7 @@ function HelpDialog:Create(parent)
     body:SetJustifyH("LEFT")
     body:SetJustifyV("TOP")
     body:SetWordWrap(true)
+    body:SetIndentedWordWrap(true)
     body:SetSpacing(2)
     body:SetText(SMK.L.HELP_TEXT)
 

@@ -179,9 +179,17 @@ HandyNotes = {
     },
 }
 local handyNotesUpdates = 0
+local unhookedSendMessage = HandyNotes.SendMessage
 SMK.HandyNotesProvider:SetChangeHandler(function()
     handyNotesUpdates = handyNotesUpdates + 1
 end)
+assert(not SMK.HandyNotesProvider:IsEnabled()
+    and HandyNotes.SendMessage == unhookedSendMessage,
+    "disabled third-party search installed a HandyNotes update hook")
+SMK.HandyNotesProvider:SetEnabled(true)
+assert(SMK.HandyNotesProvider:IsEnabled()
+    and HandyNotes.SendMessage ~= unhookedSendMessage,
+    "enabling third-party search did not initialize the HandyNotes provider")
 SMK.HandyNotesProvider:RebuildCache(100, true)
 local handyNotesEntries = SMK.HandyNotesProvider:GetByMap(100)
 assert(SMK.HandyNotesProvider:RebuildCache(100) == handyNotesEntries
@@ -313,6 +321,30 @@ fakeIcon.atlas = nil
 SMK.Widgets:SetLocationIcon(fakeIcon, { categoryKey = "other", customIconID = 18 })
 assert(fakeIcon.atlas == "Professions-Crafting-Orders-Icon",
     "saved location did not use its custom Atlas icon")
+assert(SMK.SearchHistory:RecordResult(trainerEntry),
+    "external result was not recorded in recent search results")
+SMK.Settings:Set("thirdPartySearchEnabled", false)
+for _, recentEntry in ipairs(SMK.SearchHistory:GetRecentResults()) do
+    assert(not recentEntry.isExternal,
+        "disabled third-party search exposed a cached recent external result")
+end
+SMK.Settings:Set("thirdPartySearchEnabled", true)
+assert(SMK.SearchHistory:GetRecentResults()[1].isExternal,
+    "reenabled third-party search did not restore its recent external result")
+local buildsBeforeDisable = handyNotesBuilds
+local updatesBeforeDisable = handyNotesUpdates
+SMK.HandyNotesProvider:SetEnabled(false)
+SMK.HandyNotesProvider:RebuildCache(100, true)
+HandyNotes:SendMessage("HandyNotes_NotifyUpdate", "MapNotes")
+assert(not SMK.HandyNotesProvider:IsEnabled()
+    and #SMK.HandyNotesProvider:GetByMap(100) == 0
+    and handyNotesBuilds == buildsBeforeDisable
+    and handyNotesUpdates == updatesBeforeDisable,
+    "disabled third-party search retained, rebuilt, or invalidated HandyNotes data")
+SMK.MapContext:Refresh(100)
+assert(#SMK.MapContext:GetExternalEntries() == 0,
+    "disabled third-party search remained in the map context")
+SMK.HandyNotesProvider:SetEnabled(true)
 HandyNotes = nil
 
 context.coordinateResult = coordinateResult

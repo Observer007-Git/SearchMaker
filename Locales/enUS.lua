@@ -126,8 +126,8 @@ SMK.L = {
     HELP_TEXT = [[
 Left-click to search; right-click for the main panel; middle-click to toggle the world map; Shift-drag to move the search box. Press Tab to switch between Current Map and All Maps. Search Settings controls the shortcut, UI style, scale, opacity, world-map-only display, and third-party addon coordinate search.
 
-|cffffd100Add Locations and Pins|r
-• Click Add Location in the main panel, or use the map-pin shortcut on empty world-map space, to create a location on that map. The default is Alt+Left-click and can be changed in Pin Settings.
+|cffffd100Add Coordinates and Pins|r
+• Click Add Coordinate in the main panel, or use the map-pin shortcut on empty world-map space, to create a location on that map. The default is Alt+Left-click and can be changed in Pin Settings.
 • A location can store its category, name, note, coordinates, custom icon, and whether its world-map pin icon and name are shown. Notes appear in green in tooltips.
 • Right-click a HandyNotes_MapNotes result to save it as a local location. You can also paste SMK text or import codes from character and Battle.net whispers. Import Preview separates new, duplicate, and invalid records.
 • Import / Export supports current-map-only and batched exports, plus sharing one location. Routes use a separate SMK route string.
@@ -141,14 +141,14 @@ Left-click to search; right-click for the main panel; middle-click to toggle the
 • Routes support reordering, nearest-neighbor sorting within each map, step-by-step navigation, and temporary pins. Routes can be saved, shared, and imported; search the full word “route” to list saved routes. Only one route runs at a time, and its progress and temporary pins reset on logout or /reload.
 • Main-panel filters select category, pin, note, or custom-icon views. They affect only the panel and Frequent section, not search, map pins, or saved data.
 
-|cffffd100Edit Locations|r
-• Right-click a saved search result or main-panel location and choose Edit Location. Clicking its world-map pin or name opens the editor directly.
+|cffffd100Edit Coordinates|r
+• Right-click a saved search result or main-panel location and choose Edit Coordinate. Clicking its world-map pin or name opens the editor directly.
 • You can change the name, note, category, coordinates, icon, and pin options. Get Character Coordinates is available only when the character and location use the same map ID.
 • Pin Settings controls global pin icon size, text size, and text offset. Each location still controls whether its icon and name are shown.
 • HandyNotes_MapNotes locations cannot be edited directly; save them as local locations first.
 
-|cffffd100Delete Locations|r
-• Right-click a saved location and choose Delete Location, or click Delete in the editor.
+|cffffd100Delete Coordinates|r
+• Right-click a saved location and choose Delete Coordinate, or click Delete in the editor.
 • Bulk Delete removes saved locations by category or map ID after showing a count for confirmation.
 • HandyNotes_MapNotes locations are not stored by SearchMaker and cannot be deleted. Delete saved routes separately from the route context menu.
 ]],

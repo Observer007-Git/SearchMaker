@@ -143,6 +143,9 @@ function Codec:Decode(text)
             end
         end
     end
+    if #entries == 0 and invalid == 0 then
+        return nil, SMK.L.IMPORT_EMPTY
+    end
     return entries, nil, invalid
 end
 

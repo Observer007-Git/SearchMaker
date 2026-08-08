@@ -171,7 +171,7 @@ function Editor:Create(parent, callbacks)
     categoryLabel:SetTextColor(unpack(Config.colors.gold))
     categoryLabel:SetText(SMK.L.CATEGORY_LABEL)
     self.dropdown = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
-    local dropdownOutset = EditorConfig.dropdownBorderOutset
+    local dropdownOutset = Config.panel.controls.dropdownBorderOutset
     self.dropdown:SetSize(
         EditorConfig.inputWidth + dropdownOutset, EditorConfig.buttonHeight)
     self.dropdown:SetPoint(

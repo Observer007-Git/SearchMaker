@@ -35,6 +35,7 @@ SMK.L = {
     SEARCH_HISTORY_TOOLTIP = "Search this again",
     LOCATION_COUNT = "Locations: %d/%d",
     LOCATION_FILTER_FORMAT = "Filter: %s",
+    CATEGORY_COUNT_FORMAT = "%s (%d)",
     FILTER_ALL_LOCATIONS = "All Locations",
     FILTER_WITH_PINS = "With Map Pins",
     FILTER_WITH_NOTES = "With Notes",
@@ -113,13 +114,20 @@ SMK.L = {
     PIN_NAME_OFFSET_X = "Name Offset X",
     PIN_NAME_OFFSET_Y = "Name Offset Y",
     PIN_TEXTURE_SIZE = "Pin Texture Size",
+    MAP_PIN_SHORTCUT = "Map Pin Shortcut",
+    MAP_PIN_SHORTCUT_DEFAULT = "Alt + Left-click",
+    MAP_PIN_SHORTCUT_VALUE = "%s + Left-click",
+    MAP_PIN_SHORTCUT_UPDATED = "Map pin shortcut changed to %s.",
+    MAP_PIN_SHORTCUT_RESET = "Map pin shortcut restored to Alt + Left-click.",
+    MAP_PIN_SHORTCUT_TOOLTIP_TITLE = "Create location shortcut",
+    MAP_PIN_SHORTCUT_TOOLTIP_HINT = "Click, then press a key combination. Press Esc to restore the default.",
     LOCATION_SCALE = "Icon Scale",
     HELP_TITLE = "SearchMaker Guide",
     HELP_TEXT = [[
 Left-click to search; right-click for the main panel; middle-click to toggle the world map; Shift-drag to move the search box. Press Tab to switch between Current Map and All Maps. Search Settings controls the shortcut, UI style, scale, opacity, world-map-only display, and third-party addon coordinate search.
 
 |cffffd100Add Locations and Pins|r
-• Click Add Location in the main panel, or Alt+Left-click empty world-map space, to create a location on that map.
+• Click Add Location in the main panel, or use the map-pin shortcut on empty world-map space, to create a location on that map. The default is Alt+Left-click and can be changed in Pin Settings.
 • A location can store its category, name, note, coordinates, custom icon, and whether its world-map pin icon and name are shown. Notes appear in green in tooltips.
 • Right-click a HandyNotes_MapNotes result to save it as a local location. You can also paste SMK text or import codes from character and Battle.net whispers. Import Preview separates new, duplicate, and invalid records.
 • Import / Export supports current-map-only and batched exports, plus sharing one location. Routes use a separate SMK route string.

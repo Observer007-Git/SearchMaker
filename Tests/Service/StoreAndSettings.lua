@@ -192,6 +192,15 @@ assert(SMK.Settings:Set("searchBarMapOnly", false)
 assert(SMK.Settings:Set("thirdPartySearchEnabled", true)
     and SMK.Settings:Get("thirdPartySearchEnabled") == true,
     "third-party coordinate search setting was not persisted")
+assert(SMK.Settings:Get("mapPinCreateShortcut") == false
+    and SMK.Settings:Set("mapPinCreateShortcut", {
+        key = "F", ctrl = true,
+    })
+    and SMK.Settings:Get("mapPinCreateShortcut").key == "F"
+    and SMK.Settings:Get("mapPinCreateShortcut").ctrl == true
+    and not SMK.Settings:Set("mapPinCreateShortcut", { key = "" })
+    and SMK.Settings:Set("mapPinCreateShortcut", false),
+    "map pin creation shortcut was not validated or persisted")
 assert(SMK.Settings:Set("shortcutSearchBarPosition", { x = 10, y = 20 })
     and SMK.Settings:Set("shortcutSearchBarPosition", { x = 30, y = 40 })
     and SMK.Settings:Get("shortcutSearchBarPosition").x == 30,

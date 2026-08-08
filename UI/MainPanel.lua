@@ -9,6 +9,10 @@ local function CategoryHeadingHeight()
     return Config.location.baseHeight * Config.categoryHeadingScale
 end
 
+local function FormatCountLabel(label, count)
+    return string.format(SMK.L.CATEGORY_COUNT_FORMAT, label, count or 0)
+end
+
 --- 从部件池获取一个部件（标题、按钮或消息）。
 -- 如果没有可用的空闲部件则创建一个新的。
 -- @param kind string "heading"、"button" 或 "message"。
@@ -53,7 +57,23 @@ local function IsVisible(item, top, bottom)
     return item.y + item.height >= top and item.y <= bottom
 end
 
-function MainPanel:GetLocationFilterLabel()
+function MainPanel:GetLocationFilterCounts()
+    local counts = { all = 0, pins = 0, notes = 0, customIcon = 0, categories = {} }
+    for _, entry in ipairs(SMK.MapContext:GetEntries()) do
+        counts.all = counts.all + 1
+        counts.categories[entry.categoryKey] = (counts.categories[entry.categoryKey] or 0) + 1
+        if entry.showPinName == 1 or entry.showPinTexture == 1 then
+            counts.pins = counts.pins + 1
+        end
+        if SMK.Util.Trim(entry.note) ~= "" then counts.notes = counts.notes + 1 end
+        if tonumber(entry.customIconID) ~= nil then
+            counts.customIcon = counts.customIcon + 1
+        end
+    end
+    return counts
+end
+
+function MainPanel:GetLocationFilterLabel(counts)
     local value = self.locationFilter or "all"
     local categoryKey = value:match("^category:(.+)$")
     local category = categoryKey and Config.categoryByKey[categoryKey]
@@ -62,7 +82,9 @@ function MainPanel:GetLocationFilterLabel()
         or value == "notes" and SMK.L.FILTER_WITH_NOTES
         or value == "customIcon" and SMK.L.FILTER_WITH_CUSTOM_ICON
         or SMK.L.FILTER_ALL_LOCATIONS
-    return string.format(SMK.L.LOCATION_FILTER_FORMAT, label)
+    counts = counts or self:GetLocationFilterCounts()
+    local count = category and counts.categories[categoryKey] or counts[value]
+    return string.format(SMK.L.LOCATION_FILTER_FORMAT, FormatCountLabel(label, count))
 end
 
 function MainPanel:GetDisplayedEntries()
@@ -86,7 +108,8 @@ end
 function MainPanel:SetLocationFilter(value)
     self.locationFilter = value or "all"
     if self.filterDropdown and self.filterDropdown.Text then
-        self.filterDropdown.Text:SetText(self:GetLocationFilterLabel())
+        self.filterDropdown.Text:SetText(
+            self:GetLocationFilterLabel(self:GetLocationFilterCounts()))
     end
     self:RenderList()
     self:RenderFrequent()
@@ -162,7 +185,8 @@ function MainPanel:BuildListLayout()
                 return a.id < b.id
             end)
             self:AddLayoutItem("heading", nil, categoryInfo.key,
-                SMK.L[categoryInfo.nameKey] or categoryInfo.key,
+                FormatCountLabel(SMK.L[categoryInfo.nameKey] or categoryInfo.key,
+                    #categoryEntries),
                 Config.panel.layout.contentInset, y,
                 math.max(1, self.listContent:GetWidth()
                     - Config.panel.layout.contentInset * 2), headingHeight)
@@ -379,6 +403,10 @@ function MainPanel:RefreshHeader()
     self.scaleValue:SetText(string.format("%d%%", math.floor(scale * 100 + 0.5)))
     self.scaleMinus:SetEnabled(scale > Config.location.minScale)
     self.scalePlus:SetEnabled(scale < Config.location.maxScale)
+    if self.filterDropdown and self.filterDropdown.Text then
+        self.filterDropdown.Text:SetText(
+            self:GetLocationFilterLabel(self:GetLocationFilterCounts()))
+    end
 end
 
 --- 全面板刷新：头部、地点列表、常用列表和显示设置。
@@ -531,7 +559,7 @@ function MainPanel:Create(searchBar, callbacks)
     frame.mapName:SetJustifyH("LEFT")
     frame.mapName:SetJustifyV("MIDDLE")
     frame.mapName:SetWordWrap(false)
-    frame.mapName:SetTextColor(1, 1, 1)
+    frame.mapName:SetTextColor(unpack(Config.colors.gold))
     frame.locationCount = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     frame.locationCount:SetPoint("TOPRIGHT", -44, -17)
     frame.locationCount:SetWidth(140)
@@ -539,7 +567,6 @@ function MainPanel:Create(searchBar, callbacks)
     frame.locationCount:SetTextColor(unpack(Config.colors.gold))
 
     local close = Widgets:CreateCloseButton(frame)
-    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function()
         if self.callbacks.onClose then self.callbacks.onClose() end
     end)
@@ -594,8 +621,11 @@ function MainPanel:Create(searchBar, callbacks)
         return self:GetLocationFilterLabel()
     end)
     self.filterDropdown:SetupMenu(function(_, root)
+        local counts = self:GetLocationFilterCounts()
         local function AddFilter(label, value)
-            root:CreateRadio(label,
+            local categoryKey = value:match("^category:(.+)$")
+            local count = categoryKey and counts.categories[categoryKey] or counts[value]
+            root:CreateRadio(FormatCountLabel(label, count),
                 function(selected) return self.locationFilter == selected end,
                 function(selected) self:SetLocationFilter(selected) end,
                 value)

@@ -17,6 +17,71 @@ local function SetLabelEnabled(label, enabled)
     label:SetTextColor(unpack(enabled and Config.colors.gold or Config.colors.disabled))
 end
 
+local function GetShortcutChord(shortcut)
+    local parts = {}
+    if shortcut.alt then parts[#parts + 1] = "ALT" end
+    if shortcut.ctrl then parts[#parts + 1] = "CTRL" end
+    if shortcut.shift then parts[#parts + 1] = "SHIFT" end
+    if shortcut.meta then parts[#parts + 1] = "META" end
+    if shortcut.key then parts[#parts + 1] = shortcut.key end
+    return table.concat(parts, "-")
+end
+
+function PanelSettings:GetMapShortcutText()
+    local shortcut = SMK.Settings:Get("mapPinCreateShortcut")
+    if type(shortcut) ~= "table" then return SMK.L.MAP_PIN_SHORTCUT_DEFAULT end
+    return string.format(SMK.L.MAP_PIN_SHORTCUT_VALUE,
+        GetBindingText(GetShortcutChord(shortcut)))
+end
+
+function PanelSettings:StopMapShortcutCapture()
+    local button = self.mapShortcutButton
+    if not button then return end
+    button.isCapturing = false
+    button:EnableKeyboard(false)
+    if button.SetPropagateKeyboardInput then
+        button:SetPropagateKeyboardInput(true)
+    end
+    button:SetText(self:GetMapShortcutText())
+end
+
+function PanelSettings:StartMapShortcutCapture()
+    local button = self.mapShortcutButton
+    button.isCapturing = true
+    button:SetText(SMK.L.CAPTURE_SHORTCUT)
+    GameTooltip_Hide()
+    button:EnableKeyboard(true)
+    if button.SetPropagateKeyboardInput then
+        button:SetPropagateKeyboardInput(false)
+    end
+end
+
+function PanelSettings:SetMapShortcut(key, modifier)
+    local shortcut = {
+        key = key,
+        alt = IsAltKeyDown() or nil,
+        ctrl = IsControlKeyDown() or nil,
+        shift = IsShiftKeyDown() or nil,
+        meta = IsMetaKeyDown() or nil,
+    }
+    if modifier == "ALT" then shortcut.alt = true end
+    if modifier == "CTRL" then shortcut.ctrl = true end
+    if modifier == "SHIFT" then shortcut.shift = true end
+    if modifier == "META" then shortcut.meta = true end
+    local changed, message = SMK.Settings:Set("mapPinCreateShortcut", shortcut)
+    self:StopMapShortcutCapture()
+    if not changed then return message and SMK:Print(message) end
+    SMK:Print(string.format(SMK.L.MAP_PIN_SHORTCUT_UPDATED,
+        self:GetMapShortcutText()))
+end
+
+function PanelSettings:ResetMapShortcut()
+    local changed, message = SMK.Settings:Set("mapPinCreateShortcut", false)
+    self:StopMapShortcutCapture()
+    if not changed then return message and SMK:Print(message) end
+    SMK:Print(SMK.L.MAP_PIN_SHORTCUT_RESET)
+end
+
 function PanelSettings:ChangePinTextScale(delta)
     local value = math.max(Config.mapPins.minTextScale,
         math.min(Config.mapPins.maxTextScale, SMK.Settings:Get("mapPinTextScale") + delta))
@@ -69,6 +134,9 @@ function PanelSettings:Refresh()
     self.pinNameOffsetYMinus:SetEnabled(pinsAvailable and offsetY > Config.mapPins.nameOffsetYMin)
     self.pinNameOffsetYPlus:SetEnabled(pinsAvailable and offsetY < Config.mapPins.nameOffsetYMax)
     SetLabelEnabled(self.pinNameOffsetYLabel, pinsAvailable)
+    if self.mapShortcutButton and not self.mapShortcutButton.isCapturing then
+        self.mapShortcutButton:SetText(self:GetMapShortcutText())
+    end
 end
 
 function PanelSettings:Open()
@@ -86,10 +154,11 @@ end
 
 function PanelSettings:Create(anchor)
     local controls = Config.panel.controls
+    local controlLeft, controlWidth = 164, 120
     local frame = CreateFrame(
         "Frame", SMK.name .. "PanelSettings", UIParent, "BackdropTemplate")
     self.frame = frame
-    frame:SetSize(controls.settingsWidth, 200)
+    frame:SetSize(controls.settingsWidth, 235)
     frame:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -4)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:SetFrameLevel(anchor:GetFrameLevel() + 10)
@@ -106,7 +175,6 @@ function PanelSettings:Create(anchor)
     title:SetText(SMK.L.DISPLAY_SETTINGS)
     title:SetTextColor(unpack(Config.colors.gold))
     local close = Widgets:CreateCloseButton(frame)
-    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() self:Hide() end)
 
     local function CreateRowLabel(text, y, indent)
@@ -120,7 +188,7 @@ function PanelSettings:Create(anchor)
     -- 标记材质大小
     self.pinTextureScaleLabel = CreateRowLabel(SMK.L.PIN_TEXTURE_SIZE, -57, 26)
     self.pinTextureScaleMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
-    self.pinTextureScaleMinus:SetPoint("TOPLEFT", 164, -50)
+    self.pinTextureScaleMinus:SetPoint("TOPLEFT", controlLeft, -50)
     self.pinTextureScaleMinus:SetScript("OnClick", function()
         self:ChangePinTextureScale(-Config.mapPins.textureScaleStep)
     end)
@@ -139,7 +207,7 @@ function PanelSettings:Create(anchor)
     -- 名称文字大小
     self.pinTextScaleLabel = CreateRowLabel(SMK.L.PIN_TEXT_SIZE, -92, 26)
     self.pinTextScaleMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
-    self.pinTextScaleMinus:SetPoint("TOPLEFT", 164, -85)
+    self.pinTextScaleMinus:SetPoint("TOPLEFT", controlLeft, -85)
     self.pinTextScaleMinus:SetScript("OnClick", function()
         self:ChangePinTextScale(-Config.mapPins.textScaleStep)
     end)
@@ -158,7 +226,7 @@ function PanelSettings:Create(anchor)
     -- 名称水平偏移
     self.pinNameOffsetXLabel = CreateRowLabel(SMK.L.PIN_NAME_OFFSET_X, -127, 26)
     self.pinNameOffsetXMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
-    self.pinNameOffsetXMinus:SetPoint("TOPLEFT", 164, -120)
+    self.pinNameOffsetXMinus:SetPoint("TOPLEFT", controlLeft, -120)
     self.pinNameOffsetXMinus:SetScript("OnClick", function()
         self:ChangePinNameOffset("X", -1)
     end)
@@ -175,7 +243,7 @@ function PanelSettings:Create(anchor)
     -- 名称垂直偏移
     self.pinNameOffsetYLabel = CreateRowLabel(SMK.L.PIN_NAME_OFFSET_Y, -162, 26)
     self.pinNameOffsetYMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
-    self.pinNameOffsetYMinus:SetPoint("TOPLEFT", 164, -155)
+    self.pinNameOffsetYMinus:SetPoint("TOPLEFT", controlLeft, -155)
     self.pinNameOffsetYMinus:SetScript("OnClick", function()
         self:ChangePinNameOffset("Y", -1)
     end)
@@ -189,9 +257,44 @@ function PanelSettings:Create(anchor)
         self:ChangePinNameOffset("Y", 1)
     end)
 
+    -- 按住自定义组合键并左键点击地图；Esc 恢复默认 Alt+左键。
+    self.mapShortcutLabel = CreateRowLabel(SMK.L.MAP_PIN_SHORTCUT, -197, 26)
+    self.mapShortcutButton = Widgets:CreatePanelButton(
+        frame, SMK.L.MAP_PIN_SHORTCUT_DEFAULT, { width = controlWidth })
+    self.mapShortcutButton:SetPoint("TOPLEFT", controlLeft, -190)
+    self.mapShortcutButton:SetScript("OnClick", function(button)
+        if button.isCapturing then
+            self:StopMapShortcutCapture()
+        else
+            self:StartMapShortcutCapture()
+        end
+    end)
+    self.mapShortcutButton:SetScript("OnKeyDown", function(_, key)
+        key = GetConvertedKeyOrButton(key)
+        if key == "ESCAPE" then return self:ResetMapShortcut() end
+        if not IsKeyPressIgnoredForBinding(key) then self:SetMapShortcut(key) end
+    end)
+    self.mapShortcutButton:SetScript("OnKeyUp", function(button, key)
+        if not button.isCapturing then return end
+        key = GetConvertedKeyOrButton(key)
+        local modifier = key:match("ALT$") or key:match("CTRL$")
+            or key:match("SHIFT$") or key:match("META$")
+        if modifier then self:SetMapShortcut(nil, modifier) end
+    end)
+    self.mapShortcutButton:HookScript("OnEnter", function(owner)
+        GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
+        GameTooltip:SetText(SMK.L.MAP_PIN_SHORTCUT_TOOLTIP_TITLE)
+        GameTooltip:AddLine(string.format(SMK.L.SHORTCUT_TOOLTIP_CURRENT,
+            self:GetMapShortcutText()), 1, 1, 1)
+        GameTooltip:AddLine(SMK.L.MAP_PIN_SHORTCUT_TOOLTIP_HINT, 0.35, 0.85, 1)
+        GameTooltip:Show()
+    end)
+    self.mapShortcutButton:HookScript("OnLeave", GameTooltip_Hide)
+    self:StopMapShortcutCapture()
+
     frame:HookScript("OnHide", function()
-        if self.shortcutButton and self.shortcutButton.isCapturing and SMK.SearchBar then
-            SMK.SearchBar:StopShortcutCapture()
+        if self.mapShortcutButton and self.mapShortcutButton.isCapturing then
+            self:StopMapShortcutCapture()
         end
     end)
 

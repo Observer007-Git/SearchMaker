@@ -24,7 +24,6 @@ function HelpDialog:Create(parent)
     title:SetText(SMK.L.HELP_TITLE)
 
     local close = SMK.Widgets:CreateCloseButton(frame)
-    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() self:Hide() end)
 
     local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")

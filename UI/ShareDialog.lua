@@ -179,7 +179,6 @@ function Dialog:Create(parent)
     title:SetTextColor(unpack(Config.colors.gold))
     title:SetText(SMK.L.SHARE_TITLE)
     local close = Widgets:CreateCloseButton(frame)
-    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() frame:Hide() end)
 
     self.currentMapOnly = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")

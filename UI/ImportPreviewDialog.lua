@@ -23,7 +23,6 @@ function Dialog:Create(parent)
     self.summary = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.summary:SetPoint("TOP", title, "BOTTOM", 0, -8)
     local close = SMK.Widgets:CreateCloseButton(frame)
-    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() frame:Hide() end)
 
     local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")

@@ -1013,6 +1013,12 @@ C_AddOns.IsAddOnLoaded = function() return false end
 loadModule(SMK, "Core/App.lua")
 CreateFrame = originalCreateFrame
 C_AddOns.IsAddOnLoaded = originalIsAddOnLoaded
+local externalShareEntry = assert(SMK.App:GetShareEntry(externalFavorite))
+local externalShareDecoded = assert(SMK.ShareCodec:Decode(
+    SMK.ShareCodec:Encode({ externalShareEntry })))
+assert(externalShareEntry.categoryKey == SMK.Config.handyNotes.categoryKey
+    and externalShareDecoded[1].categoryKey == SMK.Config.handyNotes.categoryKey,
+    "directly shared external location lost its HandyNotes category")
 assert(whisperListener.registered.ADDON_LOADED
     and whisperListener.registered.CHAT_MSG_WHISPER
     and whisperListener.registered.CHAT_MSG_WHISPER_INFORM

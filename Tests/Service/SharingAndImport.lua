@@ -64,6 +64,9 @@ assert(decoded[1].categoryKey == "delves"
     and math.abs(decoded[1].pinColor.g - 0.4) < 0.005
     and math.abs(decoded[1].pinColor.b - 0.6) < 0.005,
     "share fields or per-location pin color were not preserved")
+local emptyEntries, emptyError = SMK.ShareCodec:Decode("SMK|;;;;")
+assert(not emptyEntries and emptyError == SMK.L.IMPORT_EMPTY,
+    "separator-only share text was accepted as an empty preview")
 local previewEntry = assert(SMK.LocationModel:Normalize({
     mapID = 777, x = 12.5, y = 34.5, name = "预览地点",
     categoryKey = "other", note = "导入前不写入",

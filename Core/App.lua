@@ -197,7 +197,7 @@ function App:GetShareEntry(entry)
         x = entry.x,
         y = entry.y,
         name = entry.name,
-        categoryKey = SMK.Config.defaultCategoryKey,
+        categoryKey = SMK.Config.handyNotes.categoryKey,
         note = entry.note,
     })
 end

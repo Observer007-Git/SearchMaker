@@ -116,10 +116,12 @@ assert(english.L.HELP == "How to Use" and chinese.L.HELP == "使用说明"
     and english.L.HELP_TEXT:find("character and Battle.net whispers", 1, true)
     and english.L.HELP_TEXT:find("outside the character's current map", 1, true)
     and english.L.HELP_TEXT:find("All Maps", 1, true)
-    and english.L.HELP_TEXT:find("Add Locations and Pins", 1, true)
+    and english.L.HELP_TEXT:find("Add Coordinates and Pins", 1, true)
     and english.L.HELP_TEXT:find("Search and Locate", 1, true)
-    and english.L.HELP_TEXT:find("Edit Locations", 1, true)
-    and english.L.HELP_TEXT:find("Delete Locations", 1, true)
+    and english.L.HELP_TEXT:find("Edit Coordinates", 1, true)
+    and english.L.HELP_TEXT:find("Delete Coordinates", 1, true)
+    and english.L.HELP_TEXT:find("choose Edit Coordinate", 1, true)
+    and english.L.HELP_TEXT:find("choose Delete Coordinate", 1, true)
     and not chinese.L.HELP_TEXT:find("当前地图/全图", 1, true),
     "help dialog locale is missing")
 assert(english.L.ROUTE_SEARCH_KEYWORD == "route"

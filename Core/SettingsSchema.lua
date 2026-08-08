@@ -19,6 +19,7 @@ local definitions = {
     mapPinNameOffsetY = {
         kind = "number", min = Config.mapPins.nameOffsetYMin, max = Config.mapPins.nameOffsetYMax,
     },
+    mapPinCreateShortcut = { kind = "mapShortcut" },
     searchBarScale = {
         kind = "number", min = Config.search.appearance.minScale,
         max = Config.search.appearance.maxScale, decimals = 1,
@@ -41,7 +42,8 @@ local definitions = {
 
 local keys = {
     "locationScale", "mapPinTextScale", "pinTextureScale",
-    "mapPinNameOffsetX", "mapPinNameOffsetY", "searchBarScale", "searchBarOpacity",
+    "mapPinNameOffsetX", "mapPinNameOffsetY", "mapPinCreateShortcut",
+    "searchBarScale", "searchBarOpacity",
     "searchBarStyle",
     "shortcutSearchVisible", "searchBarMapOnly", "thirdPartySearchEnabled",
     "searchAllMaps", "exportBatchSize",
@@ -78,6 +80,22 @@ local function NormalizeValue(definition, value)
             return nil
         end
         return { x = value.x, y = value.y, relativePoint = value.relativePoint }
+    elseif definition.kind == "mapShortcut" then
+        if value == false then return false end
+        if type(value) ~= "table"
+            or value.key ~= nil and (type(value.key) ~= "string"
+                or value.key == "" or #value.key > 32)
+            or value.key == nil and not (value.alt == true or value.ctrl == true
+                or value.shift == true or value.meta == true) then
+            return nil
+        end
+        return {
+            key = value.key,
+            alt = value.alt == true or nil,
+            ctrl = value.ctrl == true or nil,
+            shift = value.shift == true or nil,
+            meta = value.meta == true or nil,
+        }
     end
 end
 

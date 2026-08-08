@@ -41,11 +41,19 @@ for key, value in pairs(english.L) do
 end
 for key in pairs(chinese.L) do assert(english.L[key], "enUS missing locale key: " .. key) end
 assert(english.L.ADD == "Add Coordinate" and chinese.L.ADD == "新增坐标", "locale selection failed")
+assert(string.format(english.L.CATEGORY_COUNT_FORMAT, "Other", 3) == "Other (3)"
+    and string.format(chinese.L.CATEGORY_COUNT_FORMAT, "其他", 3) == "其他（3）",
+    "category count locale format is missing")
 assert(traditionalChinese.L.ADD == english.L.ADD,
     "a non-zhCN client did not fall back to English")
 assert(english.L.READ_COORDINATES == "Get Character Coordinates"
     and chinese.L.READ_COORDINATES == "读取角色坐标",
     "coordinate button locale was not updated")
+assert(english.L.MAP_PIN_SHORTCUT_DEFAULT == "Alt + Left-click"
+    and chinese.L.MAP_PIN_SHORTCUT_DEFAULT == "Alt + 左键"
+    and english.L.MAP_PIN_SHORTCUT_TOOLTIP_HINT
+    and chinese.L.MAP_PIN_SHORTCUT_RESET,
+    "map pin shortcut locale is missing")
 assert(english.L.COORDINATE_RESULT_FORMAT and chinese.L.COORDINATE_RESULT_FORMAT,
     "coordinate result locale is missing")
 assert(english.L.CUSTOM_ICON == "Custom Icon" and chinese.L.CUSTOM_ICON == "自定义图标"

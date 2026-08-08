@@ -174,10 +174,12 @@ function Widgets:CreatePanelButton(parent, text, options)
     return button
 end
 
---- 创建统一红色 Atlas 的面板关闭按钮；尺寸和锚点仍由现有面板约定控制。
+--- 创建统一 Atlas、尺寸和锚点的面板关闭按钮。
 function Widgets:CreateCloseButton(parent)
     local button = CreateFrame("Button", nil, parent)
     button:SetSize(24, 24)
+    button:SetPoint("TOPRIGHT", Config.panel.controls.closeButtonOffsetX,
+        Config.panel.controls.closeButtonOffsetY)
     local normal = button:CreateTexture(nil, "ARTWORK")
     normal:SetAllPoints()
     normal:SetAtlas(Config.panel.controls.closeButtonAtlas, false)

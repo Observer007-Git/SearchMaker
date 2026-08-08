@@ -2,6 +2,16 @@ local _, SMK = ...
 
 local Controller = {}
 
+function Controller:IsCreateShortcutDown()
+    local shortcut = SMK.Settings:Get("mapPinCreateShortcut")
+    if type(shortcut) ~= "table" then return IsAltKeyDown() end
+    return (shortcut.alt == true) == (IsAltKeyDown() and true or false)
+        and (shortcut.ctrl == true) == (IsControlKeyDown() and true or false)
+        and (shortcut.shift == true) == (IsShiftKeyDown() and true or false)
+        and (shortcut.meta == true) == (IsMetaKeyDown() and true or false)
+        and (not shortcut.key or IsKeyDown(shortcut.key))
+end
+
 local function IsCursorOverCanvas()
     local container = WorldMapFrame and WorldMapFrame.ScrollContainer
     if not container then return false end
@@ -75,13 +85,13 @@ function Controller:Initialize(callbacks)
             end
             return
         end
-        if button ~= "LeftButton" or not IsAltKeyDown()
+        if button ~= "LeftButton" or not self:IsCreateShortcutDown()
             or not WorldMapFrame:IsShown() or not IsCursorOverCanvas() then return end
         local x, y = SMK.Map:GetCursorMapCoordinates()
         local mapID = x and SMK.Map:GetContextMapID() or nil
         local screenX, screenY = SMK.Map:GetCursorScreenPosition()
-        if mapID and self.callbacks.onAltClick then
-            self.callbacks.onAltClick(mapID, x, y, screenX, screenY)
+        if mapID and self.callbacks.onMapCreateClick then
+            self.callbacks.onMapCreateClick(mapID, x, y, screenX, screenY)
         end
     end)
 

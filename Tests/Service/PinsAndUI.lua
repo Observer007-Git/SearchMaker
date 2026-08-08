@@ -24,7 +24,8 @@ assert(mainPanelSource:find(
         '"TOPLEFT", frame, "TOPLEFT", 0, mapTitle.topOffset', 1, true)
     and mainPanelSource:find(
         '"TOPLEFT", frame.mapTitleBackground, "TOPRIGHT", 0, 0', 1, true)
-    and mainPanelSource:find("frame.mapName:SetTextColor(1, 1, 1)", 1, true),
+    and mainPanelSource:find(
+        "frame.mapName:SetTextColor(unpack(Config.colors.gold))", 1, true),
     "main panel decorations or map title sign are not anchored correctly")
 assert(mainPanelSource:find(
         "Config.panel.layout.scrollFrameBottomInset)", 1, true),
@@ -50,6 +51,63 @@ assert(appliedTitleWidth == SMK.Config.panel.mapTitle.minWidth,
     "main panel map title sign did not retain its minimum width")
 SMK.MainPanel.frame = originalMainPanelFrame
 
+local originalCategoryEntries = SMK.MapContext.GetEntries
+SMK.MapContext.GetEntries = function()
+    return {
+        { categoryKey = "other", showPinTexture = 1, note = "", customIconID = nil },
+        { categoryKey = "other", showPinName = 1, note = "备注", customIconID = -1 },
+        { categoryKey = "npc", note = "", customIconID = nil },
+    }
+end
+local filterCounts = SMK.MainPanel:GetLocationFilterCounts()
+assert(filterCounts.all == 3 and filterCounts.pins == 2 and filterCounts.notes == 1
+    and filterCounts.customIcon == 1 and filterCounts.categories.other == 2
+    and filterCounts.categories.npc == 1,
+    "main panel filter counts do not reflect current-map entries")
+SMK.MainPanel.locationFilter = "category:other"
+assert(SMK.MainPanel:GetLocationFilterLabel(filterCounts) == "筛选：其他（2）",
+    "main panel selected category does not include its count")
+SMK.MainPanel.locationFilter = "all"
+SMK.MapContext.GetEntries = originalCategoryEntries
+
+local oldIsAltKeyDown, oldIsControlKeyDown = IsAltKeyDown, IsControlKeyDown
+local oldIsShiftKeyDown, oldIsMetaKeyDown = IsShiftKeyDown, IsMetaKeyDown
+local oldIsKeyDown = IsKeyDown
+local oldGetBindingText = GetBindingText
+loadModule(SMK, "Core/WorldMapController.lua")
+loadModule(SMK, "UI/PanelSettings.lua")
+local down = {}
+IsAltKeyDown = function() return down.alt == true end
+IsControlKeyDown = function() return down.ctrl == true end
+IsShiftKeyDown = function() return down.shift == true end
+IsMetaKeyDown = function() return down.meta == true end
+IsKeyDown = function(key) return down[key] == true end
+GetBindingText = function(key) return key end
+down.alt = true
+assert(SMK.WorldMapController:IsCreateShortcutDown(),
+    "default Alt+Left-click map shortcut was not recognized")
+down.alt = false
+assert(not SMK.WorldMapController:IsCreateShortcutDown(),
+    "default map shortcut triggered without Alt")
+assert(SMK.Settings:Set("mapPinCreateShortcut", { key = "F", ctrl = true }))
+down.ctrl, down.F = true, true
+assert(SMK.WorldMapController:IsCreateShortcutDown(),
+    "custom map shortcut was not recognized")
+assert(SMK.PanelSettings:GetMapShortcutText() == "CTRL-F + 左键",
+    "custom map shortcut label is incorrect")
+down.alt = true
+assert(not SMK.WorldMapController:IsCreateShortcutDown(),
+    "custom map shortcut ignored unexpected modifiers")
+assert(SMK.Settings:Set("mapPinCreateShortcut", { shift = true }))
+down.alt, down.ctrl, down.F, down.shift = false, false, false, true
+assert(SMK.WorldMapController:IsCreateShortcutDown(),
+    "modifier-only map shortcut was not recognized")
+assert(SMK.Settings:Set("mapPinCreateShortcut", false))
+IsAltKeyDown, IsControlKeyDown = oldIsAltKeyDown, oldIsControlKeyDown
+IsShiftKeyDown, IsMetaKeyDown = oldIsShiftKeyDown, oldIsMetaKeyDown
+IsKeyDown = oldIsKeyDown
+GetBindingText = oldGetBindingText
+
 assert(searchBarSource:find("function SearchBar:ApplyStyle()", 1, true)
     and searchBarSource:find("box.locationIcon:SetShown(portrait)", 1, true)
     and searchBarSource:find("GetAtlasDimensions(", 1, true)
@@ -64,6 +122,45 @@ assert(searchBarSource:find("function SearchBar:ApplyStyle()", 1, true)
     and searchBarSettingsSource:find(
         "function SearchBarSettings:IsMenuOpen()", 1, true),
     "search bar UI style selection or faction background layout is not wired")
+assert(searchBarSettingsSource:find(
+        "local controlLeft, controlWidth = 164, 120", 1, true)
+    and searchBarSettingsSource:find(
+        "controlWidth + controls.dropdownBorderOutset", 1, true)
+    and searchBarSettingsSource:find(
+        "Config.search.settingsStyleDropdownLeftInset", 1, true)
+    and searchBarSettingsSource:find(
+        '"TOPRIGHT", frame, "TOPLEFT", controlRight', 1, true)
+    and searchBarSettingsSource:find(
+        "styleY + Config.search.settingsStyleDropdownOffsetY", 1, true)
+    and searchBarSettingsSource:find(
+        '"TOPLEFT", controlLeft, shortcutY + 3', 1, true),
+    "search setting controls are not aligned to the scale row")
+local oldGetBindingKeyForDisplay = GetBindingKey
+local oldGetBindingTextForDisplay = GetBindingText
+GetBindingKey = function(action)
+    return action == SMK.Config.shortcutAction and "CTRL-SPACE" or nil
+end
+GetBindingText = function(key) return "[" .. key .. "]" end
+loadModule(SMK, "UI/ShortcutController.lua")
+assert(SMK.ShortcutController:GetDisplayText() == "[CTRL-SPACE]"
+    and searchBarSettingsSource:find(
+        "SMK.ShortcutController:GetDisplayText()", 1, true),
+    "search shortcut button does not show the current binding")
+GetBindingKey = oldGetBindingKeyForDisplay
+GetBindingText = oldGetBindingTextForDisplay
+assert(panelSettingsSource:find("frame:SetSize(controls.settingsWidth, 235)", 1, true)
+    and panelSettingsSource:find(
+        "self.mapShortcutLabel = CreateRowLabel(SMK.L.MAP_PIN_SHORTCUT, -197, 26)",
+        1, true)
+    and panelSettingsSource:find(
+        'self.mapShortcutButton:SetPoint("TOPLEFT", controlLeft, -190)', 1, true)
+    and panelSettingsSource:find(
+        "frame, SMK.L.MAP_PIN_SHORTCUT_DEFAULT, { width = controlWidth }", 1, true)
+    and panelSettingsSource:find("key == \"ESCAPE\"", 1, true)
+    and ReadSource("Core/WorldMapController.lua"):find(
+        "self:IsCreateShortcutDown()", 1, true)
+    and ReadSource("Core/App.lua"):find("onMapCreateClick", 1, true),
+    "map pin shortcut setting is missing or not aligned")
 assert(appSource:find("SMK.SearchBar:ApplyStyle()", 1, true)
     and appSource:find("SMK.SearchBar:ApplyScale()", 1, true)
     and appSource:find("SMK.SearchBar:ApplyOpacity()", 1, true)
@@ -739,15 +836,35 @@ assert(ReadSource("UI/HelpDialog.lua"):find("UIPanelScrollFrameTemplate", 1, tru
         "SMK.Widgets:ApplyPanelBorder(frame)", 1, true),
     "help scrolling, route close-button priority, or picker-style route border is missing")
 local bulkDeleteSource = ReadSource("UI/BulkDeleteDialog.lua")
+local originalBulkCategoryKey = SMK.BulkDeleteDialog.categoryKey
+local originalBulkDropdown = SMK.BulkDeleteDialog.dropdown
+local initialBulkCategoryText
+SMK.BulkDeleteDialog.categoryKey = nil
+SMK.BulkDeleteDialog.dropdown = {
+    Text = { SetText = function(_, text) initialBulkCategoryText = text end },
+}
+SMK.BulkDeleteDialog:UpdateCategory()
+assert(type(initialBulkCategoryText) == "string"
+    and initialBulkCategoryText:match("^其他（%d+）$"),
+    "bulk-delete initial selection did not fall back to the default category")
+SMK.BulkDeleteDialog.categoryKey = originalBulkCategoryKey
+SMK.BulkDeleteDialog.dropdown = originalBulkDropdown
 assert(bulkDeleteSource:find(
         "local labelLeft, fieldLeft, actionLeft = 28, 160, 292", 1, true)
     and select(2, bulkDeleteSource:gsub(
         "frame, \"TOPLEFT\", labelLeft", "")) == 2
-    and select(2, bulkDeleteSource:gsub(
-        "frame, \"TOPLEFT\", fieldLeft", "")) == 2
+    and bulkDeleteSource:find(
+        '"RIGHT", frame, "TOPLEFT", fieldLeft + fieldWidth', 1, true)
+    and bulkDeleteSource:find(
+        'frame, "TOPLEFT", fieldLeft, -108', 1, true)
     and select(2, bulkDeleteSource:gsub(
         "frame, \"TOPLEFT\", actionLeft", "")) == 2,
     "bulk-delete labels, fields, or action buttons are not column-aligned")
+assert(SMK.Config.bulkDelete.fieldWidth == 120
+    and SMK.Config.panel.controls.dropdownBorderOutset == 5
+    and bulkDeleteSource:find("GetCategoryLabel(category.key, counts)", 1, true)
+    and mainPanelSource:find("#categoryEntries", 1, true),
+    "category counts or bulk-delete field border alignment are missing")
 assert(SMK.Config.panelBackdrop.edgeFile
         == "Interface\\Tooltips\\UI-Tooltip-Border"
     and SMK.Config.resultBackdrop.edgeFile
@@ -804,12 +921,14 @@ local closeButtonSources = mainPanelSource
     .. ReadSource("UI/RouteImportDialog.lua")
     .. ReadSource("UI/RouteDialog.lua")
     .. ReadSource("UI/ShareDialog.lua")
-assert(select(2, closeButtonSources:gsub(
-        "close:SetPoint%(\"TOPRIGHT\", %-3, %-3%)", "")) == 10
-    and select(2, closeButtonSources:gsub("CreateCloseButton%(frame%)", "")) == 10
+assert(select(2, closeButtonSources:gsub("CreateCloseButton%(frame%)", "")) == 10
+    and not closeButtonSources:find("close:SetPoint", 1, true)
     and not closeButtonSources:find("UIPanelCloseButton", 1, true)
     and widgetsSource:find(
         "normal:SetAtlas(Config.panel.controls.closeButtonAtlas, false)", 1, true)
+    and widgetsSource:find(
+        'button:SetPoint("TOPRIGHT", Config.panel.controls.closeButtonOffsetX',
+        1, true)
     and widgetsSource:find("highlight:SetAllPoints()", 1, true)
     and widgetsSource:find("highlight:SetAlpha(0.5)", 1, true)
     and widgetsSource:find(

@@ -109,7 +109,12 @@ assert(panelConfig.headerHeight == 68 and panelConfig.contentTopGap == 8
     and SMK.Config.panel.mapTitle.foliageAtlas == "housing-foliage-header_right"
     and SMK.Config.panel.mapTitle.topOffset == 2
     and panelControls.buttonAtlas == "pet-list-bg-ferocity-active"
-    and panelControls.closeButtonAtlas == "common-icon-redx"
+    and panelControls.closeButtonAtlas == "auctionhouse-ui-filter-redx"
+    and panelControls.closeButtonOffsetX == -1
+    and panelControls.closeButtonOffsetY == -3
+    and panelControls.dropdownBorderOutset == 5
+    and SMK.Config.search.settingsStyleDropdownOffsetY == 2
+    and SMK.Config.search.settingsStyleDropdownLeftInset == 2
     and panelControls.buttonHeight == 24 and panelControls.settingsWidth == 330,
     "main panel controls are not configured")
 local editorLayout = SMK.Config.GetLocationEditorLayout()

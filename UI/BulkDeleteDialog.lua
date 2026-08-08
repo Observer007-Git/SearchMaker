@@ -6,6 +6,22 @@ local Util = SMK.Util
 local Widgets = SMK.Widgets
 local POPUP_ID = "SEARCHMAKER_BULK_DELETE"
 
+local function GetCategoryCounts()
+    local counts = {}
+    for _, entry in ipairs(SMK.Store:GetAll()) do
+        counts[entry.categoryKey] = (counts[entry.categoryKey] or 0) + 1
+    end
+    return counts
+end
+
+local function GetCategoryLabel(categoryKey, counts)
+    categoryKey = categoryKey or Config.defaultCategoryKey
+    local category = Config.categoryByKey[categoryKey]
+    local label = category and (SMK.L[category.nameKey] or category.key)
+        or categoryKey
+    return string.format(SMK.L.CATEGORY_COUNT_FORMAT, label, counts[categoryKey] or 0)
+end
+
 function Dialog:HideConfirmation()
     if self.popup and self.popup:IsShown() then StaticPopup_Hide(POPUP_ID) end
     self.popup = nil
@@ -25,9 +41,7 @@ function Dialog:SetStatus(message, isError)
 end
 
 function Dialog:UpdateCategory()
-    local category = Config.categoryByKey[self.categoryKey]
-    self.dropdown.Text:SetText(category and (SMK.L[category.nameKey] or category.key)
-        or self.categoryKey)
+    self.dropdown.Text:SetText(GetCategoryLabel(self.categoryKey, GetCategoryCounts()))
 end
 
 --- 构建要删除的条目列表并显示确认弹窗。
@@ -81,23 +95,25 @@ function Dialog:Create(parent)
     title:SetTextColor(unpack(Config.colors.gold))
     title:SetText(SMK.L.BULK_DELETE_TITLE)
     local close = SMK.Widgets:CreateCloseButton(frame)
-    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() frame:Hide() end)
 
     local labelLeft, fieldLeft, actionLeft = 28, 160, 292
+    local fieldWidth = Config.bulkDelete.fieldWidth
     local categoryLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     categoryLabel:SetPoint("LEFT", frame, "TOPLEFT", labelLeft, -65)
     categoryLabel:SetText(SMK.L.DELETE_BY_CATEGORY)
     self.dropdown = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
-    self.dropdown:SetSize(120, 24)
-    self.dropdown:SetPoint("LEFT", frame, "TOPLEFT", fieldLeft, -65)
+    self.dropdown:SetSize(
+        fieldWidth + Config.panel.controls.dropdownBorderOutset, 24)
+    self.dropdown:SetPoint(
+        "RIGHT", frame, "TOPLEFT", fieldLeft + fieldWidth, -65)
     self.dropdown:SetSelectionText(function()
-        local category = Config.categoryByKey[self.categoryKey]
-        return category and (SMK.L[category.nameKey] or category.key) or self.categoryKey
+        return GetCategoryLabel(self.categoryKey, GetCategoryCounts())
     end)
     self.dropdown:SetupMenu(function(_, root)
+        local counts = GetCategoryCounts()
         for _, category in ipairs(Config.categories) do
-            local name = SMK.L[category.nameKey] or category.key
+            local name = GetCategoryLabel(category.key, counts)
             root:CreateRadio(name,
                 function(value) return self.categoryKey == value end,
                 function(value) self.categoryKey = value self:UpdateCategory() end,
@@ -113,7 +129,7 @@ function Dialog:Create(parent)
     mapLabel:SetPoint("LEFT", frame, "TOPLEFT", labelLeft, -108)
     mapLabel:SetText(SMK.L.DELETE_BY_MAP_ID)
     self.mapInput = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    self.mapInput:SetSize(120, 24)
+    self.mapInput:SetSize(fieldWidth, 24)
     self.mapInput:SetPoint("LEFT", frame, "TOPLEFT", fieldLeft, -108)
     self.mapInput:SetAutoFocus(false)
     self.mapInput:SetNumeric(true)

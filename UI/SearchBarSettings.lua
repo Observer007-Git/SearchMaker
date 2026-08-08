@@ -33,6 +33,9 @@ function SearchBarSettings:Refresh()
     self.mapOnlyCheck:SetChecked(SMK.Settings:Get("searchBarMapOnly") == true)
     self.thirdPartyCheck:SetChecked(
         SMK.Settings:Get("thirdPartySearchEnabled") == true)
+    if self.shortcutButton and not self.shortcutButton.isCapturing then
+        self.shortcutButton:SetText(SMK.ShortcutController:GetDisplayText())
+    end
 end
 
 function SearchBarSettings:ChangeScale(delta)
@@ -83,6 +86,8 @@ function SearchBarSettings:ContainsMouseFocus() return false end
 
 function SearchBarSettings:Create(anchor)
     local controls = Config.panel.controls
+    local controlLeft, controlWidth = 164, 120
+    local controlRight = controlLeft + controlWidth
     local frame = CreateFrame(
         "Frame", SMK.name .. "SearchBarSettings", UIParent, "BackdropTemplate")
     self.frame = frame
@@ -103,7 +108,6 @@ function SearchBarSettings:Create(anchor)
     title:SetText(SMK.L.SEARCH_BAR_SETTINGS)
     title:SetTextColor(unpack(Config.colors.gold))
     local close = Widgets:CreateCloseButton(frame)
-    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() self:Hide() end)
 
     local function Label(text, y, indent)
@@ -118,7 +122,7 @@ function SearchBarSettings:Create(anchor)
     local scaleY = -53
     self.scaleLabel = Label(SMK.L.SEARCH_BAR_SCALE, scaleY, 0)
     self.scaleMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
-    self.scaleMinus:SetPoint("TOPLEFT", 164, scaleY + 3)
+    self.scaleMinus:SetPoint("TOPLEFT", controlLeft, scaleY + 3)
     self.scaleMinus:SetScript("OnClick", function()
         self:ChangeScale(-Config.search.appearance.scaleStep)
     end)
@@ -136,7 +140,7 @@ function SearchBarSettings:Create(anchor)
     local opacityY = -88
     self.opacityLabel = Label(SMK.L.SEARCH_BAR_OPACITY, opacityY, 0)
     self.opacityMinus = Widgets:CreatePanelButton(frame, "-", { width = 30 })
-    self.opacityMinus:SetPoint("TOPLEFT", 164, opacityY + 3)
+    self.opacityMinus:SetPoint("TOPLEFT", controlLeft, opacityY + 3)
     self.opacityMinus:SetScript("OnClick", function()
         self:ChangeOpacity(-Config.search.appearance.opacityStep)
     end)
@@ -155,8 +159,13 @@ function SearchBarSettings:Create(anchor)
     self.styleLabel = Label(SMK.L.SEARCH_BAR_STYLE, styleY, 0)
     self.styleDropdown = CreateFrame(
         "DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
-    self.styleDropdown:SetSize(140, controls.buttonHeight)
-    self.styleDropdown:SetPoint("TOPLEFT", 164, styleY + 3)
+    self.styleDropdown:SetSize(
+        controlWidth + controls.dropdownBorderOutset
+            - Config.search.settingsStyleDropdownLeftInset,
+        controls.buttonHeight)
+    self.styleDropdown:SetPoint(
+        "TOPRIGHT", frame, "TOPLEFT", controlRight,
+        styleY + Config.search.settingsStyleDropdownOffsetY)
     self.styleDropdown:SetSelectionText(function()
         return self:GetStyleLabel()
     end)
@@ -178,8 +187,10 @@ function SearchBarSettings:Create(anchor)
     -- 呼出快捷键按钮
     local shortcutY = -158
     self.shortcutLabel = Label(SMK.L.SHORTCUT, shortcutY, 0)
-    self.shortcutButton = Widgets:CreatePanelButton(frame, SMK.L.SHORTCUT_KEY, { minWidth = 140 })
-    self.shortcutButton:SetPoint("TOPLEFT", 140, shortcutY + 3)
+    self.shortcutButton = Widgets:CreatePanelButton(
+        frame, SMK.L.SHORTCUT_KEY, { width = controlWidth })
+    self.shortcutButton:SetPoint(
+        "TOPLEFT", controlLeft, shortcutY + 3)
     self.shortcutButton:SetScript("OnClick", function()
         SMK.ShortcutController:OnClick()
     end)

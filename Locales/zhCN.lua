@@ -37,6 +37,7 @@ local translations = {
     SEARCH_HISTORY_TOOLTIP = "再次搜索此内容",
     LOCATION_COUNT = "坐标数量：%d/%d",
     LOCATION_FILTER_FORMAT = "筛选：%s",
+    CATEGORY_COUNT_FORMAT = "%s（%d）",
     FILTER_ALL_LOCATIONS = "全部地点",
     FILTER_WITH_PINS = "带地图标记",
     FILTER_WITH_NOTES = "带备注",
@@ -112,13 +113,20 @@ local translations = {
     PIN_NAME_OFFSET_X = "名称水平偏移",
     PIN_NAME_OFFSET_Y = "名称垂直偏移",
     PIN_TEXTURE_SIZE = "标记材质大小",
+    MAP_PIN_SHORTCUT = "地图标记快捷键",
+    MAP_PIN_SHORTCUT_DEFAULT = "Alt + 左键",
+    MAP_PIN_SHORTCUT_VALUE = "%s + 左键",
+    MAP_PIN_SHORTCUT_UPDATED = "地图标记快捷键已修改为 %s。",
+    MAP_PIN_SHORTCUT_RESET = "地图标记快捷键已恢复为 Alt + 左键。",
+    MAP_PIN_SHORTCUT_TOOLTIP_TITLE = "新增地图地点快捷键",
+    MAP_PIN_SHORTCUT_TOOLTIP_HINT = "点击后按下组合键；按 Esc 恢复默认设置。",
     LOCATION_SCALE = "地点缩放",
     HELP_TITLE = "SearchMaker 使用说明",
     HELP_TEXT = [[
 左键搜索；右键打开主面板；中键开关世界地图；Shift+拖动搜索框。按 Tab 切换“当前地图”和“所有地图”。快捷键、UI 样式、缩放、透明度、搜索框是否只随世界地图显示及第三方插件坐标搜索，可在“搜索设置”中调整。
 
 |cffffd100坐标新增，地图标记|r
-• 点击主面板“新增坐标”，或在世界地图空白处 Alt+左键，创建当前地图地点。
+• 点击主面板“新增坐标”，或在世界地图空白处使用地图标记快捷键，创建当前地图地点；默认为 Alt+左键，可在“标记设置”中修改。
 • 地点可设置类别、名称、备注、坐标、自定义图标，以及是否显示地图标记材质和名称；备注在鼠标提示中显示为绿色。
 • 右键 HandyNotes_MapNotes 外部结果可收藏为自建地点；也可粘贴 SMK 文本，或从私聊接收的分享消息中导入。导入前会预览新增、重复和无效记录。
 • 导入/导出支持仅当前地图、分批导出和单条分享；路线使用独立的 SMK 路线文本。

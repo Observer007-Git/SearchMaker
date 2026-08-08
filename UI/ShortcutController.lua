@@ -34,6 +34,11 @@ function ShortcutController:NotifyChanged()
     if self.callbacks.onChanged then self.callbacks.onChanged() end
 end
 
+function ShortcutController:GetDisplayText()
+    local key = GetBindingKey(SMK.Config.shortcutAction)
+    return key and GetBindingText(key) or SMK.L.NO_KEY_BOUND
+end
+
 function ShortcutController:StopCapture()
     local button = self.button
     button.isCapturing = false
@@ -41,7 +46,7 @@ function ShortcutController:StopCapture()
         button:SetPropagateKeyboardInput(true)
     end
     button:EnableKeyboard(false)
-    button:SetText(SMK.L.SHORTCUT)
+    button:SetText(self:GetDisplayText())
     self:NotifyChanged()
 end
 

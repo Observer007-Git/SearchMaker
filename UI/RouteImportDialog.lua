@@ -36,7 +36,6 @@ function Dialog:Create(parent)
     title:SetTextColor(unpack(SMK.Config.colors.gold))
     title:SetText(SMK.L.ROUTE_IMPORT_TITLE)
     local close = SMK.Widgets:CreateCloseButton(frame)
-    close:SetPoint("TOPRIGHT", -3, -3)
     close:SetScript("OnClick", function() self:Hide() end)
 
     self.textBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")

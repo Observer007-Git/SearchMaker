@@ -90,12 +90,12 @@ assert(mainPanelSource:find("function MainPanel:RenderRecentSearchResults()", 1,
     and mainPanelSource:find("SMK.L.RECENT_SEARCH_RESULTS", 1, true)
     and SMK.Config.search.recentResultLimit == 10,
     "main panel recent search results are not wired")
-assert(SMK.Config.locationEditor.dropdownBorderOutset == 5
+assert(SMK.Config.panel.controls.dropdownBorderOutset == 5
     and editorSource:find(
         "EditorConfig.inputWidth + dropdownOutset, EditorConfig.buttonHeight",
         1, true)
     and editorSource:find(
-        "\"RIGHT\", frame, \"TOPRIGHT\", -18, EditorConfig.categoryRowY",
+        '"RIGHT", frame, "TOPRIGHT", -18, EditorConfig.categoryRowY',
         1, true),
     "category dropdown border is not aligned with the input field")
 assert(minimapSource:find("pin.icon:SetAtlas(texture.atlas, false)", 1, true)

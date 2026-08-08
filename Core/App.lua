@@ -523,7 +523,7 @@ function App:CreateUI()
             self:RequestRefresh("search")
         end,
         onReady = function() SMK.SearchBar:RestoreVisibility() end,
-        onAltClick = function(mapID, x, y, screenX, screenY)
+        onMapCreateClick = function(mapID, x, y, screenX, screenY)
             local marked, message = SMK.Map:BeginTemporaryWaypoint({ mapID = mapID, x = x, y = y })
             if not marked then
                 if message then SMK:Print(message) end

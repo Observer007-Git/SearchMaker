@@ -111,6 +111,9 @@ GetBindingText = oldGetBindingText
 assert(searchBarSource:find("function SearchBar:ApplyStyle()", 1, true)
     and searchBarSource:find("box.locationIcon:SetShown(portrait)", 1, true)
     and searchBarSource:find("GetAtlasDimensions(", 1, true)
+    and searchBarSource:find(
+        "box.nativeBorder:SetBackdropBorderColor(unpack(Config.colors.panelBorder))",
+        1, true)
     and searchBarSource:find("function SearchBar:UpdateNativeClearButton()", 1, true)
     and searchBarSettingsSource:find("WowStyle1DropdownTemplate", 1, true)
     and searchBarSettingsSource:find(
@@ -245,8 +248,21 @@ local function StyleTexture()
     return {
         SetShown = function(self, shown) self.shown = shown end,
         SetAtlas = function(self, atlas) self.atlas = atlas end,
+        SetHeight = function(self, height) self.height = height end,
+        ClearAllPoints = function(self) self.point = nil end,
+        SetAllPoints = function(self, relativeTo)
+            self.allPoints, self.relativeTo = true, relativeTo
+        end,
+        SetPoint = function(self, point, x, y)
+            self.point, self.pointX, self.pointY = point, x, y
+        end,
+        SetSize = function(self, width, height)
+            self.width, self.height = width, height
+        end,
     }
 end
+local styleClearButton = StyleTexture()
+styleClearButton.Icon = StyleTexture()
 local appliedInsets, appliedTextColor, styleBoxOffset
 local styleBoxWidth, styleBoxHeight = 240, 44
 local styleBox = {
@@ -254,11 +270,12 @@ local styleBox = {
     backgroundRight = StyleTexture(),
     locationIcon = StyleTexture(),
     factionBackground = StyleTexture(),
+    nativeBorder = StyleTexture(),
     Left = StyleTexture(),
     Middle = StyleTexture(),
     Right = StyleTexture(),
     searchIcon = StyleTexture(),
-    clearButton = StyleTexture(),
+    clearButton = styleClearButton,
     GetWidth = function() return styleBoxWidth end,
     GetHeight = function() return styleBoxHeight end,
     GetText = function(self) return self.text or "" end,
@@ -297,6 +314,7 @@ assert(not styleBox.backgroundLeft.shown
     and not styleBox.backgroundRight.shown
     and not styleBox.locationIcon.shown
     and styleBox.factionBackground.shown
+    and not styleBox.nativeBorder.shown
     and not styleBox.Left.shown and not styleBox.Middle.shown
     and not styleBox.Right.shown and not styleBox.searchIcon.shown
     and styleBox.factionBackground.atlas == "Objective-Header-CampaignHorde"
@@ -319,14 +337,26 @@ assert(not styleBox.backgroundLeft.shown
     and not styleBox.backgroundRight.shown
     and not styleBox.locationIcon.shown
     and not styleBox.factionBackground.shown
-    and styleBox.Left.shown and styleBox.Middle.shown
-    and styleBox.Right.shown and styleBox.searchIcon.shown
+    and styleBox.nativeBorder.shown
+    and not styleBox.Left.shown and styleBox.Middle.shown
+    and not styleBox.Right.shown and styleBox.searchIcon.shown
     and not styleBox.clearButton.shown
-    and styleBoxWidth == 225 and styleBoxHeight == 20
-    and styleBarWidth == 230 and styleBarHeight == 28
+    and styleBoxWidth == 230 and styleBoxHeight == 30
+    and styleBarWidth == 230 and styleBarHeight == 38
+    and styleBox.Middle.atlas == "common-searchbar-a"
+    and styleBox.Middle.allPoints and styleBox.Middle.relativeTo == styleBox
+    and styleBox.searchIcon.width == 14 and styleBox.searchIcon.height == 14
+    and styleBox.searchIcon.point == "LEFT"
+    and styleBox.searchIcon.pointX == 4 and styleBox.searchIcon.pointY == -1
+    and styleBox.clearButton.width == 19 and styleBox.clearButton.height == 19
+    and styleBox.clearButton.point == "RIGHT"
+    and styleBox.clearButton.pointX == -4 and styleBox.clearButton.pointY == 0
+    and styleBox.clearButton.Icon.width == 11
+    and styleBox.clearButton.Icon.height == 11
+    and styleBox.clearButton.Icon.point == "CENTER"
     and not styleBox.clipsChildren
-    and styleBoxOffset == 2.5
-    and appliedInsets[1] == 16 and appliedInsets[2] == 20
+    and styleBoxOffset == 0
+    and appliedInsets[1] == 20 and appliedInsets[2] == 25
     and appliedInsets[3] == 0
     and appliedTextColor[1] == 1 and appliedTextColor[2] == 1
     and appliedTextColor[3] == 1 and alignmentRefreshes == 3,
@@ -340,6 +370,7 @@ selectedStyle = SMK.Config.search.appearance.styles.portrait
 SMK.SearchBar:ApplyStyle()
 assert(styleBox.backgroundLeft.shown and styleBox.backgroundRight.shown
     and styleBox.locationIcon.shown and not styleBox.factionBackground.shown
+    and not styleBox.nativeBorder.shown
     and not styleBox.Left.shown and not styleBox.Middle.shown
     and not styleBox.Right.shown and not styleBox.searchIcon.shown
     and not styleBox.clearButton.shown
@@ -373,7 +404,7 @@ assert(alignmentPoint == SMK.Config.search.resultNoPortraitLeftInset
         == 240 - SMK.Config.search.resultNoPortraitLeftInset,
     "no-portrait result panel did not align to both search box edges")
 selectedStyle = SMK.Config.search.appearance.styles.blizzard
-alignmentBoxWidth = 225
+alignmentBoxWidth = 230
 alignmentView:RefreshStyleAlignment()
 assert(alignmentPoint
         == -SMK.Config.search.appearance.styles.blizzardLeftOutset

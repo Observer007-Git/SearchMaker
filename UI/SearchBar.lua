@@ -45,6 +45,13 @@ function SearchBar:ApplyArt()
         Art.buttonArtWidth / Art.buttonTextureWidth, 0, Art.buttonArtHeight / Art.buttonTextureHeight)
     box.factionBackground = box:CreateTexture(nil, "BACKGROUND")
     box.factionBackground:SetAllPoints()
+    box.nativeBorder = CreateFrame("Frame", nil, box, "BackdropTemplate")
+    box.nativeBorder:SetAllPoints()
+    box.nativeBorder:SetFrameLevel(box:GetFrameLevel() + 1)
+    box.nativeBorder:SetBackdrop(Config.searchResultBackdrop)
+    box.nativeBorder:SetBackdropColor(0, 0, 0, 0)
+    box.nativeBorder:SetBackdropBorderColor(unpack(Config.colors.panelBorder))
+    box.nativeBorder:EnableMouse(false)
     box.locationIcon = box:CreateTexture(nil, "ARTWORK")
     box.locationIcon:SetPoint("TOPLEFT", Art.iconLeft * verticalScale, -Art.iconTop * verticalScale)
     box.locationIcon:SetSize(Art.iconWidth * verticalScale, Art.iconHeight * verticalScale)
@@ -77,8 +84,9 @@ function SearchBar:ApplyStyle()
     box.backgroundRight:SetShown(portrait)
     box.locationIcon:SetShown(portrait)
     box.factionBackground:SetShown(noPortrait)
+    box.nativeBorder:SetShown(blizzard)
     for _, key in ipairs({ "Left", "Middle", "Right" }) do
-        if box[key] then box[key]:SetShown(blizzard) end
+        if box[key] then box[key]:SetShown(blizzard and key == "Middle") end
     end
     if box.searchIcon then box.searchIcon:SetShown(blizzard) end
     box:SetClipsChildren(not blizzard)
@@ -106,12 +114,39 @@ function SearchBar:ApplyStyle()
         barHeight = Config.search.barHeight
             + boxHeight - Config.search.boxHeight
         boxOffsetX = styles.blizzardLeftOutset / 2
-        leftInset, rightInset = 16, 20
+        leftInset = styles.blizzardSearchIconSize + 6
+        rightInset = styles.blizzardClearButtonSize + 6
     end
     box:SetSize(boxWidth, boxHeight)
     box:ClearAllPoints()
     box:SetPoint("CENTER", boxOffsetX, 0)
     if self.bar then self.bar:SetSize(barWidth, barHeight) end
+    if blizzard then
+        if box.Middle then
+            box.Middle:SetAtlas(styles.blizzardAtlas, false)
+            box.Middle:ClearAllPoints()
+            box.Middle:SetAllPoints(box)
+        end
+        if box.searchIcon then
+            box.searchIcon:ClearAllPoints()
+            box.searchIcon:SetPoint("LEFT", 4, -1)
+            box.searchIcon:SetSize(styles.blizzardSearchIconSize,
+                styles.blizzardSearchIconSize)
+        end
+        local clearButton = box.clearButton or box.ClearButton
+        if clearButton then
+            clearButton:ClearAllPoints()
+            clearButton:SetPoint("RIGHT", -4, 0)
+            clearButton:SetSize(styles.blizzardClearButtonSize,
+                styles.blizzardClearButtonSize)
+            if clearButton.Icon then
+                clearButton.Icon:ClearAllPoints()
+                clearButton.Icon:SetPoint("CENTER")
+                clearButton.Icon:SetSize(styles.blizzardClearIconSize,
+                    styles.blizzardClearIconSize)
+            end
+        end
+    end
     box:SetTextInsets(leftInset, rightInset, verticalInset, verticalInset)
     if blizzard then
         box:SetTextColor(1, 1, 1)

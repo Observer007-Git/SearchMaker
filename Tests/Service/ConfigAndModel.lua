@@ -171,8 +171,13 @@ assert(SMK.Config.search.resultFrameInset == 5
     and SMK.Config.search.appearance.styles.atlasWidth == 274
     and SMK.Config.search.appearance.styles.atlasHeight == 42
     and SMK.Config.search.appearance.styles.circleGap == 1
-    and SMK.Config.search.appearance.styles.blizzardHeight == 20
-    and SMK.Config.search.appearance.styles.blizzardLeftOutset == 5
+    and SMK.Config.search.appearance.styles.blizzardAtlas
+        == "common-searchbar-a"
+    and SMK.Config.search.appearance.styles.blizzardHeight == 30
+    and SMK.Config.search.appearance.styles.blizzardSearchIconSize == 14
+    and SMK.Config.search.appearance.styles.blizzardClearButtonSize == 19
+    and SMK.Config.search.appearance.styles.blizzardClearIconSize == 11
+    and SMK.Config.search.appearance.styles.blizzardLeftOutset == 0
     and SMK.Config.search.boxWidth - SMK.Config.search.resultFrameInset * 2 == 230,
     "search result frame is not aligned inside the search box border")
 assert(SMK.Config.handyNotes.npcCacheMaxEntries == 512

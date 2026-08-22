@@ -5,7 +5,7 @@
 ## Notes-zhCN: 在世界地图和小地图上搜索、保存、规划路线并标记地点。
 ## IconAtlas: decor-controls-inspect-active
 ## Author: Observer007
-## Version: 1.0
+## Version: 1.0.1
 ## SavedVariables: SearchMakerDB
 ## OptionalDeps: HandyNotes, HandyNotes_MapNotes
 
